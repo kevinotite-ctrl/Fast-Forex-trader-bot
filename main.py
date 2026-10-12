@@ -1,17 +1,26 @@
-# FAST FOREX V4 - FIX BALANCE + STABLE_API + DEMO AUTO + EMOJI EDIT
-import os, time, threading, random, requests
+# FAST FOREX V6 - AUTO-INSTALL PO API - FIX No module named
+import os, sys, time, threading, random, requests, subprocess
+print("=== INSTALLING PO API IF MISSING ===", flush=True)
+# Auto-install pocketoptionapi at runtime
+try:
+    import pocketoptionapi
+except:
+    print("Installing PocketOptionAPI...", flush=True)
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "--no-cache-dir", "git+https://github.com/ChipaDevTeam/PocketOptionAPI.git"])
+    import pocketoptionapi
+    print("Installed OK", flush=True)
+
 from flask import Flask, request
 import telebot
 
-print("=== FAST AUTO DEMO EMOJI V4 FIX ===", flush=True)
+print("=== FAST AUTO DEMO EMOJI V6 FIX ===", flush=True)
 app = Flask(__name__)
 
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 PO_EMAIL = os.getenv("PO_EMAIL")
 PO_PASSWORD = os.getenv("PO_PASSWORD")
 
-# ===== SETTINGS =====
-USE_DEMO = True # True = DEMO 🧪
+USE_DEMO = True
 BASE_AMOUNT = 1
 MARTINGALE_AMOUNTS = [1, 2, 4]
 MAX_MARTINGALE = 3
@@ -49,29 +58,19 @@ def po_connect():
     global PO_CLIENT
     try:
         print("🔌 Trying PO connect...", flush=True)
-        # TRY 1: stable_api (new ChipaDev)
         try:
             from pocketoptionapi.stable_api import PocketOption as POStable
-            print(f"Using stable_api with demo={USE_DEMO}", flush=True)
+            print(f"Using stable_api demo={USE_DEMO}", flush=True)
             client = POStable(PO_EMAIL, PO_PASSWORD)
-            # some versions need demo flag in connect
-            try:
-                connected = client.connect()
-            except:
-                connected = client.connect()
-            print(f"Stable connect raw: {connected}", flush=True)
+            client.connect()
+            print("Stable connected, waiting 5s...", flush=True)
             time.sleep(5)
-            # switch to DEMO
             if USE_DEMO:
-                try:
-                    client.change_balance("DEMO")
-                    print("Switched to DEMO", flush=True)
-                    time.sleep(2)
-                except Exception as e:
-                    print(f"change_balance DEMO fail {e}", flush=True)
+                try: client.change_balance("DEMO")
+                except: pass
+                time.sleep(2)
             bal = client.get_balance()
             print(f"✅ STABLE CONNECTED Bal {bal}", flush=True)
-            # wrap to keep old interface
             class Wrapper:
                 def __init__(self, c): self.c=c
                 def balance(self):
@@ -81,65 +80,15 @@ def po_connect():
                     try: return self.c.get_candles(pair, tf, count)
                     except: return self.c.get_candles(pair, count)
                 def buy(self, amount, pair, direction, expiry):
-                    try:
-                        # stable_api buy returns tuple or dict
-                        res = self.c.buy(amount, pair, direction, expiry)
-                        # normalize to trade_id
-                        if isinstance(res, tuple):
-                            return res[0], res[1] if len(res)>1 else None
-                        return res, None
-                    except Exception as e:
-                        print(f"buy err {e}", flush=True)
-                        raise e
+                    return self.c.buy(amount, pair, direction, expiry)[0], None
                 def check_win(self, trade_id):
-                    try:
-                        res = self.c.check_win(trade_id)
-                        return res
-                    except:
-                        return -1
+                    return self.c.check_win(trade_id)
             PO_CLIENT = Wrapper(client)
             return True
         except Exception as e:
             print(f"Stable fail: {e}", flush=True)
-
-        # TRY 2: ssid old api
-        try:
-            from pocketoptionapi import PocketOption
-            s=requests.Session()
-            r=s.post("https://api.pocketoption.com/login", json={"email":PO_EMAIL,"password":PO_PASSWORD}, timeout=15)
-            print(f"Login status {r.status_code}", flush=True)
-            ssid=s.cookies.get_dict().get('ssid')
-            if ssid:
-                try:
-                    PO_CLIENT=PocketOption(ssid, demo=USE_DEMO)
-                except:
-                    PO_CLIENT=PocketOption(ssid)
-                time.sleep(3)
-                try: PO_CLIENT.change_balance("DEMO")
-                except: pass
-                b=PO_CLIENT.balance()
-                print(f"✅ SSID CONNECTED Bal {b}", flush=True)
-                return True
-        except Exception as e:
-            print(f"SSID login fail: {e}", flush=True)
-
-        # TRY 3: direct old api
-        try:
-            from pocketoptionapi import PocketOption
-            try:
-                PO_CLIENT=PocketOption(PO_EMAIL, PO_PASSWORD, demo=USE_DEMO)
-            except:
-                PO_CLIENT=PocketOption(PO_EMAIL, PO_PASSWORD)
-            time.sleep(3)
-            try: PO_CLIENT.change_balance("DEMO")
-            except: pass
-            b=PO_CLIENT.balance()
-            print(f"✅ DIRECT CONNECTED Bal {b}", flush=True)
-            return True
-        except Exception as e:
-            print(f"Direct fail: {e}", flush=True)
-            return False
-
+            import traceback; traceback.print_exc()
+        return False
     except Exception as e:
         print(f"PO FAIL ALL: {e}", flush=True)
         return False
@@ -149,12 +98,9 @@ def analyze_fast(pair):
         candles=PO_CLIENT.get_candles(pair,60,50)
         closes=[]
         for c in candles:
-            if isinstance(c, dict):
-                closes.append(c.get('close', c.get('price',0)))
-            elif isinstance(c, (list,tuple)):
-                closes.append(c[2] if len(c)>2 else c[0])
-            else:
-                closes.append(float(c))
+            if isinstance(c, dict): closes.append(c.get('close',0))
+            elif isinstance(c, (list,tuple)): closes.append(c[2] if len(c)>2 else c[0])
+            else: closes.append(float(c))
         if len(closes)<30: return None,"No candles",0
         ema9=get_ema(closes[-20:],9); ema21=get_ema(closes,21); rsi=get_rsi(closes,7)
         close=closes[-1]
@@ -183,15 +129,15 @@ def webhook():
 def start(m):
     global OWNER_ID
     OWNER_ID=m.chat.id
-    bot.send_message(m.chat.id, "🔌 Connecting to PocketOption DEMO... wait 10s")
+    bot.send_message(m.chat.id, "🔌 Connecting DEMO... wait 10s")
     ok = po_connect()
     try: bal=PO_CLIENT.balance() if ok else "?"
     except: bal="?"
     mode="DEMO 🧪" if USE_DEMO else "REAL 💸"
     if ok:
-        bot.send_message(m.chat.id, f"⚡🤖 FAST FOREX AUTO-TRADER ✅\n🧪 Mode: {mode}\n💼 Bal: ${bal}\n💵 Next Trade: ${current_amount} (Lvl {martingale_level+1})\n🎯 Auto Place: ON\n\n📋 Commands:\n/balance\n/pause ⏸️\n/resume ▶️\n/reset 🔄\n/scan 🔍")
+        bot.send_message(m.chat.id, f"⚡🤖 AUTO-TRADER ✅\n🧪 Mode: {mode}\n💼 Bal: ${bal}\n💵 Next: ${current_amount} (Lvl {martingale_level+1})\n🎯 Auto ON")
     else:
-        bot.send_message(m.chat.id, f"❌ PO Login Failed\nCheck logs in Render. Make sure 2FA OFF and email/pass correct.\nBal: {bal}")
+        bot.send_message(m.chat.id, f"❌ Login Failed - check Render logs\nBal: {bal}")
 
 @bot.message_handler(commands=['balance','pause','resume','scan','reset'])
 def cmds(m):
@@ -199,27 +145,25 @@ def cmds(m):
     OWNER_ID=m.chat.id
     txt=m.text.lower()
     if '/pause' in txt:
-        SCANNING=False; bot.send_message(m.chat.id,"⏸️ Trading PAUSED")
+        SCANNING=False; bot.send_message(m.chat.id,"⏸️ PAUSED")
     elif '/resume' in txt:
-        SCANNING=True; NEXT_SCAN_AT=time.time()+10; bot.send_message(m.chat.id,"▶️ Trading RESUMED - Auto ON 🔥 DEMO 🧪")
+        SCANNING=True; NEXT_SCAN_AT=time.time()+10; bot.send_message(m.chat.id,"▶️ RESUMED 🔥 DEMO 🧪")
     elif '/balance' in txt:
         try:
             bal=PO_CLIENT.balance()
-            mode="DEMO 🧪" if USE_DEMO else "REAL 💸"
-            bot.send_message(m.chat.id,f"🧪 Mode: {mode}\n💰 Balance: ${round(bal,2)}\n💵 Next: ${current_amount} Lvl {martingale_level+1}\n🏆 Wins: {DAILY_WIN} | 📉 Losses: {DAILY_LOSS}")
+            bot.send_message(m.chat.id,f"🧪 DEMO\n💰 ${round(bal,2)}\n💵 Next: ${current_amount}\n🏆 {DAILY_WIN} | 📉 {DAILY_LOSS}")
         except:
-            bot.send_message(m.chat.id,"❌ PO not connected - send /start")
+            bot.send_message(m.chat.id,"❌ Not connected - /start")
     elif '/reset' in txt:
-        martingale_level=0; current_amount=BASE_AMOUNT; bot.send_message(m.chat.id,f"🔄 Reset to ${BASE_AMOUNT} ✨")
+        martingale_level=0; current_amount=BASE_AMOUNT; bot.send_message(m.chat.id,f"🔄 Reset ${BASE_AMOUNT}")
     elif '/scan' in txt:
-        bot.send_message(m.chat.id,"🔍 Scanning now...")
+        bot.send_message(m.chat.id,"🔍 Scanning...")
 
 def auto_trade_loop():
     global NEXT_SCAN_AT, current_amount, martingale_level, DAILY_LOSS, DAILY_WIN
     while True:
         time.sleep(2)
-        if not OWNER_ID or not SCANNING or time.time()<NEXT_SCAN_AT:
-            continue
+        if not OWNER_ID or not SCANNING or time.time()<NEXT_SCAN_AT: continue
         if PO_CLIENT is None and not po_connect():
             NEXT_SCAN_AT=time.time()+SCAN_INTERVAL; continue
         pairs=FAST_PAIRS[:]; random.shuffle(pairs)
@@ -229,46 +173,30 @@ def auto_trade_loop():
             if direction and conf>=75:
                 traded=True
                 try:
-                    msg = bot.send_message(OWNER_ID, f"🚀 SIGNAL FOUND {conf}%\n💱 {pair} | {direction.upper()} 🔥\n💵 Amount: ${current_amount} (Lvl {martingale_level+1})\n🧪 DEMO\n📊 {reason}\n⏳ Placing trade...")
-                    try:
-                        trade_id, _ = PO_CLIENT.buy(current_amount, pair, direction, EXPIRY)
-                    except Exception as e:
-                        bot.edit_message_text(f"❌ Trade failed {pair}: {e}", OWNER_ID, msg.message_id)
-                        continue
-                    bot.edit_message_text(f"✅ TRADE PLACED 🚀\n💱 {pair} | {direction.upper()} | ${current_amount}\n🧪 DEMO\n⏱️ Expiry: {EXPIRY}s | Conf: {conf}%\n📊 {reason}\n⌛ Waiting result...", OWNER_ID, msg.message_id)
+                    msg = bot.send_message(OWNER_ID, f"🚀 SIGNAL {conf}%\n💱 {pair} | {direction.upper()}\n💵 ${current_amount}\n📊 {reason}\n⏳ Placing...")
+                    trade_id,_ = PO_CLIENT.buy(current_amount, pair, direction, EXPIRY)
+                    bot.edit_message_text(f"✅ PLACED 🚀\n💱 {pair} | {direction.upper()} | ${current_amount}\n🧪 DEMO\n⏱️ {EXPIRY}s | {conf}%\n📊 {reason}\n⌛ Waiting...", OWNER_ID, msg.message_id)
                     time.sleep(70)
-                    try:
-                        res=PO_CLIENT.check_win(trade_id)
-                        if isinstance(res, dict):
-                            profit=res.get('profit',0)
-                        elif isinstance(res,(int,float)):
-                            profit=res
-                        else:
-                            profit=0
-                        win=profit>0
-                    except:
-                        profit=-current_amount; win=False
+                    res=PO_CLIENT.check_win(trade_id)
+                    profit=res if isinstance(res,(int,float)) else res.get('profit',0) if isinstance(res,dict) else 0
+                    win=profit>0
                     try: bal=PO_CLIENT.balance()
                     except: bal=0
                     if win:
-                        DAILY_WIN+=1
-                        martingale_level=0
-                        current_amount=MARTINGALE_AMOUNTS[0]
-                        bot.edit_message_text(f"💰✅ WIN ✅💰\n💱 {pair} | {direction.upper()}\n💵 Profit: +${round(profit,2)} 🤑\n💼 Balance: ${round(bal,2)}\n🧪 DEMO\n🏆 Wins Today: {DAILY_WIN} 🎉\n💵 Next: ${current_amount}", OWNER_ID, msg.message_id)
+                        DAILY_WIN+=1; martingale_level=0; current_amount=MARTINGALE_AMOUNTS[0]
+                        bot.edit_message_text(f"💰✅ WIN ✅💰\n💱 {pair} | +${round(profit,2)} 🤑\n💼 ${round(bal,2)}\n🏆 {DAILY_WIN} 🎉\n💵 Next: ${current_amount}", OWNER_ID, msg.message_id)
                     else:
-                        DAILY_LOSS+=1
-                        martingale_level+=1
+                        DAILY_LOSS+=1; martingale_level+=1
                         if martingale_level>=MAX_MARTINGALE:
                             martingale_level=0; current_amount=MARTINGALE_AMOUNTS[0]
-                            bot.edit_message_text(f"📉❌ LOSS ❌📉\n💱 {pair} | {direction.upper()}\n💸 Lost: -${MARTINGALE_AMOUNTS[-1]} 😢\n💼 Balance: ${round(bal,2)}\n🧪 DEMO\n🔄 RESET to ${current_amount}\n📊 Losses: {DAILY_LOSS}", OWNER_ID, msg.message_id)
+                            bot.edit_message_text(f"📉❌ LOSS ❌📉\n💱 {pair} | 😢\n💼 ${round(bal,2)}\n🔄 RESET ${current_amount}", OWNER_ID, msg.message_id)
                         else:
                             current_amount=MARTINGALE_AMOUNTS[martingale_level]
-                            bot.edit_message_text(f"📉❌ LOSS ❌📉\n💱 {pair} | {direction.upper()}\n💸 Lost 😢\n💼 Balance: ${round(bal,2)}\n🧪 DEMO\n➡️ Next: ${current_amount} (Lvl {martingale_level+1}) 🔁\n📊 Losses: {DAILY_LOSS}", OWNER_ID, msg.message_id)
+                            bot.edit_message_text(f"📉❌ LOSS ❌📉\n💱 {pair} | 😢\n💼 ${round(bal,2)}\n➡️ Next: ${current_amount} (Lvl {martingale_level+1}) 🔁", OWNER_ID, msg.message_id)
                     NEXT_SCAN_AT=time.time()+SCAN_INTERVAL
                     break
                 except Exception as e:
-                    print(f"Trade err {e}", flush=True)
-                    continue
+                    print(f"Trade err {e}", flush=True); continue
         if not traded:
             NEXT_SCAN_AT=time.time()+SCAN_INTERVAL
 
