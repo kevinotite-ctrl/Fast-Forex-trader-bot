@@ -1,15 +1,17 @@
-# FAST FOREX TRADER PO - FULL AUTO + EDITED WIN/LOSS EMOJIS - NO CHANNEL
+# FAST FOREX TRADER PO - FULL AUTO DEMO + EMOJI WIN/LOSS - FINAL
 import os, time, threading, random, requests
 from flask import Flask, request
 import telebot
 
-print("=== FAST AUTO EMOJI V2 ===", flush=True)
+print("=== FAST AUTO DEMO EMOJI V3 ===", flush=True)
 app = Flask(__name__)
 
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 PO_EMAIL = os.getenv("PO_EMAIL")
 PO_PASSWORD = os.getenv("PO_PASSWORD")
 
+# ===== SETTINGS =====
+USE_DEMO = True # True = DEMO 🧪 | False = REAL 💸
 BASE_AMOUNT = 1
 MARTINGALE_AMOUNTS = [1, 2, 4]
 MAX_MARTINGALE = 3
@@ -47,21 +49,39 @@ def po_connect():
     global PO_CLIENT
     try:
         from pocketoptionapi import PocketOption
-        # Try SSID from cookies
+        # Try SSID login
         try:
             s=requests.Session()
             s.post("https://api.pocketoption.com/login", json={"email":PO_EMAIL,"password":PO_PASSWORD}, timeout=10)
             ssid=s.cookies.get_dict().get('ssid')
             if ssid:
-                PO_CLIENT=PocketOption(ssid)
+                try:
+                    PO_CLIENT=PocketOption(ssid, demo=USE_DEMO)
+                except:
+                    PO_CLIENT=PocketOption(ssid)
+                    try: PO_CLIENT.demo = USE_DEMO
+                    except: pass
                 time.sleep(3)
-                print(f"✅ PO CONNECTED ${PO_CLIENT.balance()}", flush=True)
+                try: PO_CLIENT.change_balance("DEMO")
+                except: pass
+                try: PO_CLIENT.set_balance_type("DEMO")
+                except: pass
+                print(f"✅ PO CONNECTED DEMO={USE_DEMO} Bal ${PO_CLIENT.balance()}", flush=True)
                 return True
-        except: pass
+        except Exception as e:
+            print(f"SSID fail {e}", flush=True)
+        # Direct login
         try:
-            PO_CLIENT=PocketOption(PO_EMAIL, PO_PASSWORD)
+            try:
+                PO_CLIENT=PocketOption(PO_EMAIL, PO_PASSWORD, demo=USE_DEMO)
+            except:
+                PO_CLIENT=PocketOption(PO_EMAIL, PO_PASSWORD)
             time.sleep(3)
-            print(f"✅ PO DIRECT ${PO_CLIENT.balance()}", flush=True)
+            try: PO_CLIENT.change_balance("DEMO")
+            except: pass
+            try: PO_CLIENT.set_balance_type("DEMO")
+            except: pass
+            print(f"✅ PO DIRECT DEMO={USE_DEMO} Bal ${PO_CLIENT.balance()}", flush=True)
             return True
         except Exception as e:
             print(f"Login fail {e}", flush=True)
@@ -89,7 +109,8 @@ def analyze_fast(pair):
 def home():
     try: b=PO_CLIENT.balance() if PO_CLIENT else 0
     except: b=0
-    return f"AUTO ONLINE Bal {b} Next ${current_amount} Lvl {martingale_level+1}"
+    mode="DEMO 🧪" if USE_DEMO else "REAL 💸"
+    return f"AUTO {mode} ONLINE Bal {b} Next ${current_amount} Lvl {martingale_level+1}"
 
 @app.route(f'/{TOKEN}', methods=['POST'])
 def webhook():
@@ -104,7 +125,8 @@ def start(m):
     po_connect()
     try: bal=PO_CLIENT.balance()
     except: bal="?"
-    bot.send_message(m.chat.id, f"⚡🤖 FAST FOREX AUTO-TRADER ✅\n💼 Bal: ${bal}\n💵 Next Trade: ${current_amount} (Lvl {martingale_level+1})\n🎯 Auto Place: ON\n📊 No channel - Private only\n\n📋 Commands:\n/balance\n/pause ⏸️\n/resume ▶️\n/reset 🔄\n/scan 🔍")
+    mode="DEMO 🧪" if USE_DEMO else "REAL 💸"
+    bot.send_message(m.chat.id, f"⚡🤖 FAST FOREX AUTO-TRADER ✅\n🧪 Mode: {mode}\n💼 Bal: ${bal}\n💵 Next Trade: ${current_amount} (Lvl {martingale_level+1})\n🎯 Auto Place: ON\n\n📋 Commands:\n/balance\n/pause ⏸️\n/resume ▶️\n/reset 🔄\n/scan 🔍")
 
 @bot.message_handler(commands=['balance','pause','resume','scan','reset'])
 def cmds(m):
@@ -114,11 +136,12 @@ def cmds(m):
     if '/pause' in txt:
         SCANNING=False; bot.send_message(m.chat.id,"⏸️ Trading PAUSED")
     elif '/resume' in txt:
-        SCANNING=True; NEXT_SCAN_AT=time.time()+10; bot.send_message(m.chat.id,"▶️ Trading RESUMED - Auto ON 🔥")
+        SCANNING=True; NEXT_SCAN_AT=time.time()+10; bot.send_message(m.chat.id,"▶️ Trading RESUMED - Auto ON 🔥 DEMO 🧪")
     elif '/balance' in txt:
         try:
             bal=PO_CLIENT.balance()
-            bot.send_message(m.chat.id,f"💰 Balance: ${round(bal,2)}\n💵 Next: ${current_amount} Lvl {martingale_level+1}\n🏆 Wins: {DAILY_WIN} | 📉 Losses: {DAILY_LOSS}")
+            mode="DEMO 🧪" if USE_DEMO else "REAL 💸"
+            bot.send_message(m.chat.id,f"🧪 Mode: {mode}\n💰 Balance: ${round(bal,2)}\n💵 Next: ${current_amount} Lvl {martingale_level+1}\n🏆 Wins: {DAILY_WIN} | 📉 Losses: {DAILY_LOSS}")
         except:
             bot.send_message(m.chat.id,"❌ PO not connected")
     elif '/reset' in txt:
@@ -143,8 +166,8 @@ def auto_trade_loop():
             if direction and conf>=75:
                 traded=True
                 try:
-                    # 1. Send initial alert + auto place
-                    msg = bot.send_message(OWNER_ID, f"🚀 SIGNAL FOUND {conf}%\n💱 {pair} | {direction.upper()} 🔥\n💵 Amount: ${current_amount} (Lvl {martingale_level+1})\n📊 {reason}\n⏳ Placing trade on Pocket Option...")
+                    msg = bot.send_message(OWNER_ID, f"🚀 SIGNAL FOUND {conf}%\n💱 {pair} | {direction.upper()} 🔥\n💵 Amount: ${current_amount} (Lvl {martingale_level+1})\n🧪 DEMO\n📊 {reason}\n⏳ Placing trade...")
+
                     trade_id=None
                     try: trade_id,_ = PO_CLIENT.buy(current_amount, pair, direction, EXPIRY)
                     except:
@@ -153,12 +176,10 @@ def auto_trade_loop():
                             bot.edit_message_text(f"❌ Trade failed {pair}: {e}", OWNER_ID, msg.message_id)
                             continue
 
-                    # 2. Confirm placed
-                    bot.edit_message_text(f"✅ TRADE PLACED 🚀\n💱 {pair} | {direction.upper()} | ${current_amount}\n⏱️ Expiry: {EXPIRY}s | Conf: {conf}%\n📊 {reason}\n⌛ Waiting result...", OWNER_ID, msg.message_id)
+                    bot.edit_message_text(f"✅ TRADE PLACED 🚀\n💱 {pair} | {direction.upper()} | ${current_amount}\n🧪 DEMO\n⏱️ Expiry: {EXPIRY}s | Conf: {conf}%\n📊 {reason}\n⌛ Waiting result...", OWNER_ID, msg.message_id)
 
-                    time.sleep(70) # Wait expiry + buffer
+                    time.sleep(70)
 
-                    # 3. Check WIN/LOSS
                     try:
                         res=PO_CLIENT.check_win(trade_id)
                         profit=res if isinstance(res,(int,float)) else res.get('profit',0)
@@ -169,13 +190,12 @@ def auto_trade_loop():
                     try: bal=PO_CLIENT.balance()
                     except: bal=0
 
-                    # 4. EDIT message with WIN/LOSS emojis
                     if win:
                         DAILY_WIN+=1
                         martingale_level=0
                         current_amount=MARTINGALE_AMOUNTS[0]
                         bot.edit_message_text(
-                            f"💰✅ WIN ✅💰\n💱 {pair} | {direction.upper()}\n💵 Profit: +${round(profit,2)} 🤑\n💼 Balance: ${round(bal,2)}\n📈 Total Wins Today: {DAILY_WIN} 🏆\n💵 Next: ${current_amount}",
+                            f"💰✅ WIN ✅💰\n💱 {pair} | {direction.upper()}\n💵 Profit: +${round(profit,2)} 🤑\n💼 Balance: ${round(bal,2)}\n🧪 DEMO\n🏆 Wins Today: {DAILY_WIN} 🎉\n💵 Next: ${current_amount}",
                             OWNER_ID, msg.message_id)
                     else:
                         DAILY_LOSS+=1
@@ -183,12 +203,12 @@ def auto_trade_loop():
                         if martingale_level>=MAX_MARTINGALE:
                             martingale_level=0; current_amount=MARTINGALE_AMOUNTS[0]
                             bot.edit_message_text(
-                                f"📉❌ LOSS ❌📉\n💱 {pair} | {direction.upper()}\n💸 Lost: -${current_amount} 😢\n💼 Balance: ${round(bal,2)}\n🔄 Martingale RESET to ${current_amount}\n📊 Daily Loss: {DAILY_LOSS}",
+                                f"📉❌ LOSS ❌📉\n💱 {pair} | {direction.upper()}\n💸 Lost: -${MARTINGALE_AMOUNTS[-1]} 😢\n💼 Balance: ${round(bal,2)}\n🧪 DEMO\n🔄 RESET to ${current_amount}\n📊 Losses: {DAILY_LOSS}",
                                 OWNER_ID, msg.message_id)
                         else:
                             current_amount=MARTINGALE_AMOUNTS[martingale_level]
                             bot.edit_message_text(
-                                f"📉❌ LOSS ❌📉\n💱 {pair} | {direction.upper()}\n💸 Lost: -${MARTINGALE_AMOUNTS[martingale_level-1]} 😢\n💼 Balance: ${round(bal,2)}\n➡️ Next: ${current_amount} (Lvl {martingale_level+1}) 🔁\n📊 Daily Loss: {DAILY_LOSS}",
+                                f"📉❌ LOSS ❌📉\n💱 {pair} | {direction.upper()}\n💸 Lost 😢\n💼 Balance: ${round(bal,2)}\n🧪 DEMO\n➡️ Next: ${current_amount} (Lvl {martingale_level+1}) 🔁\n📊 Losses: {DAILY_LOSS}",
                                 OWNER_ID, msg.message_id)
 
                     NEXT_SCAN_AT=time.time()+SCAN_INTERVAL
