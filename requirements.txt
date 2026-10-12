@@ -1,5 +1,5 @@
 Flask
 pyTelegramBotAPI
-pocketoptionapi
 requests
 websocket-client
+https://github.com/ChipaDevTeam/PocketOptionAPI/archive/refs/heads/main.zip
