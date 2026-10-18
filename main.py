@@ -27,7 +27,11 @@ def calc_rsi(prices):
     if al == 0: return 75
     return 100 - (100 / (1 + ag / al))
 
-def get_best_random_signal():
+def calc_sma(prices, period=20):
+    if len(prices) < period: return prices[-1]
+    return sum(prices[-period:]) / period
+
+def get_secure_signal():
     best = None
     best_score = 0
     for pair in PAIRS:
@@ -35,30 +39,52 @@ def get_best_random_signal():
         PRICE_HISTORY[pair].append(price)
         if len(PRICE_HISTORY[pair]) > 80: PRICE_HISTORY[pair].pop(0)
         rsi = calc_rsi(PRICE_HISTORY[pair])
+        sma = calc_sma(PRICE_HISTORY[pair])
+        # SECURE: only RSI <35 or >65
+        if 35 <= rsi <= 65:
+            continue
+        direction = "PUT" if rsi < 50 else "CALL"
+        # TREND CONFIRM
+        if direction == "CALL" and price < sma: continue
+        if direction == "PUT" and price > sma: continue
         score = abs(rsi - 50)
         if score > best_score:
             best_score = score
-            direction = "PUT" if rsi < 50 else "CALL"
-            best = (pair, direction, round(rsi, 1), price)
+            best = (pair, direction, round(rsi,1), price, round(sma,5))
     return best
 
 bot = telebot.TeleBot(TOKEN, threaded=False)
 
-def build_msg(pair, direction, rsi, price):
+def build_msg_secure(pair, direction, rsi, price, sma):
     now = datetime.datetime.now() + datetime.timedelta(hours=1)
     exp = now + datetime.timedelta(minutes=3)
     next_sig = exp + datetime.timedelta(minutes=2)
     clean = pair.replace("-OTC","")
     flag = FLAGS.get(clean,"🏳️")
     emoji = "🔴 PUT 🔻" if direction=="PUT" else "🟢 CALL 🔺"
-    return f"""👑 {flag} {clean} {flag}
+    return f"""👑 SECURE {flag} {clean} {flag}
 
 {emoji}
 💱 {pair}
+✅ TREND CONFIRMED
 💰 ${FIXED_STAKE} | 📊 RSI {rsi}
+📈 {price:.5f} | SMA {sma}
 
+🛡️ High Probability
 ⏰ {now.strftime('%H:%M')} → {exp.strftime('%H:%M')} WAT
 ⏭️ Next {next_sig.strftime('%H:%M')} WAT
+"""
+
+def build_no_trade_msg():
+    now = datetime.datetime.now() + datetime.timedelta(hours=1)
+    nxt = now + datetime.timedelta(minutes=5)
+    return f"""🛡️ NO TRADE
+
+📊 RSI 35-65 → Choppy
+⚠️ No clear trend
+
+💰 ${FIXED_STAKE} SAFE - Skipped
+⏰ Next check {nxt.strftime('%H:%M')} WAT
 """
 
 @bot.message_handler(commands=['start'])
@@ -70,7 +96,7 @@ def start(m):
         base = {"EURUSD":1.08,"GBPUSD":1.27,"GBPJPY":191,"EURJPY":162,"USDJPY":150,"AUDUSD":0.66,"EURGBP":0.85}.get(pair.replace("-OTC",""),1.08)
         PRICE_HISTORY[pair] = [base + random.uniform(-0.02,0.02) for _ in range(20)]
     NEXT_SIGNAL_TIME = time.time() + 120
-    bot.send_message(m.chat.id, f"👑 ${FIXED_STAKE} BOT STARTED\n✅ First in 2m\n⏱️ Every 5m auto\n7 Pairs { ' '.join(FLAGS.values()) }")
+    bot.send_message(m.chat.id, f"🛡️ SECURE ${FIXED_STAKE} BOT\n✅ First in 2m\n⏱️ Every 5m\n🛡️ Only strong RSI <35 or >65\n💰 Capital protection ON")
 
 @bot.message_handler(commands=['status','pause','resume'])
 def cmds(m):
@@ -79,7 +105,7 @@ def cmds(m):
     if "/status" in txt:
         remain = int(NEXT_SIGNAL_TIME - time.time()) if NEXT_SIGNAL_TIME else 0
         remain = max(0, remain)
-        bot.send_message(m.chat.id, f"👑 ${FIXED_STAKE} | {remain//60}m {remain%60}s to next")
+        bot.send_message(m.chat.id, f"🛡️ SECURE | {remain//60}m {remain%60}s to next")
     elif "/pause" in txt:
         SCANNING = False
         bot.send_message(m.chat.id, "⏸️ Paused")
@@ -95,7 +121,7 @@ def wh():
 
 @app.route('/')
 def home():
-    return f"VIP ${FIXED_STAKE} LIVE", 200
+    return f"SECURE VIP ${FIXED_STAKE} LIVE", 200
 
 def set_hook():
     time.sleep(4)
@@ -114,14 +140,13 @@ def scanner():
         time.sleep(1)
         if not OWNER_ID or not SCANNING or not NEXT_SIGNAL_TIME: continue
         if time.time() >= NEXT_SIGNAL_TIME:
-            res = get_best_random_signal()
-            if not res:
-                pair = random.choice(PAIRS)
-                direction = random.choice(["CALL","PUT"])
-                res = (pair, direction, 50.0, get_price(pair))
-            pair, direction, rsi, price = res
+            res = get_secure_signal()
             try:
-                bot.send_message(OWNER_ID, build_msg(pair, direction, rsi, price))
+                if res:
+                    pair, direction, rsi, price, sma = res
+                    bot.send_message(OWNER_ID, build_msg_secure(pair, direction, rsi, price, sma))
+                else:
+                    bot.send_message(OWNER_ID, build_no_trade_msg())
             except: pass
             NEXT_SIGNAL_TIME = time.time() + 300
 
