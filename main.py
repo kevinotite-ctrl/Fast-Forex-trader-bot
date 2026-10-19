@@ -1,6 +1,6 @@
 import telebot, os, time, threading, requests
 import pandas as pd, numpy as np, yfinance as yf
-from flask import Flask
+from flask import Flask, request
 from datetime import datetime
 import pytz
 
@@ -24,7 +24,13 @@ PAIRS = list(FLAGS.keys())
 def get_yf_symbol(pair):
     return f"{pair[:3]}{pair[3:]}=X"
 
-price_cache = {}
+def compute_rsi(prices, period=14):
+    delta = pd.Series(prices).diff()
+    gain = delta.where(delta>0,0).ewm(alpha=1/period).mean()
+    loss = -delta.where(delta<0,0).ewm(alpha=1/period).mean()
+    rs = gain/loss
+    return 100 - (100/(1+rs.iloc[-1]))
+
 def get_real_price(pair):
     try:
         sym = get_yf_symbol(pair)
@@ -35,13 +41,6 @@ def get_real_price(pair):
         ema20 = pd.Series(close).ewm(span=20).mean().iloc[-1]
         return float(close[-1]), float(rsi), float(ema20), df
     except: return None
-
-def compute_rsi(prices, period=14):
-    delta = pd.Series(prices).diff()
-    gain = delta.where(delta>0,0).ewm(alpha=1/period).mean()
-    loss = -delta.where(delta<0,0).ewm(alpha=1/period).mean()
-    rs = gain/loss
-    return 100 - (100/(1+rs.iloc[-1]))
 
 def is_news_time():
     now = datetime.now(WAT)
@@ -62,12 +61,10 @@ def fast_safe_strategy():
         direction = None
         is_call = None
         
-        # DIP BUY IN UPTREND - 80% edge
         if is_uptrend and 38 <= rsi <= 53:
             conf = 84.5 if 42 <= rsi <= 48 else 80.2
             direction = "CALL"
             is_call = True
-        # DIP SELL IN DOWNTREND
         elif not is_uptrend and 47 <= rsi <= 62:
             conf = 83.8 if 52 <= rsi <= 58 else 79.5
             direction = "PUT"
@@ -168,12 +165,23 @@ def auto_alert_loop():
 
 def set_hook():
     time.sleep(3)
-    try: bot.remove_webhook(); time.sleep(1); bot.set_webhook(url=f"{APP_URL}/{TOKEN}")
-    except: pass
+    try: 
+        bot.remove_webhook()
+        time.sleep(1)
+        bot.set_webhook(url=f"{APP_URL}/{TOKEN}")
+        print(f"Webhook set: {APP_URL}/{TOKEN}")
+    except Exception as e: print(e)
 
 @app.route(f"/{TOKEN}", methods=['POST'])
 def webhook():
-    bot.process_new_updates([telebot.types.Update.de_json(requests.request.get_data().decode())]); return "ok"
+    if request.headers.get('content-type') == 'application/json':
+        json_string = request.get_data().decode('utf-8')
+        update = telebot.types.Update.de_json(json_string)
+        bot.process_new_updates([update])
+        return "ok"
+    else:
+        return "ok"
+
 @app.route("/")
 def home(): return "V28 REAL RUNNING"
 
