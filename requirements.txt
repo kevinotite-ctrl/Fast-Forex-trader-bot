@@ -1,4 +1,9 @@
-Flask
+telebot
 pyTelegramBotAPI
+Flask
+pandas
+numpy
+yfinance
+pytz
 requests
-websocket-client
+lxml
