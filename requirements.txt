@@ -1,9 +1,7 @@
-telebot
+yfinance
+pandas
 pyTelegramBotAPI
 Flask
-pandas
-numpy
-yfinance
-pytz
 requests
-lxml
+matplotlib
+binomo-api
