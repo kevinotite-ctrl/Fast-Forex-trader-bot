@@ -230,20 +230,18 @@ def cb(c):
 
 # === BG AUTO LOOP ===
 def bg_loop():
+    global AUTO_ON
     while True:
         try:
             if AUTO_ON and AUTO_CHAT:
-                # Check daily limits
                 if STATS['daily']>=DAILY_TARGET:
                     bot.send_message(AUTO_CHAT,f"🎯 DAILY TARGET ${DAILY_TARGET} HIT! Auto paused.")
-                    global AUTO_ON
                     AUTO_ON=False
                     continue
                 if STATS['daily']<=-DAILY_STOP:
                     bot.send_message(AUTO_CHAT,f"🛑 STOPLOSS ${DAILY_STOP} HIT! Auto paused.")
                     AUTO_ON=False
                     continue
-                # Check 3 min gap
                 if STATS['last_trade'] and (datetime.now()-STATS['last_trade'])<timedelta(minutes=3):
                     time.sleep(10)
                     continue
