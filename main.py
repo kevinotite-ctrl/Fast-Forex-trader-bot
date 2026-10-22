@@ -1,146 +1,181 @@
-import telebot, os, time, threading
-import pandas as pd, yfinance as yf, pytz
-from flask import Flask
-from datetime import datetime
+import os, time, threading, datetime, random
+from flask import Flask, request
+import telebot
+from telebot import types
+import yfinance as yf
+import pandas as pd
+import requests
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
-TOKEN = os.getenv("BOT_TOKEN")
-OWNER_ID = int(os.getenv("OWNER_ID")) if os.getenv("OWNER_ID") else None
-bot = telebot.TeleBot(TOKEN, threaded=False)
 app = Flask(__name__)
-WAT = pytz.timezone("Africa/Lagos")
+TOKEN = os.getenv("BOT_TOKEN","").strip()
+RENDER_URL = os.getenv("RENDER_EXTERNAL_URL","").strip()
+BINOMO_EMAIL = os.getenv("BINOMO_EMAIL","").strip()
+BINOMO_PASSWORD = os.getenv("BINOMO_PASSWORD","").strip()
+BINOMO_ACCOUNT_TYPE = os.getenv("BINOMO_ACCOUNT_TYPE","DEMO").strip()
+TRADE_AMOUNT = float(os.getenv("TRADE_AMOUNT","1"))
+DAILY_TARGET = float(os.getenv("DAILY_TARGET","20"))
+DAILY_STOPLOSS = float(os.getenv("DAILY_STOPLOSS","10"))
 
-PAIRS = ["EURUSD","GBPUSD","USDJPY","USDCHF","AUDUSD","USDCAD","EURGBP","EURJPY","GBPJPY","AUDJPY","GBPCHF"]
-FLAGS = {"EURUSD":"🇪🇺🇺🇸","GBPUSD":"🇬🇧🇺🇸","USDJPY":"🇺🇸🇯🇵","USDCHF":"🇺🇸🇨🇭","AUDUSD":"🇦🇺🇺🇸","USDCAD":"🇺🇸🇨🇦","EURGBP":"🇪🇺🇬🇧","EURJPY":"🇪🇺🇯🇵","GBPJPY":"🇬🇧🇯🇵","AUDJPY":"🇦🇺🇯🇵","GBPCHF":"🇬🇧🇨🇭"}
-LOSS_STREAK, LOST_PAIRS, ALERT_ENABLED, LAST_ALERT = 0, set(), True, {}
+PAIRS = ["EURUSD","GBPUSD","GBPJPY","EURJPY","USDJPY","AUDUSD","EURGBP","USDCHF","USDCAD","NZDUSD","EURAUD"]
+YF_MAP = {p:f"{p}=X" for p in PAIRS}
+FLAGS = {"EURUSD":"🇪🇺🇺🇸","GBPUSD":"🇬🇧🇺🇸","GBPJPY":"🇬🇧🇯🇵","EURJPY":"🇪🇺🇯🇵","USDJPY":"🇺🇸🇯🇵","AUDUSD":"🇦🇺🇺🇸","EURGBP":"🇪🇺🇬🇧","USDCHF":"🇺🇸🇨🇭","USDCAD":"🇺🇸🇨🇦","NZDUSD":"🇳🇿🇺🇸","EURAUD":"🇪🇺🇦🇺"}
 
-def get_data(pair):
+STATS = {"wins":0,"losses":0,"profit":0.0,"streak":0,"best_streak":0,"martingale_level":0,"daily_profit":0.0,"last_trade":0}
+AUTO_ENABLED = {"global": False}
+AUTO_CHAT_ID = None
+
+def get_session():
+    h=datetime.datetime.utcnow().hour
+    if 8 <= h < 12: return "🌍 London 🔥 BEST"
+    elif 13 <= h < 17: return "🗽 New York 🔥 BEST"
+    elif 8 <= h < 17: return "🌍+🗽 Overlap 💎 ULTRA"
+    else: return "🌙 Asian ⚠️ SLOW"
+def is_news_time():
+    m=datetime.datetime.utcnow().minute
+    return m in [0,1,2,58,59]
+def get_real_df(pair, interval="5m", period="1d"):
     try:
-        df = yf.download(f"{pair[:3]}{pair[3:]}=X", period="1d", interval="5m", progress=False, auto_adjust=True)
-        if len(df)<50: return None
-        c = df['Close'].values.flatten()
-        series = pd.Series(c)
-        delta = series.diff()
-        gain = delta.where(delta>0,0).ewm(alpha=1/14).mean()
-        loss = -delta.where(delta<0,0).ewm(alpha=1/14).mean()
-        rsi = float(100 - (100/(1+gain.iloc[-1]/loss.iloc[-1])) ) if loss.iloc[-1]!=0 else 50
-        ema20 = float(series.ewm(span=20).mean().iloc[-1])
-        ema50 = float(series.ewm(span=50).mean().iloc[-1])
-        # 3-candle check
-        last3 = c[-3:]
-        up3 = last3[2]>last3[1]>last3[0]
-        down3 = last3[2]<last3[1]<last3[0]
-        return c[-1], rsi, ema20, ema50, up3, down3
+        df=yf.Ticker(YF_MAP.get(pair)).history(period=period, interval=interval)
+        if len(df)<30: return None
+        df['EMA9']=df['Close'].ewm(span=9).mean()
+        df['EMA21']=df['Close'].ewm(span=21).mean()
+        delta=df['Close'].diff()
+        gain=delta.where(delta>0,0).rolling(14).mean()
+        loss=-delta.where(delta<0,0).rolling(14).mean()
+        rs=gain/loss
+        df['RSI']=100-(100/(1+rs))
+        df['SMA20']=df['Close'].rolling(20).mean()
+        df['SUPPORT']=df['Low'].rolling(20).min()
+        df['RESISTANCE']=df['High'].rolling(20).max()
+        df['VOL']=(df['High']-df['Low'])/df['Close']*100
+        return df
     except: return None
-
-def is_news():
-    now = datetime.now(WAT)
-    if now.weekday()>=5: return True, "Weekend - Market Closed"
-    mins = now.hour*60+now.minute
-    if 805 <= mins <= 935: return True, "High Impact US News 13:25-15:35 WAT"
-    return False, ""
-
-def find_best():
-    best=None
+def multi_tf(pair, direction):
+    df15=get_real_df(pair,"15m","5d")
+    if df15 is None: return True
+    e9=df15.iloc[-1]['EMA9']; e21=df15.iloc[-1]['EMA21']
+    if direction=="CALL" and e9<e21: return False
+    if direction=="PUT" and e9>e21: return False
+    return True
+def calc_stake():
+    base=TRADE_AMOUNT; lvl=STATS["martingale_level"]
+    if lvl==0: return base
+    return round(base*(2.2**lvl)+random.uniform(0,0.19),2)
+def binomo_trade(pair, direction, amount):
+    if not BINOMO_EMAIL: return False, "ENV not set"
+    delay=random.uniform(1.2,4.5); time.sleep(delay)
+    try:
+        from binomo_api import BinomoAPI
+        api=BinomoAPI(BINOMO_EMAIL, BINOMO_PASSWORD)
+        asset=f"{pair[:3]}/{pair[3:]}"
+        api.set_balance_type(BINOMO_ACCOUNT_TYPE)
+        api.set_asset(asset); api.set_amount(amount); api.set_duration(3)
+        if direction=="CALL": api.buy()
+        else: api.sell()
+        return True, f"AUTO {pair} {direction} ${amount} Delay {delay:.1f}s"
+    except Exception as e:
+        return True, f"SIM AUTO {pair} {direction} ${amount} | {e}"
+def fast_v34():
+    if is_news_time(): return None, "NEWS TIME"
+    best=None; best_conf=0; sess=get_session()
+    if "SLOW" in sess: return None, sess
     for pair in PAIRS:
-        if pair in LOST_PAIRS: continue
-        d = get_data(pair)
-        if not d: continue
-        price,rsi,ema20,ema50,up3,down3 = d
-        trend_up = price>ema20 and ema20>ema50
-        trend_down = price<ema20 and ema20<ema50
-        conf, direction = 0, None
-        # 85% logic
-        if trend_up and 41 <= rsi <= 49 and (up3 or rsi>44):
-            conf = 86.5 if 43<=rsi<=47 else 83.2
-            direction="CALL"
-        elif trend_down and 51 <= rsi <= 59 and (down3 or rsi<56):
-            conf = 86.1 if 53<=rsi<=57 else 82.8
-            direction="PUT"
-        if conf and conf>=82.5:
-            score = conf + (2 if (up3 or down3) else 0)
-            if not best or score>best[0]:
-                best=(score,pair,direction,rsi,price,ema20,conf,up3,down3)
-    return best
+        df=get_real_df(pair)
+        if df is None: continue
+        last=df.iloc[-1]; prev=df.iloc[-2]
+        price=float(last['Close']); rsi=float(last['RSI']); sup=float(last['SUPPORT']); res=float(last['RESISTANCE'])
+        ema9=float(last['EMA9']); ema21=float(last['EMA21']); vol=float(last['VOL'])
+        is_green=last['Close']>last['Open']
+        is_break_res=price>res and prev['Close']>=res*0.998
+        is_break_sup=price<sup and prev['Close']<=sup*1.002
+        strong_bull=ema9>ema21 and is_green and vol>0.02
+        strong_bear=ema9<ema21 and not is_green and vol>0.02
+        direction=None; reason=""; conf=0
+        if is_break_res and strong_bull and rsi>58:
+            direction="CALL"; reason=f"🚀 BREAKOUT {vol:.3f}%"; conf=88+(rsi-58)*0.6+vol*10
+        elif is_break_sup and strong_bear and rsi<42:
+            direction="PUT"; reason=f"💥 BREAKDOWN {vol:.3f}%"; conf=88+(42-rsi)*0.6+vol*10
+        else:
+            is_down=df['Close'].iloc[-3]>df['Close'].iloc[-2]>df['Close'].iloc[-1]
+            is_up=df['Close'].iloc[-3]<df['Close'].iloc[-2]<df['Close'].iloc[-1]
+            if is_down and rsi<38 and price<=sup*1.001:
+                direction="CALL"; reason="↩️ REVERSAL"; conf=75+abs(rsi-50)*0.7
+            elif is_up and rsi>62 and price>=res*0.999:
+                direction="PUT"; reason="↩️ REVERSAL"; conf=75+abs(rsi-50)*0.7
+        if not direction: continue
+        if not multi_tf(pair, direction): continue
+        conf=round(min(99,conf),1)
+        if conf<88: continue
+        if conf>best_conf:
+            best_conf=conf; best=(pair,direction,rsi,price,conf,reason,vol,sup,res)
+    return best, sess
 
-@bot.message_handler(commands=['start'])
-def start(m): bot.send_message(m.chat.id,"👑 V29 85% REAL READY\n⚡ Fast-Manual Format\n✅ 3-Candle + EMA20/50\n✅ News Filter ON\n\nCommands:\n/signal - Get 85% signal\n/alerton - Auto 🚨\n/status - Check\n/win /loss /reset")
+bot=telebot.TeleBot(TOKEN, threaded=False)
 
-@bot.message_handler(commands=['signal'])
-def sig(m):
-    global LOSS_STREAK
-    if LOSS_STREAK>=3:
-        bot.send_message(m.chat.id,"🛑 3 Losses Today. Stop Trading. /reset tomorrow"); return
-    news,reason = is_news()
-    if news:
-        bot.send_message(m.chat.id,f"🚫 NEWS FILTER ACTIVE\n{reason}\nTry after 15:40 WAT"); return
-    bot.send_message(m.chat.id,"⚡ Scanning 85% setups...")
-    res = find_best()
-    if not res:
-        bot.send_message(m.chat.id,"⏳ No 85% setup now. Market choppy. Wait 2 mins."); return
-    _,pair,direction,rsi,price,ema20,conf,up3,down3 = res
-    flag=FLAGS.get(pair,"🏳️")
-    emoji="🟢 CALL 🔺" if direction=="CALL" else "🔴 PUT 🔻"
-    three="✅ 3-Bullish" if up3 else "✅ 3-Bearish" if down3 else "✅ Momentum OK"
-    now=datetime.now(WAT)
-    exp = now + pd.Timedelta(minutes=5)
-    msg=f"""👑 {flag} {pair} {flag} - {conf}% 
-{emoji} 5 MIN
-
-💱 PAIR: {pair}
-📊 RSI: {rsi:.1f} | {three}
-📈 TREND: {'UP >EMA20/50' if direction=='CALL' else 'DOWN <EMA20/50'}
-💹 PRICE: {price:.5f} EMA20: {ema20:.5f}
-💰 STAKE: $40 Fixed
-⏰ TIME: {now.strftime('%H:%M')} → {exp.strftime('%H:%M')} WAT
-🎯 ENTRY: NOW - Next Candle
-
-85/100 POWER TRADE - Take Fast!"""
-    bot.send_message(m.chat.id,msg)
-
-@bot.message_handler(commands=['win','loss','reset','status','alerton','alertoff','pairs'])
-def cmds(m):
-    global LOSS_STREAK, LOST_PAIRS, ALERT_ENABLED
-    t=m.text.lower()
-    if "loss" in t:
-        LOSS_STREAK+=1; bot.send_message(m.chat.id,f"📉 Loss logged: {LOSS_STREAK}/3")
-    elif "win" in t:
-        LOSS_STREAK=max(0,LOSS_STREAK-1); bot.send_message(m.chat.id,f"📈 Win! Streak {LOSS_STREAK}/3")
-    elif "reset" in t:
-        LOSS_STREAK=0; LOST_PAIRS.clear(); bot.send_message(m.chat.id,"✅ Reset Done")
-    elif "status" in t:
-        n,r = is_news(); bot.send_message(m.chat.id,f"Loss: {LOSS_STREAK}/3\nNews: {r if n else 'Safe to trade'}\nAlert: {'ON' if ALERT_ENABLED else 'OFF'}")
-    elif "alerton" in t:
-        ALERT_ENABLED=True; bot.send_message(m.chat.id,"🔔 Auto 85% Alert ON 🚨")
-    elif "alertoff" in t:
-        ALERT_ENABLED=False; bot.send_message(m.chat.id,"🔕 Alert OFF")
-    elif "pairs" in t: bot.send_message(m.chat.id,"💱 "+", ".join(PAIRS))
-
-def auto_loop():
+def background_auto_trader():
+    print("🤖 Background auto started")
     while True:
         try:
-            time.sleep(60)
-            if not OWNER_ID or not ALERT_ENABLED: continue
-            if LOSS_STREAK>=3: continue
-            n,_ = is_news()
-            if n: continue
-            res = find_best()
-            if res:
-                _,pair,dir,rsi,price,_,conf,_,_ = res
-                if time.time()-LAST_ALERT.get(pair,0) < 900: continue
-                LAST_ALERT[pair]=time.time()
-                bot.send_message(OWNER_ID,f"🚨 85% SIGNAL FOUND 🚨\n\n{FLAGS.get(pair,'')} {pair} {conf}%\n{'🟢 CALL' if dir=='CALL' else '🔴 PUT'} RSI {rsi:.1f}\n\n/signal now!")
-        except: time.sleep(10)
+            time.sleep(120)
+            if not AUTO_ENABLED.get("global"): continue
+            if not AUTO_CHAT_ID: continue
+            if STATS["daily_profit"]>=DAILY_TARGET:
+                bot.send_message(AUTO_CHAT_ID, f"🎯 TARGET HIT ${STATS['daily_profit']:.2f}"); AUTO_ENABLED["global"]=False; continue
+            if STATS["daily_profit"]<=-DAILY_STOPLOSS:
+                bot.send_message(AUTO_CHAT_ID, f"🛑 STOP LOSS ${STATS['daily_profit']:.2f}"); AUTO_ENABLED["global"]=False; continue
+            if time.time()-STATS["last_trade"]<180: continue
+            res,sess=fast_v34()
+            if not res: continue
+            pair,direction,rsi,price,conf,reason,vol,sup,resis=res
+            stake=calc_stake()
+            now=datetime.datetime.now()+datetime.timedelta(hours=1)
+            msg=f"👑 BG-AUTO {pair} {conf}% {direction}\nRSI {rsi} VOL {vol:.3f}% Price {price:.5f}\nStake ${stake} Today ${STATS['daily_profit']:.2f}"
+            bot.send_message(AUTO_CHAT_ID, msg)
+            ok,msg2=binomo_trade(pair,direction,stake)
+            bot.send_message(AUTO_CHAT_ID, f"🤖 BG EXECUTED: {msg2}")
+            STATS["last_trade"]=time.time()
+        except Exception as e:
+            print(f"BG error {e}"); time.sleep(30)
 
-@app.route("/")
-def home(): return "V29 85% RUNNING"
-def run_flask(): app.run(host="0.0.0.0", port=int(os.getenv("PORT",10000)))
-def run_bot():
-    bot.remove_webhook()
-    time.sleep(1)
-    print("V29 Polling Started")
-    bot.infinity_polling(timeout=60, long_polling_timeout=60)
+threading.Thread(target=background_auto_trader, daemon=True).start()
 
+@bot.message_handler(commands=['start'])
+def start(m):
+    global AUTO_CHAT_ID; AUTO_CHAT_ID=m.chat.id
+    bot.send_message(m.chat.id, f"👑 V34 BG-AUTO READY\nBG trades every 2 mins\nTarget ${DAILY_TARGET} Stop ${DAILY_STOPLOSS}\n/auto ON to start sleep trading")
+@bot.message_handler(commands=['auto'])
+def auto_cmd(m):
+    global AUTO_CHAT_ID
+    args=m.text.split()
+    if len(args)<2:
+        s="ON ✅" if AUTO_ENABLED.get("global") else "OFF"; bot.send_message(m.chat.id, f"BG AUTO {s} /auto ON/OFF"); return
+    if args[1].upper()=="ON":
+        AUTO_ENABLED["global"]=True; AUTO_CHAT_ID=m.chat.id
+        bot.send_message(m.chat.id, f"🚀 BG AUTO STARTED\nBot go scan every 2 mins\nStake ${calc_stake()} on {BINOMO_ACCOUNT_TYPE}\nTarget ${DAILY_TARGET} You fit off phone")
+    else:
+        AUTO_ENABLED["global"]=False; bot.send_message(m.chat.id, "🛑 BG AUTO STOPPED")
+@bot.message_handler(commands=['stats'])
+def stats_cmd(m):
+    wr=(STATS["wins"]/(STATS["wins"]+STATS["losses"])*100) if (STATS["wins"]+STATS["losses"])>0 else 0
+    bg="ON ✅" if AUTO_ENABLED.get("global") else "OFF"
+    bot.send_message(m.chat.id, f"📊 V34 BG {bg}\n{STATS['wins']}W/{STATS['losses']}L {wr:.1f}%\nToday ${STATS['daily_profit']:.2f}\nNext ${calc_stake()}")
+
+@app.route(f'/{TOKEN}', methods=['POST'])
+def wh():
+    bot.process_new_updates([telebot.types.Update.de_json(request.get_data().decode('utf-8'))]); return ''
+@app.route('/')
+def home():
+    return f"V34 BG-AUTO {STATS['daily_profit']}",200
+def set_hook():
+    time.sleep(4)
+    if RENDER_URL:
+        try:
+            requests.get(f"https://api.telegram.org/bot{TOKEN}/deleteWebhook", timeout=10)
+            requests.get(f"https://api.telegram.org/bot{TOKEN}/setWebhook?url={RENDER_URL}/{TOKEN}", timeout=10)
+        except: pass
+threading.Thread(target=set_hook, daemon=True).start()
 if __name__=="__main__":
-    threading.Thread(target=run_flask, daemon=True).start()
-    threading.Thread(target=auto_loop, daemon=True).start()
-    run_bot()
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT",10000)))
