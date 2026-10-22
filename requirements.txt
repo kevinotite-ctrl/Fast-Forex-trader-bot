@@ -4,4 +4,4 @@ pyTelegramBotAPI
 Flask
 requests
 matplotlib
-binomo-api
+git+https://github.com/Chepe4Py/binomo-api.git
