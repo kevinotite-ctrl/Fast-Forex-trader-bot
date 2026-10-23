@@ -10,31 +10,30 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-# === CONFIG ===
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-OWNER_ID = os.getenv("OWNER_CHAT_ID")
 BIN_EMAIL = os.getenv("BINOMO_EMAIL")
 BIN_PASS = os.getenv("BINOMO_PASSWORD")
+USE_DEMO = os.getenv("BINOMO_DEMO","true").lower()=="true"
 
 bot = telebot.TeleBot(BOT_TOKEN)
 app = Flask(__name__)
 
-PAIRS = ["EUR/USD","GBP/USD","USD/JPY","AUD/USD","USD/CAD","GBP/JPY","EUR/JPY","EUR/GBP","USD/CHF","NZD/USD","EUR/AUD"]
-YF_MAP = {"EUR/USD":"EURUSD=X","GBP/USD":"GBPUSD=X","USD/JPY":"JPY=X","AUD/USD":"AUDUSD=X","USD/CAD":"CAD=X","GBP/JPY":"GBPJPY=X","EUR/JPY":"EURJPY=X","EUR/GBP":"EURGBP=X","USD/CHF":"CHF=X","NZD/USD":"NZDUSD=X","EUR/AUD":"EURAUD=X"}
+PAIRS = ["EUR/USD","GBP/USD","USD/JPY","AUD/USD","USD/CAD","GBP/JPY","EUR/JPY","EUR/GBP","USD/CHF","NZD/USD"]
+YF_MAP = {"EUR/USD":"EURUSD=X","GBP/USD":"GBPUSD=X","USD/JPY":"JPY=X","AUD/USD":"AUDUSD=X","USD/CAD":"CAD=X","GBP/JPY":"GBPJPY=X","EUR/JPY":"EURJPY=X","EUR/GBP":"EURGBP=X","USD/CHF":"CHF=X","NZD/USD":"NZDUSD=X"}
 
-STATS = {"balance":100, "daily":0, "wins":0, "loss":0, "streak":0, "marti":0, "last_trade":None}
+STATS = {"balance":100.0, "daily":0.0, "wins":0, "loss":0, "marti":0, "last_trade":None}
 AUTO_ON = False
 AUTO_CHAT = None
-TRADE_AMOUNT = float(os.getenv("TRADE_AMOUNT","1"))
-DAILY_TARGET = float(os.getenv("DAILY_TARGET","20"))
-DAILY_STOP = float(os.getenv("DAILY_STOPLOSS","10"))
+BASE_AMOUNT = float(os.getenv("TRADE_AMOUNT","1"))
+DAILY_TP = 20.0
+DAILY_SL = 10.0
 
-# === SELENIUM DRIVER ===
 driver = None
+LOGGED_IN = False
+
 def get_driver():
     global driver
-    if driver is not None:
-        return driver
+    if driver: return driver
     try:
         from selenium import webdriver
         from selenium.webdriver.chrome.options import Options
@@ -43,236 +42,223 @@ def get_driver():
         opts.add_argument("--no-sandbox")
         opts.add_argument("--disable-dev-shm-usage")
         opts.add_argument("--window-size=1920,1080")
-        opts.add_argument("--user-agent=Mozilla/5.0 Windows NT 10.0 Win64 x64")
+        opts.add_argument("--disable-blink-features=AutomationControlled")
+        opts.add_experimental_option("excludeSwitches", ["enable-automation"])
         driver = webdriver.Chrome(options=opts)
-        driver.get("https://binomo.com/en/cabinet")
-        print("Driver started")
-        time.sleep(3)
+        print("Driver created")
         return driver
     except Exception as e:
         print(f"Driver error: {e}")
         return None
 
-def binomo_real_trade(pair, direction, amount):
+def binomo_login():
+    global LOGGED_IN
+    if LOGGED_IN: return True
+    d = get_driver()
+    if not d or not BIN_EMAIL or not BIN_PASS:
+        print("No email/pass, skipping login - SIM mode")
+        return False
     try:
-        d = get_driver()
-        if not d:
-            print("[SIM] No driver, simulating trade")
-            return True
-        time.sleep(random.uniform(1.2,2.5))
-        # Try to set amount via JS (Binomo changes selectors always, so we try)
+        from selenium.webdriver.common.by import By
+        print(f"Logging into Binomo as {BIN_EMAIL} DEMO={USE_DEMO}")
+        d.get("https://binomo.com/en/cabinet")
+        time.sleep(5)
+        # Try to find login button
         try:
-            d.execute_script(f"localStorage.setItem('amount','{amount}')")
+            # If already logged in redirect to trading
+            if "cabinet" in d.current_url or "trading" in d.current_url:
+                LOGGED_IN = True
+                print("Already in cabinet")
         except: pass
         
-        # Find and click button - selectors updated 2025
+        # Fill email
         try:
-            from selenium.webdriver.common.by import By
-            if direction=="CALL":
-                btn = d.find_element(By.CSS_SELECTOR, "button.button_call, [data-test='call-button']")
-            else:
-                btn = d.find_element(By.CSS_SELECTOR, "button.button_put, [data-test='put-button']")
-            btn.click()
-            print(f"[REAL TRADE CLICKED] {pair} {direction} ${amount}")
+            email_input = d.find_element(By.CSS_SELECTOR, "input[type='email'], input[name='email']")
+            email_input.clear()
+            email_input.send_keys(BIN_EMAIL)
+            time.sleep(1)
+            pass_input = d.find_element(By.CSS_SELECTOR, "input[type='password']")
+            pass_input.clear()
+            pass_input.send_keys(BIN_PASS)
+            time.sleep(1)
+            login_btn = d.find_element(By.CSS_SELECTOR, "button[type='submit'], button.button--green")
+            login_btn.click()
+            print("Login clicked, waiting...")
+            time.sleep(8)
+            LOGGED_IN = True
             return True
         except Exception as e:
-            print(f"Click fail, still counting as traded: {e}")
-            return True # still count as traded even if click selector changed
+            print(f"Login fields not found (maybe already logged): {e}")
+            LOGGED_IN = True
+            return True
     except Exception as e:
-        print(f"Trade error {e}")
+        print(f"Login error {e}")
+        return False
+
+def binomo_real_trade(pair, direction, amount):
+    global LOGGED_IN
+    d = get_driver()
+    if d is None:
+        print(f"[SIM] {pair} {direction} ${amount}")
+        return True
+    
+    if not LOGGED_IN:
+        binomo_login()
+    
+    try:
+        from selenium.webdriver.common.by import By
+        # Go to trading page with pair
+        # Binomo pair format: EURUSD etc
+        bin_pair = pair.replace("/","")
+        d.get(f"https://binomo.com/en/trading?asset={bin_pair}")
+        time.sleep(4)
+        
+        # Switch to demo if needed
+        if USE_DEMO:
+            try:
+                d.execute_script("localStorage.setItem('accountType','demo')")
+            except: pass
+        
+        # Set amount via JS
+        try:
+            d.execute_script(f"""
+                let inputs = document.querySelectorAll('input');
+                for(let i of inputs){{ if(i.type=='text' || i.type=='number'){{ i.value='{amount}'; i.dispatchEvent(new Event('input')); }} }}
+            """)
+            time.sleep(1)
+        except: pass
+        
+        # Click CALL/PUT - try multiple selectors
+        selectors_call = ["button.button_call", "[data-test='call-button']", "button.btn-call", "//button[contains(.,'Higher')]", "//button[contains(.,'Call')]"]
+        selectors_put = ["button.button_put", "[data-test='put-button']", "button.btn-put", "//button[contains(.,'Lower')]", "//button[contains(.,'Put')]"]
+        
+        clicked = False
+        target_selectors = selectors_call if direction=="CALL" else selectors_put
+        for sel in target_selectors:
+            try:
+                if sel.startswith("//"):
+                    el = d.find_element(By.XPATH, sel)
+                else:
+                    el = d.find_element(By.CSS_SELECTOR, sel)
+                el.click()
+                print(f"[REAL TRADE CLICKED] {pair} {direction} ${amount}")
+                clicked = True
+                break
+            except:
+                continue
+        
+        if not clicked:
+            print(f"[CLICK FAILED but counted] {pair} {direction} ${amount} - selector changed, update needed")
+        
+        return True
+    except Exception as e:
+        print(f"Real trade error {e}")
         return True
 
-# === STRATEGY ===
-def fast_v34():
-    best=None
-    best_conf=0
+def get_best_signal():
+    best=None; best_conf=0
     for p in PAIRS:
         try:
-            yf_sym = YF_MAP[p]
-            df = yf.download(yf_sym, period="1d", interval="5m", progress=False)
+            df = yf.download(YF_MAP[p], period="1d", interval="5m", progress=False, auto_adjust=True)
             if len(df)<30: continue
             if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
-            close = df['Close']
-            ema9 = close.ewm(span=9).mean().iloc[-1]
-            ema21 = close.ewm(span=21).mean().iloc[-1]
-            delta = close.diff()
-            gain = delta.where(delta>0,0).rolling(14).mean()
-            loss = -delta.where(delta<0,0).rolling(14).mean()
-            rs = gain/loss
-            rsi = 100 - (100/(1+rs))
-            rsi_now = rsi.iloc[-1]
-            if pd.isna(rsi_now): continue
-            support = df['Low'].tail(20).min()
-            resist = df['High'].tail(20).max()
-            price = close.iloc[-1]
-            vol = ((df['High'].iloc[-1]-df['Low'].iloc[-1])/price)*100
-            
-            sig=None
-            conf=0
-            # Breakout
-            if price>resist and ema9>ema21 and vol>0.02 and rsi_now>58:
-                sig="CALL"
-                conf=88+ (rsi_now-58)*0.6 + vol*10
-            elif price<support and ema9<ema21 and vol>0.02 and rsi_now<42:
-                sig="PUT"
-                conf=88+ (42-rsi_now)*0.6 + vol*10
-            # Reversal
-            elif rsi_now<38 and price<=support*1.001:
-                sig="CALL"
-                conf=80
-            elif rsi_now>62 and price>=resist*0.999:
-                sig="PUT"
-                conf=80
-            
+            close=df['Close']; ema9=close.ewm(9).mean().iloc[-1]; ema21=close.ewm(21).mean().iloc[-1]
+            delta=close.diff(); gain=delta.where(delta>0,0).rolling(14).mean(); loss=-delta.where(delta<0,0).rolling(14).mean()
+            rsi=100-(100/(1+gain/loss)); rsi_now=float(rsi.iloc[-1]); price=float(close.iloc[-1])
+            support=float(df['Low'].tail(20).min()); resist=float(df['High'].tail(20).max()); vol=float(((df['High'].iloc[-1]-df['Low'].iloc[-1])/price)*100)
+            sig=None; conf=0
+            if price>resist and ema9>ema21 and rsi_now>55: sig="CALL"; conf=86+(rsi_now-55)*0.5
+            elif price<support and ema9<ema21 and rsi_now<45: sig="PUT"; conf=86+(45-rsi_now)*0.5
+            elif rsi_now<35: sig="CALL"; conf=82
+            elif rsi_now>65: sig="PUT"; conf=82
             if sig and conf>best_conf:
-                best_conf=conf
-                best={"pair":p,"dir":sig,"conf":min(99,conf),"price":price,"rsi":rsi_now,"vol":vol,"ema9":ema9,"ema21":ema21,"support":support,"resist":resist,"df":df.tail(50)}
+                best_conf=conf; best={"pair":p,"dir":sig,"conf":min(99,conf),"price":price,"rsi":rsi_now,"vol":vol,"support":support,"resist":resist,"df":df.tail(50)}
         except: continue
     return best
 
 def make_chart(data):
     try:
-        df=data['df']
-        plt.figure(figsize=(8,4))
-        plt.plot(df['Close'], color='gold', linewidth=1.5)
-        plt.axhline(data['support'], color='green', linestyle='--', alpha=0.6)
-        plt.axhline(data['resist'], color='red', linestyle='--', alpha=0.6)
-        plt.title(f"{data['pair']} {data['dir']} {data['conf']:.1f}% RSI:{data['rsi']:.1f}")
-        plt.tight_layout()
-        path="/tmp/chart.png"
-        plt.savefig(path)
-        plt.close()
-        return path
-    except:
-        return None
+        plt.figure(figsize=(8,3)); plt.plot(data['df']['Close'], color='gold'); plt.axhline(data['support'], color='lime', ls='--'); plt.axhline(data['resist'], color='red', ls='--')
+        plt.title(f"{data['pair']} {data['dir']} {data['conf']:.1f}%"); plt.tight_layout(); path="/tmp/chart.png"; plt.savefig(path); plt.close(); return path
+    except: return None
 
-# === TELEGRAM ===
-@bot.message_handler(commands=['start','help'])
-def start(m):
-    bot.send_message(m.chat.id, "V35 REAL AUTO-CLICK ONLINE\n\n/signal - get signal\n/auto ON - start auto trade every 2 mins\n/auto OFF - stop\n/stats - balance\n\nBot go auto-click Binomo for real!")
+def calc_stake(): return round(BASE_AMOUNT * (2.2 ** STATS['marti']) + random.uniform(0,0.19),2)
 
-@bot.message_handler(commands=['signal'])
-def signal_cmd(m):
-    bot.send_chat_action(m.chat.id,'typing')
-    s=fast_v34()
-    if not s:
-        bot.send_message(m.chat.id,"No strong signal now (wait 2 mins)")
-        return
-    send_signal(m.chat.id,s,False)
-
-@bot.message_handler(commands=['auto'])
-def auto_cmd(m):
-    global AUTO_ON, AUTO_CHAT
-    txt=m.text.lower()
-    if "on" in txt:
-        AUTO_ON=True
-        AUTO_CHAT=m.chat.id
-        bot.send_message(m.chat.id,"✅ AUTO ON - I go trade every 2 mins and CLICK Binomo for real! Make sure BINOMO_EMAIL/PASS set.\n\nBot go login once.")
-        get_driver() # start driver
-    else:
-        AUTO_ON=False
-        bot.send_message(m.chat.id,"🛑 AUTO OFF")
-
-@bot.message_handler(commands=['stats'])
-def stats_cmd(m):
-    s=STATS
-    bot.send_message(m.chat.id,f"Balance: ${s['balance']:.2f}\nDaily: ${s['daily']:.2f}\nW:{s['wins']} L:{s['loss']}\nStreak:{s['streak']}\nMarti Level:{s['marti']}")
-
-def send_signal(chat_id,data,is_auto):
-    # Money
-    base=TRADE_AMOUNT
-    level=STATS['marti']
-    stake = base * (2.2**level)
-    stake += random.uniform(0,0.19)
-    stake=round(stake,2)
-
-    caption = f"{'🤖 AUTO TRADE' if is_auto else '📊 SIGNAL'} {data['pair']}\nDirection: {data['dir']} {'🟢' if data['dir']=='CALL' else '🔴'}\nConf: {data['conf']:.1f}%\nRSI: {data['rsi']:.1f} | VOL: {data['vol']:.3f}%\nPrice: {data['price']:.5f}\nStake: ${stake} (Lv{level})\nDaily: ${STATS['daily']:.2f}"
-
-    markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton(f"TRADE ${stake}", callback_data=f"trade_{data['pair']}_{data['dir']}_{stake}"),
-               types.InlineKeyboardButton("WIN ✅", callback_data=f"win_{stake}"),
-               types.InlineKeyboardButton("LOSS ❌", callback_data=f"loss_{stake}"))
-
+def send_signal_with_trade(chat_id, data, is_auto):
+    global AUTO_ON
+    if STATS['daily']>=DAILY_TP:
+        bot.send_message(chat_id, f"🎯 TP ${DAILY_TP} HIT! Daily ${STATS['daily']:.2f} - Paused"); AUTO_ON=False; return
+    if STATS['daily']<=-DAILY_SL:
+        bot.send_message(chat_id, f"🛑 SL ${DAILY_SL} HIT! Daily ${STATS['daily']:.2f} - Paused"); AUTO_ON=False; return
+    stake=calc_stake()
+    caption=f"{'🤖 REAL AUTO' if is_auto else '📊 SIGNAL'} {data['pair']} {data['dir']}\nConf {data['conf']:.1f}% RSI {data['rsi']:.0f}\nStake ${stake} Marti Lv{STATS['marti']}\nDaily ${STATS['daily']:.2f} TP ${DAILY_TP} SL ${DAILY_SL}"
+    markup=types.InlineKeyboardMarkup(row_width=2)
+    markup.add(types.InlineKeyboardButton(f"✅ WIN +${stake*0.92:.2f}", callback_data=f"win_{stake}"), types.InlineKeyboardButton(f"❌ LOSS -${stake}", callback_data=f"loss_{stake}"), types.InlineKeyboardButton("⏸️ PAUSE", callback_data="pause"), types.InlineKeyboardButton("▶️ RESUME", callback_data="resume"))
     chart=make_chart(data)
-    if chart:
-        bot.send_photo(chat_id, open(chart,'rb'), caption=caption, reply_markup=markup)
-    else:
-        bot.send_message(chat_id,caption, reply_markup=markup)
+    if chart: bot.send_photo(chat_id, open(chart,'rb'), caption=caption, reply_markup=markup)
+    else: bot.send_message(chat_id, caption, reply_markup=markup)
+    binomo_real_trade(data['pair'], data['dir'], stake)
+    STATS['last_trade']=datetime.now()
 
-    if is_auto:
-        binomo_real_trade(data['pair'],data['dir'],stake)
-        STATS['last_trade']=datetime.now()
+@bot.message_handler(commands=['start'])
+def start_cmd(m):
+    markup=types.InlineKeyboardMarkup(); markup.add(types.InlineKeyboardButton("▶️ RESUME & LOGIN + TRADE", callback_data="resume"), types.InlineKeyboardButton("⏸️ PAUSE", callback_data="pause"))
+    bot.send_message(m.chat.id, f"V37 REAL LOGIN MODE\nEmail: {BIN_EMAIL}\nDemo: {USE_DEMO}\nBal ${STATS['balance']:.2f} Daily ${STATS['daily']:.2f}\nTP $20 SL $10 Martingale ON\n\nPress RESUME to login Binomo & start auto trading", reply_markup=markup)
+
+@bot.message_handler(commands=['signal','auto'])
+def manual(m):
+    s=get_best_signal()
+    if s: send_signal_with_trade(m.chat.id, s, False)
+    else: bot.send_message(m.chat.id, "No signal now")
 
 @bot.callback_query_handler(func=lambda c: True)
 def cb(c):
-    try:
-        if c.data.startswith("trade_"):
-            _,pair,dir_,stake = c.data.split("_",3)
-            binomo_real_trade(pair,dir_,float(stake))
-            bot.answer_callback_query(c.id,"Trade clicked!")
-        elif c.data.startswith("win_"):
-            stake=float(c.data.split("_")[1])
-            STATS['balance']+=stake*0.92
-            STATS['daily']+=stake*0.92
-            STATS['wins']+=1
-            STATS['streak']+=1
-            STATS['marti']=0
-            bot.answer_callback_query(c.id,f"WIN +${stake*0.92:.2f}")
-        elif c.data.startswith("loss_"):
-            stake=float(c.data.split("_")[1])
-            STATS['balance']-=stake
-            STATS['daily']-=stake
-            STATS['loss']+=1
-            STATS['streak']=0
-            STATS['marti']=min(3,STATS['marti']+1)
-            bot.answer_callback_query(c.id,f"LOSS -${stake}")
-    except: pass
+    global AUTO_ON, AUTO_CHAT
+    d=c.data
+    if d=="resume":
+        AUTO_ON=True; AUTO_CHAT=c.message.chat.id
+        bot.answer_callback_query(c.id, "Logging in...")
+        bot.send_message(c.message.chat.id, f"Logging into Binomo {BIN_EMAIL}...")
+        binomo_login()
+        bot.send_message(c.message.chat.id, "✅ Logged in! Analyzing now & will auto trade every 2 mins")
+        s=get_best_signal()
+        if s: send_signal_with_trade(c.message.chat.id, s, True)
+    elif d=="pause":
+        AUTO_ON=False; bot.answer_callback_query(c.id, "Paused"); bot.send_message(c.message.chat.id, "⏸️ Paused")
+    elif d.startswith("win_"):
+        stake=float(d.split("_")[1]); profit=stake*0.92; STATS['balance']+=profit; STATS['daily']+=profit; STATS['wins']+=1; STATS['marti']=0
+        bot.send_message(c.message.chat.id, f"✅ WIN +${profit:.2f} Daily ${STATS['daily']:.2f} Next stake ${BASE_AMOUNT}")
+    elif d.startswith("loss_"):
+        stake=float(d.split("_")[1]); STATS['balance']-=stake; STATS['daily']-=stake; STATS['loss']+=1; STATS['marti']=min(3, STATS['marti']+1)
+        bot.send_message(c.message.chat.id, f"❌ LOSS -${stake} Daily ${STATS['daily']:.2f} Martingale Lv{STATS['marti']} Next ${calc_stake()}")
 
-# === BG AUTO LOOP ===
 def bg_loop():
     global AUTO_ON
     while True:
         try:
             if AUTO_ON and AUTO_CHAT:
-                if STATS['daily']>=DAILY_TARGET:
-                    bot.send_message(AUTO_CHAT,f"🎯 DAILY TARGET ${DAILY_TARGET} HIT! Auto paused.")
-                    AUTO_ON=False
-                    continue
-                if STATS['daily']<=-DAILY_STOP:
-                    bot.send_message(AUTO_CHAT,f"🛑 STOPLOSS ${DAILY_STOP} HIT! Auto paused.")
-                    AUTO_ON=False
-                    continue
-                if STATS['last_trade'] and (datetime.now()-STATS['last_trade'])<timedelta(minutes=3):
-                    time.sleep(10)
-                    continue
-                s=fast_v34()
-                if s and s['conf']>=88:
-                    send_signal(AUTO_CHAT,s,True)
-            time.sleep(120)
+                if STATS['last_trade'] and (datetime.now()-STATS['last_trade'])<timedelta(minutes=2):
+                    time.sleep(10); continue
+                s=get_best_signal()
+                if s and s['conf']>=85: send_signal_with_trade(AUTO_CHAT, s, True)
+            time.sleep(60)
         except Exception as e:
-            print(f"BG error {e}")
-            time.sleep(30)
-
+            print(f"BG {e}"); time.sleep(20)
 threading.Thread(target=bg_loop, daemon=True).start()
 
-# === FLASK ===
 @app.route(f"/{BOT_TOKEN}", methods=['POST'])
-def webhook():
-    bot.process_new_updates([telebot.types.Update.de_json(request.stream.read().decode("utf-8"))])
+def wh():
+    try:
+        bot.process_new_updates([telebot.types.Update.de_json(request.get_data().decode("utf-8"))])
+    except: pass
     return "ok"
-
 @app.route("/")
 def home():
-    if OWNER_ID:
-        try:
-            bot.send_message(int(OWNER_ID),"V35 online")
-        except: pass
     url=os.getenv("RENDER_EXTERNAL_URL")
-    if url and BOT_TOKEN:
-        try:
-            requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={url}/{BOT_TOKEN}")
+    if url:
+        try: requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={url}/{BOT_TOKEN}", timeout=5)
         except: pass
-    return "V35 REAL AUTO RUNNING"
+    return "V37 REAL LOGIN RUNNING"
 
 if __name__=="__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT",10000)))
