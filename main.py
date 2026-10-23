@@ -33,22 +33,36 @@ LOGGED_IN = False
 
 def get_driver():
     global driver
-    if driver: return driver
+    if driver: 
+        try:
+            driver.current_url
+            return driver
+        except:
+            driver = None
     try:
         from selenium import webdriver
         from selenium.webdriver.chrome.options import Options
+        from selenium.webdriver.chrome.service import Service
         opts = Options()
         opts.add_argument("--headless=new")
         opts.add_argument("--no-sandbox")
         opts.add_argument("--disable-dev-shm-usage")
-        opts.add_argument("--window-size=1920,1080")
-        opts.add_argument("--disable-blink-features=AutomationControlled")
-        opts.add_experimental_option("excludeSwitches", ["enable-automation"])
-        driver = webdriver.Chrome(options=opts)
-        print("Driver created")
+        opts.add_argument("--disable-gpu")
+        opts.add_argument("--window-size=1280,720")
+        opts.add_argument("--user-agent=Mozilla/5.0")
+        opts.binary_location = os.getenv("CHROME_BIN", "/usr/bin/chromium")
+        # Try chromium-driver
+        try:
+            service = Service("/usr/bin/chromedriver")
+            driver = webdriver.Chrome(service=service, options=opts)
+        except:
+            # fallback
+            driver = webdriver.Chrome(options=opts)
+        print("Driver created SUCCESS")
         return driver
     except Exception as e:
-        print(f"Driver error: {e}")
+        print(f"Driver FAILED: {e}")
+        import traceback; traceback.print_exc()
         return None
 
 def binomo_login():
