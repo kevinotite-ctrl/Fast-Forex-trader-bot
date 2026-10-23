@@ -4,5 +4,3 @@ yfinance
 pandas
 matplotlib
 requests
-selenium
-webdriver-manager
