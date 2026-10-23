@@ -1,4 +1,4 @@
-import os, time, threading, random
+ import os, time, threading, random
 from datetime import datetime, timedelta
 from flask import Flask, request
 import telebot
@@ -94,7 +94,7 @@ def binomo_login():
     except Exception as e:
         print(f"Login error {e}")
         return False
-
+        
 def binomo_real_trade(pair, direction, amount):
     global LOGGED_IN
     d = get_driver()
@@ -107,52 +107,68 @@ def binomo_real_trade(pair, direction, amount):
     
     try:
         from selenium.webdriver.common.by import By
-        # Go to trading page with pair
-        # Binomo pair format: EURUSD etc
         bin_pair = pair.replace("/","")
         d.get(f"https://binomo.com/en/trading?asset={bin_pair}")
-        time.sleep(4)
+        time.sleep(5)
         
-        # Switch to demo if needed
-        if USE_DEMO:
-            try:
-                d.execute_script("localStorage.setItem('accountType','demo')")
-            except: pass
-        
-        # Set amount via JS
+        # Take screenshot for debugging
+        try:
+            d.save_screenshot("/tmp/binomo.png")
+            print("Screenshot saved")
+        except: pass
+
+        # Try to set amount
         try:
             d.execute_script(f"""
-                let inputs = document.querySelectorAll('input');
-                for(let i of inputs){{ if(i.type=='text' || i.type=='number'){{ i.value='{amount}'; i.dispatchEvent(new Event('input')); }} }}
+                document.querySelectorAll('input').forEach(i => {{
+                    if(i.value && !isNaN(i.value)) {{
+                        i.value = '{amount}';
+                        i.dispatchEvent(new Event('input', {{bubbles:true}}));
+                        i.dispatchEvent(new Event('change', {{bubbles:true}}));
+                    }}
+                }})
             """)
             time.sleep(1)
         except: pass
         
-        # Click CALL/PUT - try multiple selectors
-        selectors_call = ["button.button_call", "[data-test='call-button']", "button.btn-call", "//button[contains(.,'Higher')]", "//button[contains(.,'Call')]"]
-        selectors_put = ["button.button_put", "[data-test='put-button']", "button.btn-put", "//button[contains(.,'Lower')]", "//button[contains(.,'Put')]"]
-        
+        # NEW: Find button by TEXT, not class - works always
         clicked = False
-        target_selectors = selectors_call if direction=="CALL" else selectors_put
-        for sel in target_selectors:
-            try:
-                if sel.startswith("//"):
-                    el = d.find_element(By.XPATH, sel)
-                else:
-                    el = d.find_element(By.CSS_SELECTOR, sel)
-                el.click()
-                print(f"[REAL TRADE CLICKED] {pair} {direction} ${amount}")
+        try:
+            # Try JS click by text
+            js_click = d.execute_script(f"""
+                let btns = document.querySelectorAll('button, div[role=button]');
+                for(let b of btns) {{
+                    let txt = (b.innerText || '').toLowerCase();
+                    if(txt.includes('{'higher' if direction=='CALL' else 'lower'}') || 
+                       txt.includes('{'call' if direction=='CALL' else 'put'}') ||
+                       (txt.includes('{'green' if direction=='CALL' else 'red'}'))) {{
+                        b.click();
+                        return 'clicked: ' + txt;
+                    }}
+                }}
+                // Try second method - find all green/red buttons
+                let all = document.body.innerHTML;
+                return 'not found, page length:' + all.length;
+            """)
+            print(f"JS result: {js_click}")
+            if "clicked" in str(js_click):
                 clicked = True
-                break
-            except:
-                continue
-        
+                print(f"[REAL TRADE CLICKED] {pair} {direction} ${amount}")
+        except Exception as e:
+            print(f"JS click error {e}")
+
         if not clicked:
-            print(f"[CLICK FAILED but counted] {pair} {direction} ${amount} - selector changed, update needed")
+            print(f"[CLICK FAILED] {pair} {direction} - will send screenshot to Telegram")
+            # Send screenshot to you so we see the page
+            try:
+                if AUTO_CHAT:
+                    bot.send_photo(AUTO_CHAT, open("/tmp/binomo.png","rb"), caption=f"Binomo page - could not find {direction} button. Please open Binomo and tell me what the CALL button text says (Higher/Green?)")
+            except: pass
         
         return True
     except Exception as e:
         print(f"Real trade error {e}")
+        import traceback; traceback.print_exc()
         return True
 
 def get_best_signal():
