@@ -1,7 +1,7 @@
 pyTelegramBotAPI
 Flask
+requests
 pandas
 matplotlib
 pytz
-requests
-git+https://github.com/Lu-Yi-Hsun/iqoptionapi.git@master
+git+https://github.com/Lu-Yi-Hsun/iqoptionapi.git
