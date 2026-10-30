@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# 👑 KEVIN MASTER V7.4 10/10 - GOLD DUAL API + SAFE MARTINGALE 3x + HELP BTN - PRIVATE LOCKED
+# 👑 KEVIN MASTER V7.4 FINAL 10/10 - PRIVATE + GOLD DUAL API + SAFE REC 3x + AUTO COMPLETE
 
 import os, requests, time, threading, warnings, json, random, pytz
 from datetime import datetime, timedelta
@@ -18,7 +18,7 @@ CHANNEL_ID = "@KEVINTRAILBLAZE"
 ADMIN_ID = os.getenv("ADMIN_ID")
 OWNER_ID = 8659453018
 
-# 🔒 PRIVATE LOCK - ONLY OWNER
+# 🔒 PRIVATE LOCK
 ALLOWED_USERS = [OWNER_ID]
 def is_private_allowed(uid):
     return uid in ALLOWED_USERS
@@ -94,7 +94,6 @@ def get_gold():
         if price>1000: return float(price)
     except: pass
     return None
-
 def calc_rsi_gold(prices, period=14):
     if len(prices)<period+1: return 50.0
     gains=[]; losses=[]
@@ -223,7 +222,7 @@ def gold_menu_kb():
     mk.add(types.InlineKeyboardButton("📊 Market",callback_data="gold_market"), types.InlineKeyboardButton("📈 Active",callback_data="gold_active"), types.InlineKeyboardButton("🧠 GodMode",callback_data="gold_godmode"), types.InlineKeyboardButton("🚨 News",callback_data="gold_news"), types.InlineKeyboardButton("🛡️ Risk",callback_data="gold_risk"), types.InlineKeyboardButton("🎯 Test Signal",callback_data="gold_testsignal"), types.InlineKeyboardButton("⬅️ Back to Master",callback_data="master_back"))
     return mk
 
-# ================= IQ V54 + SAFE REC =================
+# ================= IQ V54 + SAFE REC + AUTO =================
 BRAND_NAME="KEVIN TRAILBLAZER"
 DB_FILE="bot_db.json"
 def load_db():
@@ -459,6 +458,66 @@ def iq_trade(pair,direction,amount,bal,expiry=30):
             except: _,oid=iq.buy(amount,pair,direction.lower(),1); return True,oid,60
     except: return False,None,0
 
+# ===== AUTO LOOP COMPLETE =====
+def auto_trading_loop(cid, bal, base_amt):
+    bot.send_message(cid, f"🤖 AUTO STARTED 🟢\nBalance {bal} Base ${base_amt}\nGOD {'✅' if GOD_MODE.get(cid,False) else '❌'} REC {'✅' if SMART_REC.get(cid,False) else '❌'} NEWS {'✅' if NEWS_FILTER.get(cid,True) else '❌'}\nScanning every 45s...\n\n[⏸️ STOP to pause]")
+    scan_index = 0
+    while AUTO_RUNNING.get(cid, False):
+        try:
+            if DB["rec_count"].get(str(cid),0) >= 3:
+                bot.send_message(cid, "🛡️ AUTO REC STOPPED 3/3 🛑\n🔒 Protection - Auto Paused\nPress AUTO again to resume")
+                AUTO_RUNNING[cid]=False
+                break
+            ok_lim,msg_lim = check_daily_limits(cid)
+            if not ok_lim:
+                bot.send_message(cid, msg_lim)
+                AUTO_RUNNING[cid]=False
+                break
+            can_trade,msg = check_news_before_trade(cid)
+            if not can_trade:
+                time.sleep(30)
+                continue
+            mode = MARKET_MODE.get(cid,"ALL")
+            if mode == "OTC":
+                pairs = [p for p in ALL_PAIRS if "OTC" in p]
+            elif mode == "REAL":
+                pairs = [p for p in ALL_PAIRS if "OTC" not in p]
+            else:
+                pairs = ALL_PAIRS
+            pair = pairs[scan_index % len(pairs)]
+            scan_index+=1
+            d = analyze_momentum(pair, god_mode=GOD_MODE.get(cid,False), uid=cid)
+            if not d:
+                time.sleep(5)
+                continue
+            # amount calc with SAFE REC
+            amt = get_smart_lot(cid, base_amt)
+            if SMART_REC.get(cid,False) and DB["stats"][str(cid)]["last_result"]=="LOSS":
+                rec_c = DB["rec_count"].get(str(cid),0)
+                if rec_c < 3:
+                    amt = round(amt*2.2,2)
+                    bot.send_message(cid, f"🧠 AUTO REC {rec_c+1}/3 2.2x → ${amt} on {pair}")
+            ok,oid,exp = iq_trade(pair, d['dir'], amt, bal, 30)
+            if not ok:
+                time.sleep(10)
+                continue
+            bot.send_message(cid, f"🤖 AUTO PLACED\n{pair} {d['dir']} ${amt} {d['conf']:.0f}% {d['reason']}\nID {oid}")
+            time.sleep(exp+5)
+            with IQ_LOCK: pnl = iq.check_win_v4(oid)
+            if pnl > 0:
+                streak = update_stats(cid, True, pnl)
+                update_pair_mem(cid, pair, True)
+                bot.send_message(cid, f"✅💚 AUTO WIN +${pnl:.2f} {pair} Streak {streak} REC 0/3 ✅")
+            else:
+                update_stats(cid, False, -amt)
+                update_pair_mem(cid, pair, False)
+                bot.send_message(cid, f"❌ AUTO LOSS -${amt:.2f} {pair} REC {DB['rec_count'].get(str(cid),0)}/3")
+            time.sleep(15)
+        except Exception as e:
+            print("Auto error", e)
+            time.sleep(10)
+    bot.send_message(cid, "⏸️ AUTO STOPPED", reply_markup=main_menu_iq(cid))
+
 def main_menu_iq(cid):
     god=GOD_MODE.get(cid,False); rec=SMART_REC.get(cid,False); news=NEWS_FILTER.get(cid,True); mode=MARKET_MODE.get(cid,"ALL")
     ensure_user(cid); s=DB["stats"][str(cid)]; d=DB["daily"][str(cid)]
@@ -487,7 +546,7 @@ def eok_pairs_kb():
     return mk
 
 @app.route('/')
-def home(): return f"👑 MASTER V7.4 PRIVATE LOCKED 10/10 LIVE GOLD {len(active_signals)} IQ {'🟢' if IQ_CONNECTED else '🔴'}"
+def home(): return f"👑 MASTER V7.4 FINAL PRIVATE AUTO LIVE GOLD {len(active_signals)} IQ {'🟢' if IQ_CONNECTED else '🔴'}"
 @app.route(f'/{BOT_TOKEN}', methods=['POST'])
 def webhook():
     try:
@@ -538,7 +597,7 @@ def handle_start(message):
     NEWS_FILTER.setdefault(message.chat.id,True); MARKET_MODE.setdefault(message.chat.id,"ALL")
     s=DB["stats"][str(message.from_user.id)]; d=DB["daily"][str(message.from_user.id)]
     base=1.0; smart=get_smart_lot(message.from_user.id, base)
-    txt=f"""🤖✨ **{BRAND_NAME} MASTER V7.4 PRIVATE 10/10** 💎🔥
+    txt=f"""🤖✨ **{BRAND_NAME} MASTER V7.4 FINAL PRIVATE AUTO** 💎🔥
 ━━━━━━━━━━━━━━━
 👑 Owner {OWNER_ID} | 📡 IQ {'🟢' if IQ_CONNECTED else '🔴'} | 🥇 GOLD DUAL API
 ━━━━━━━━━━━━━━━
@@ -554,18 +613,11 @@ def handle_start(message):
 
 @bot.message_handler(commands=['help'])
 def handle_help(message):
-    if not is_private_allowed(message.from_user.id):
-        return
-    bot.send_message(message.chat.id, """👑 KEVIN MASTER V7.4 - FULL GUIDE 📚
-
-🔰 /start → MASTER MENU
-[🥇 GOLD BOT] [📈 IQ OPTION BOT] [📚 Help]
-
-🥇 GOLD: 5-Brain + Dual API (gold-api + metals.live + yahoo fallback) + News block
-📈 IQ: QUICK + New Opportunity + LIVE BAR 0-100% + SAFE REC 3x max + BACKTEST + MEM
-
-SAFE REC: Max 3 martingale then auto-reset to prevent blow. Shows 🛡️ REC STOPPED.
-
+    if not is_private_allowed(message.from_user.id): return
+    bot.send_message(message.chat.id, """👑 KEVIN MASTER V7.4 FINAL GUIDE 📚
+GOLD: 5-Brain DUAL API + News block 82%+
+IQ: QUICK + New Opportunity + LIVE BAR + SAFE REC 3x + BACKTEST + MEM + AUTO COMPLETE
+AUTO: Scans ALL_PAIRS every 45s, GOD filter, SAFE REC 2.2x max 3, NEWS pause, DAILY LIMIT.
 Type /start to begin.""")
 
 @bot.callback_query_handler(func=lambda c: True)
@@ -583,7 +635,7 @@ def handle_all(c):
     if data=="master_iq":
         USER_MODE[cid]="IQ"
         s=DB["stats"][str(cid)]; d=DB["daily"][str(cid)]
-        bot.send_message(cid,f"📈 IQ MODE V7.4 ACTIVATED 👑\n💰 Today ${d['pnl']:.2f} Streak {s['streak']} REC {DB['rec_count'].get(str(cid),0)}/3\n\n👇 Choose:",reply_markup=main_menu_iq(cid))
+        bot.send_message(cid,f"📈 IQ MODE V7.4 FINAL ACTIVATED 👑\n💰 Today ${d['pnl']:.2f} Streak {s['streak']} REC {DB['rec_count'].get(str(cid),0)}/3\n\n👇 Choose:",reply_markup=main_menu_iq(cid))
         bot.answer_callback_query(c.id,"IQ Mode"); return
     if data=="master_back":
         USER_MODE[cid]=None; bot.send_message(cid,"👑 MASTER MENU\nChoose bot:",reply_markup=master_menu()); bot.answer_callback_query(c.id,"Back"); return
@@ -647,8 +699,6 @@ def handle_all(c):
             rec_c=DB["rec_count"].get(str(cid),0)
             if rec_c<3:
                 ngn_to_usd=round(ngn_to_usd*2.2,2); bot.send_message(cid,f"🧠 REC ACTIVE {rec_c+1}/3 2.2x → N{int(ngn_to_usd*1600):,}")
-            else:
-                bot.send_message(cid,"🛡️ REC limit 3 reached, using base amount"); 
         ok,oid,exp_real=iq_trade(pair,d['dir'],ngn_to_usd,bal,expiry=exp)
         if not ok: bot.send_message(cid,"❌ Trade Failed",reply_markup=main_menu_iq(cid)); return
         bot.send_message(cid,f"✅ Placed {oid} {exp_real}s"); time.sleep(exp_real+5)
@@ -748,7 +798,7 @@ def handle_all(c):
     if data=="market":
         cur=MARKET_MODE.get(cid,"ALL"); nxt={"ALL":"OTC","OTC":"REAL","REAL":"ALL"}[cur]; MARKET_MODE[cid]=nxt
         bot.send_message(cid,f"💱 MARKET MODE → {nxt}",reply_markup=main_menu_iq(cid)); return
-    if data=="stop_auto": AUTO_RUNNING[cid]=False; bot.send_message(cid,"⏸️ Stopped",reply_markup=main_menu_iq(cid)); return
+    if data=="stop_auto": AUTO_RUNNING[cid]=False; bot.send_message(cid,"⏸️ Stopped - AUTO OFF",reply_markup=main_menu_iq(cid)); return
     if data=="mystats" or data=="pnl" or data=="top":
         s=DB["stats"][str(cid)]; d=DB["daily"][str(cid)]; bot.send_message(cid,f"📊 Today ${d['pnl']:.2f} ({d['trades']}) Streak {s['streak']} Best {s['best_streak']} 🔥\nW {s['wins']} L {s['loss']} Profit ${s['profit']:.2f} REC {DB['rec_count'].get(str(cid),0)}/3",reply_markup=main_menu_iq(cid)); return
     if data=="pair_mem":
@@ -761,12 +811,21 @@ def handle_all(c):
     if data=="auto":
         mk=types.InlineKeyboardMarkup(row_width=2)
         mk.add(types.InlineKeyboardButton("🟢 DEMO $1",callback_data="auto_bal_PRACTICE_1"),types.InlineKeyboardButton("🔴 REAL $1",callback_data="auto_bal_REAL_1"))
-        bot.send_message(cid,"🤖 AUTO MODE - Pick balance",reply_markup=mk); return
+        mk.add(types.InlineKeyboardButton("🟢 DEMO $5",callback_data="auto_bal_PRACTICE_5"),types.InlineKeyboardButton("🔴 REAL $5",callback_data="auto_bal_REAL_5"))
+        mk.add(types.InlineKeyboardButton("⬅️ Back",callback_data="master_iq"))
+        bot.send_message(cid,"🤖 AUTO MODE - Pick balance & base amount\nSAFE REC 2.2x Max 3 + GOD filter + NEWS",reply_markup=mk); return
+    if data.startswith("auto_bal_"):
+        parts=data.split("_"); bal=parts[2]; amt=float(parts[3])
+        if AUTO_RUNNING.get(cid,False):
+            bot.send_message(cid,"⚠️ AUTO already running! Press STOP first",reply_markup=main_menu_iq(cid)); return
+        AUTO_RUNNING[cid]=True
+        threading.Thread(target=auto_trading_loop, args=(cid, bal, amt), daemon=True).start()
+        bot.answer_callback_query(c.id, f"AUTO {bal} ${amt} Started")
+        return
 
 @bot.message_handler(func=lambda m: True)
 def custom_handler(m):
-    if not is_private_allowed(m.from_user.id):
-        return
+    if not is_private_allowed(m.from_user.id): return
     cid=m.chat.id
     if cid in USER_STATE and USER_STATE[cid].get('awaiting_amount'):
         try:
@@ -804,6 +863,6 @@ if __name__=="__main__":
     except: pass
     ext_url=os.getenv("RENDER_EXTERNAL_URL")
     if ext_url:
-        try: bot.set_webhook(url=f"{ext_url}/{BOT_TOKEN}"); print(f"MASTER V7.4 PRIVATE 10/10 LIVE {ext_url}",flush=True)
+        try: bot.set_webhook(url=f"{ext_url}/{BOT_TOKEN}"); print(f"MASTER V7.4 FINAL PRIVATE AUTO LIVE {ext_url}",flush=True)
         except: pass
     app.run(host="0.0.0.0",port=int(os.environ.get("PORT",10000)))
