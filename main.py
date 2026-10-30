@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# 👑 KEVIN MASTER V7.4 10/10 - GOLD DUAL API + SAFE MARTINGALE 3x + HELP BTN
+# 👑 KEVIN MASTER V7.4 10/10 - GOLD DUAL API + SAFE MARTINGALE 3x + HELP BTN - PRIVATE LOCKED
 
 import os, requests, time, threading, warnings, json, random, pytz
 from datetime import datetime, timedelta
@@ -17,6 +17,12 @@ BOT_TOKEN = os.getenv("BOT_TOKEN") or os.getenv("TELEGRAM_BOT_TOKEN")
 CHANNEL_ID = "@KEVINTRAILBLAZE"
 ADMIN_ID = os.getenv("ADMIN_ID")
 OWNER_ID = 8659453018
+
+# 🔒 PRIVATE LOCK - ONLY OWNER
+ALLOWED_USERS = [OWNER_ID]
+def is_private_allowed(uid):
+    return uid in ALLOWED_USERS
+
 bot = telebot.TeleBot(BOT_TOKEN)
 app = Flask(__name__)
 
@@ -73,18 +79,15 @@ def calc_atr_gold(prices, period=14):
     tr=[abs(prices[i]-prices[i-1]) for i in range(1,len(prices))]
     return sum(tr[-period:])/period
 def get_gold():
-    # Primary
     try:
         r=requests.get("https://api.gold-api.com/price/XAU",timeout=8).json()
         price=float(r.get("price") or r.get("xau") or 0)
         if price>1000: return price
     except: pass
-    # Fallback 1 metals.live
     try:
         r=requests.get("https://api.metals.live/v1/spot",timeout=8).json()
         if "gold" in r: return float(r["gold"])
     except: pass
-    # Fallback 2 Yahoo via gold price
     try:
         r=requests.get("https://query1.finance.yahoo.com/v8/finance/chart/GC=F?interval=1m&range=1d",timeout=8,headers={"User-Agent":"Mozilla/5.0"}).json()
         price=r["chart"]["result"][0]["meta"]["regularMarketPrice"]
@@ -484,7 +487,7 @@ def eok_pairs_kb():
     return mk
 
 @app.route('/')
-def home(): return f"👑 MASTER V7.4 10/10 LIVE GOLD {len(active_signals)} IQ {'🟢' if IQ_CONNECTED else '🔴'}"
+def home(): return f"👑 MASTER V7.4 PRIVATE LOCKED 10/10 LIVE GOLD {len(active_signals)} IQ {'🟢' if IQ_CONNECTED else '🔴'}"
 @app.route(f'/{BOT_TOKEN}', methods=['POST'])
 def webhook():
     try:
@@ -525,6 +528,9 @@ def signal_loop():
 
 @bot.message_handler(commands=['start'])
 def handle_start(message):
+    if not is_private_allowed(message.from_user.id):
+        bot.send_message(message.chat.id, "❌ Private Bot 🔒\nAccess Denied. Owner only.")
+        return
     global ADMIN_CHAT_ID
     if message.chat.type=="private": ADMIN_CHAT_ID=message.chat.id
     USER_MODE[message.chat.id]=None
@@ -532,7 +538,7 @@ def handle_start(message):
     NEWS_FILTER.setdefault(message.chat.id,True); MARKET_MODE.setdefault(message.chat.id,"ALL")
     s=DB["stats"][str(message.from_user.id)]; d=DB["daily"][str(message.from_user.id)]
     base=1.0; smart=get_smart_lot(message.from_user.id, base)
-    txt=f"""🤖✨ **{BRAND_NAME} MASTER V7.4 10/10** 💎🔥
+    txt=f"""🤖✨ **{BRAND_NAME} MASTER V7.4 PRIVATE 10/10** 💎🔥
 ━━━━━━━━━━━━━━━
 👑 Owner {OWNER_ID} | 📡 IQ {'🟢' if IQ_CONNECTED else '🔴'} | 🥇 GOLD DUAL API
 ━━━━━━━━━━━━━━━
@@ -548,6 +554,8 @@ def handle_start(message):
 
 @bot.message_handler(commands=['help'])
 def handle_help(message):
+    if not is_private_allowed(message.from_user.id):
+        return
     bot.send_message(message.chat.id, """👑 KEVIN MASTER V7.4 - FULL GUIDE 📚
 
 🔰 /start → MASTER MENU
@@ -559,8 +567,12 @@ def handle_help(message):
 SAFE REC: Max 3 martingale then auto-reset to prevent blow. Shows 🛡️ REC STOPPED.
 
 Type /start to begin.""")
+
 @bot.callback_query_handler(func=lambda c: True)
 def handle_all(c):
+    if not is_private_allowed(c.from_user.id):
+        bot.answer_callback_query(c.id, "❌ Private Bot")
+        return
     cid=c.message.chat.id; data=c.data; ensure_user(cid)
     if cid not in USER_STATE: USER_STATE[cid]={}
     if data=="master_help": handle_help(c.message); bot.answer_callback_query(c.id,"Help"); return
@@ -601,7 +613,6 @@ def handle_all(c):
         elif data=="gold_risk": bot.send_message(cid,f"🛡️ Risk: 1% per trade, Daily {performance.get('daily_loss',0)}/3\nBE at TP1",reply_markup=gold_menu_kb())
         elif data=="gold_testsignal": g=get_gold() or 2650.0; request_approval_gold(g,"BUY",90,4,0,["🟢 Sweep Low","🟢 Bullish MSS","📈 Uptrend","🟢 London ACTIVE","🎯 4/5"]); bot.send_message(cid,"✅ Test signal sent",reply_markup=gold_menu_kb())
         return
-    # IQ PART SAME AS V7.3 BUT WITH SAFE REC LOGIC
     if data=="new_op": bot.send_message(cid,f"👇 **Trade Live | Trade Demo - {BRAND_NAME}**",reply_markup=trade_type_kb()); return
     if data.startswith("type_"):
         bal=data.split("_")[1]; USER_STATE[cid]['balance']=bal
@@ -622,7 +633,6 @@ def handle_all(c):
         amt=USER_STATE[cid].get('amount',5000); exp=USER_STATE[cid].get('expiry',30); bal=USER_STATE[cid].get('balance','PRACTICE')
         ok_lim,msg_lim=check_daily_limits(cid)
         if not ok_lim: bot.send_message(cid,msg_lim,reply_markup=main_menu_iq(cid)); return
-        # SAFE REC CHECK
         if DB["rec_count"].get(str(cid),0)>=3:
             bot.send_message(cid,"🛡️ REC STOPPED! 3 losses max reached today. Reset tomorrow or /start\n🔒 Protection to avoid blow",reply_markup=main_menu_iq(cid)); return
         can_trade,msg=check_news_before_trade(cid)
@@ -652,7 +662,6 @@ def handle_all(c):
                 bot.send_message(cid,f"🔥 **{BRAND_NAME}**\nRESULT: ❌ LOSS\nLoss: -N{amt:,}.00 REC {DB['rec_count'].get(str(cid),0)}/3",reply_markup=main_menu_iq(cid))
         except: bot.send_message(cid,"Check IQ manually",reply_markup=main_menu_iq(cid))
         return
-    # ... rest of callbacks same as V7.3 (quick, pair_, bal_, qn_, amt_, god, recovery, news, market, mystats, pair_mem, auto)
     if data=="backtest_menu":
         mk=types.InlineKeyboardMarkup(row_width=2)
         for p in ALL_PAIRS[:8]: mk.add(types.InlineKeyboardButton(f"📈 {p}",callback_data=f"bt_{p}"))
@@ -756,6 +765,8 @@ def handle_all(c):
 
 @bot.message_handler(func=lambda m: True)
 def custom_handler(m):
+    if not is_private_allowed(m.from_user.id):
+        return
     cid=m.chat.id
     if cid in USER_STATE and USER_STATE[cid].get('awaiting_amount'):
         try:
@@ -793,6 +804,6 @@ if __name__=="__main__":
     except: pass
     ext_url=os.getenv("RENDER_EXTERNAL_URL")
     if ext_url:
-        try: bot.set_webhook(url=f"{ext_url}/{BOT_TOKEN}"); print(f"MASTER V7.4 10/10 LIVE {ext_url}",flush=True)
+        try: bot.set_webhook(url=f"{ext_url}/{BOT_TOKEN}"); print(f"MASTER V7.4 PRIVATE 10/10 LIVE {ext_url}",flush=True)
         except: pass
     app.run(host="0.0.0.0",port=int(os.environ.get("PORT",10000)))
