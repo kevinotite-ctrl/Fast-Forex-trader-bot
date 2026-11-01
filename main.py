@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-# 👑 KEVIN MASTER V7.4 FINAL 10/10 - PRIVATE + GOLD DUAL API + SAFE REC 3x + AUTO COMPLETE - FIXED
-
+# 👑 KEVIN MASTER V7.6 FINAL FIXED - BASED ON YOUR CODE + REAL TRADE CHECK + SAFE WIN
+# PRIVATE + GOLD DUAL API + SAFE REC 3x + AUTO COMPLETE
 import os, requests, time, threading, warnings, json, random, pytz
 from datetime import datetime, timedelta
 import telebot
@@ -11,32 +11,24 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
-
 warnings.filterwarnings("ignore")
 BOT_TOKEN = os.getenv("BOT_TOKEN") or os.getenv("TELEGRAM_BOT_TOKEN")
 CHANNEL_ID = "@KEVINTRAILBLAZE"
 ADMIN_ID = os.getenv("ADMIN_ID")
 OWNER_ID = 8659453018
-
-# 🔒 PRIVATE LOCK
 ALLOWED_USERS = [OWNER_ID]
 def is_private_allowed(uid):
     return uid in ALLOWED_USERS
-
 bot = telebot.TeleBot(BOT_TOKEN)
 app = Flask(__name__)
-
 USER_MODE = {}
 ADMIN_CHAT_ID = None
 WAT = pytz.timezone("Africa/Lagos")
-
 def master_menu():
     mk = types.InlineKeyboardMarkup(row_width=2)
     mk.add(types.InlineKeyboardButton("🥇 GOLD BOT", callback_data="master_gold"), types.InlineKeyboardButton("📈 IQ OPTION BOT", callback_data="master_iq"))
     mk.add(types.InlineKeyboardButton("📚 Help / Guide", callback_data="master_help"))
     return mk
-
-# ================= GOLD V6.1 DUAL API =================
 prices_history={"GOLD":[],"GOLD_1H":[]}
 last_signal_time={"GOLD":0, "GOLD_1H_TS":0}
 pending_signals={}
@@ -66,7 +58,6 @@ def save_perf_gold(p):
 active_signals=[]
 performance=load_perf_gold()
 load_active_gold()
-
 def is_news_block_gold():
     now=datetime.now(WAT)
     red=[(7,15,7,45),(13,15,14,0),(14,15,15,30)]
@@ -160,23 +151,7 @@ def build_msg_gold(price,direction,conf,bull,bear,brains):
     sl_dist=atr*1.5; tp1_dist=atr*2.2; tp2_dist=atr*4; tp3_dist=atr*6.5
     if direction=="BUY": sl=price-sl_dist; tp1=price+tp1_dist; tp2=price+tp2_dist; tp3=price+tp3_dist
     else: sl=price+sl_dist; tp1=price-tp1_dist; tp2=price-tp2_dist; tp3=price-tp3_dist
-    msg=f"""👑 KEVIN GOLD ONLY V6.1 👑
-🤖 5-Brain + News + ATR
-{emoji} 🥇 XAUUSD GOLD
-💠 Entry: ${round(price,2)}
-🛡️ SL: ${round(sl,2)} | ATR x1.5
-🎯 TP1: ${round(tp1,2)} | RR 1:1.5
-🎯 TP2: ${round(tp2,2)} | RR 1:2.7
-🎯 TP3: ${round(tp3,2)} | RR 1:4.3
-🧠 Vote: {bull} BUY vs {bear} SELL | Conf {conf}%
-{brains[4]}
-📚 God Analysis:
-{brains[0]}
-{brains[1]}
-{brains[2]}
-{brains[3]}
-🔒 Auto: BE at TP1 + Trail
-🔗 @KEVINTRAILBLAZE"""
+    msg=f"👑 KEVIN GOLD ONLY V6.1 👑\n🤖 5-Brain + News + ATR\n{emoji} 🥇 XAUUSD GOLD\n💠 Entry: ${round(price,2)}\n🛡️ SL: ${round(sl,2)} | ATR x1.5\n🎯 TP1: ${round(tp1,2)} | RR 1:1.5\n🎯 TP2: ${round(tp2,2)} | RR 1:2.7\n🎯 TP3: ${round(tp3,2)} | RR 1:4.3\n🧠 Vote: {bull} BUY vs {bear} SELL | Conf {conf}%\n{brains[4]}\n📚 God Analysis:\n{brains[0]}\n{brains[1]}\n{brains[2]}\n{brains[3]}\n🔒 Auto: BE at TP1 + Trail\n🔗 @KEVINTRAILBLAZE"
     data={"symbol":"GOLD","action":direction,"entry":price,"sl":sl,"tp1":tp1,"tp2":tp2,"tp3":tp3,"conf":conf}
     return msg,data
 def request_approval_gold(price,direction,conf,bull,bear,brains):
@@ -221,8 +196,6 @@ def gold_menu_kb():
     mk=types.InlineKeyboardMarkup(row_width=2)
     mk.add(types.InlineKeyboardButton("📊 Market",callback_data="gold_market"), types.InlineKeyboardButton("📈 Active",callback_data="gold_active"), types.InlineKeyboardButton("🧠 GodMode",callback_data="gold_godmode"), types.InlineKeyboardButton("🚨 News",callback_data="gold_news"), types.InlineKeyboardButton("🛡️ Risk",callback_data="gold_risk"), types.InlineKeyboardButton("🎯 Test Signal",callback_data="gold_testsignal"), types.InlineKeyboardButton("⬅️ Back to Master",callback_data="master_back"))
     return mk
-
-# ================= IQ V54 + SAFE REC + AUTO =================
 BRAND_NAME="KEVIN TRAILBLAZER"
 DB_FILE="bot_db.json"
 def load_db():
@@ -283,13 +256,11 @@ def get_smart_lot(uid, base_amt):
     elif wr>=60: return round(base_amt*1.5,2)
     elif wr<45: return round(base_amt*0.5,2)
     else: return base_amt
-
 ALL_PAIRS=["EURUSD-OTC","GBPUSD-OTC","EURGBP-OTC","USDJPY-OTC","GBPJPY-OTC","AUDUSD-OTC","USDCHF-OTC","EURJPY-OTC","EURUSD","GBPUSD","EURGBP","USDJPY","GBPJPY","AUDUSD","USDCHF","EURJPY","EURCHF","GBPCHF","AUDJPY","NZDUSD","BTCUSD-OTC","ETHUSD-OTC","GOLD-OTC","SILVER-OTC"]
 GOD_MODE={}; SMART_REC={}; AUTO_RUNNING={}; NEWS_FILTER={}; NEWS_PAUSED={}; MARKET_MODE={}
 LAST_NEWS_CHECK=0; HIGH_IMPACT_NEWS=[]
 USER_STATE={}
 FAKE_WR_DISPLAY={"USDSDG-OTC":83.7,"USDMXN-OTC":83.7,"USDBDT-OTC":81.4,"USDARS-OTC":81.2,"USDTRY-OTC":80.4,"USDZAR-OTC":78.5}
-
 def animate_progress_bar(cid, mid, pair, amount_text, brand=BRAND_NAME):
     steps=[(10,"reading candles 1m"),(20,"reading candles 1m"),(35,"reading momentum"),(50,"reading momentum + MTF 5m"),(65,"checking BB + ATR"),(80,"locking signal"),(90,"verifying edge"),(100,"SIGNAL LOCKED")]
     for pct, stage in steps:
@@ -306,7 +277,6 @@ def animate_progress_bar_eok(cid, mid, pair):
         try: bot.edit_message_text(txt,cid,mid)
         except: pass
         time.sleep(0.35)
-
 def fetch_forex_news():
     global HIGH_IMPACT_NEWS,LAST_NEWS_CHECK
     if time.time()-LAST_NEWS_CHECK<1800: return HIGH_IMPACT_NEWS
@@ -332,7 +302,6 @@ def check_news_before_trade(cid):
     if is_news: NEWS_PAUSED[cid]=time.time()+3600; return False,f"📰🚨 RED NEWS! {news_item['title']} Paused 60min"
     if cid in NEWS_PAUSED and time.time()<NEWS_PAUSED[cid]: rem=int((NEWS_PAUSED[cid]-time.time())/60); return False,f"⏸️ News pause {rem}min"
     return True,"OK"
-
 IQ_LOCK=threading.Lock(); IQ_CONNECTED=False; iq=None; PAYOUT_CACHE={}; PAYOUT_TIME=0
 try:
     from iqoptionapi.stable_api import IQ_Option
@@ -426,7 +395,6 @@ def analyze_momentum(pair, god_mode=False, uid=None):
         return {"pair":pair,"dir":sig,"conf":min(98,score),"price":float(close.iloc[-1]),"rsi":rsi_now,"reason":reason,"mom":mom3,"payout":payout,"df":df1.tail(30),"mtf":mtf_dir,"bb_width":bb_w_now,"atr":atr_now}
     except Exception as e:
         print(f"Analyze error {pair}: {e}"); return None
-
 def backtest_pair(pair, uid=None):
     df=get_candles(pair, 60, 120)
     if df is None or len(df)<50: return None
@@ -449,16 +417,46 @@ def backtest_pair(pair, uid=None):
         except: pass
     if total==0: return None
     return {"wins":wins,"total":total,"wr":wins/total*100}
-
 def iq_trade(pair,direction,amount,bal,expiry=30):
     try:
         with IQ_LOCK:
             iq.change_balance(bal)
-            try: _,oid=iq.buy_blitz(pair,amount,direction.lower(),expiry); return True,oid,expiry
-            except: _,oid=iq.buy(amount,pair,direction.lower(),1); return True,oid,60
-    except: return False,None,0
-
-# ===== AUTO LOOP COMPLETE =====
+            print(f"TRY TRADE {pair} {direction} ${amount} {bal}", flush=True)
+            if amount < 1.0:
+                print(f"REJECT too small ${amount} < $1", flush=True)
+                return False, None, 0
+            try:
+                check, oid = iq.buy_blitz(pair, amount, direction.lower(), expiry)
+                print(f"Blitz check={check} oid={oid}", flush=True)
+                if check and oid:
+                    return True, oid, expiry
+            except Exception as e:
+                print(f"Blitz err {e}", flush=True)
+            try:
+                check, oid = iq.buy(amount, pair, direction.lower(), 1)
+                print(f"Binary check={check} oid={oid}", flush=True)
+                if check and oid:
+                    return True, oid, 60
+            except Exception as e:
+                print(f"Binary err {e}", flush=True)
+            print(f"REJECTED both failed {pair}", flush=True)
+            return False, None, 0
+    except Exception as e:
+        print(f"iq_trade outer {e}", flush=True)
+        return False, None, 0
+def safe_check_win(oid, max_retry=6):
+    for attempt in range(max_retry):
+        try:
+            with IQ_LOCK:
+                pnl = iq.check_win_v4(oid)
+                if pnl is not None:
+                    print(f"WIN CHECK {oid} pnl={pnl}", flush=True)
+                    return pnl
+        except Exception as e:
+            print(f"check retry {attempt} {e}", flush=True)
+            time.sleep(2)
+    print(f"WIN CHECK FAILED {oid}", flush=True)
+    return None
 def auto_trading_loop(cid, bal, base_amt):
     bot.send_message(cid, f"🤖 AUTO STARTED 🟢\nBalance {bal} Base ${base_amt}\nGOD {'✅' if GOD_MODE.get(cid,False) else '❌'} REC {'✅' if SMART_REC.get(cid,False) else '❌'} NEWS {'✅' if NEWS_FILTER.get(cid,True) else '❌'}\nScanning every 45s...\n\n[⏸️ STOP to pause]")
     scan_index = 0
@@ -490,8 +488,8 @@ def auto_trading_loop(cid, bal, base_amt):
             if not d:
                 time.sleep(5)
                 continue
-            # amount calc with SAFE REC
             amt = get_smart_lot(cid, base_amt)
+            if amt < 1.0: amt = 1.0
             if SMART_REC.get(cid,False) and DB["stats"][str(cid)]["last_result"]=="LOSS":
                 rec_c = DB["rec_count"].get(str(cid),0)
                 if rec_c < 3:
@@ -499,25 +497,30 @@ def auto_trading_loop(cid, bal, base_amt):
                     bot.send_message(cid, f"🧠 AUTO REC {rec_c+1}/3 2.2x → ${amt} on {pair}")
             ok,oid,exp = iq_trade(pair, d['dir'], amt, bal, 30)
             if not ok:
+                bot.send_message(cid, f"❌ AUTO Trade rejected {pair} - IQ closed or balance low - check logs")
                 time.sleep(10)
                 continue
-            bot.send_message(cid, f"🤖 AUTO PLACED\n{pair} {d['dir']} ${amt} {d['conf']:.0f}% {d['reason']}\nID {oid}")
+            bot.send_message(cid, f"🤖 AUTO PLACED REAL\n{pair} {d['dir']} ${amt} {d['conf']:.0f}% {d['reason']}\nID {oid}")
             time.sleep(exp+5)
-            with IQ_LOCK: pnl = iq.check_win_v4(oid)
-            if pnl > 0:
+            pnl = safe_check_win(oid)
+            if pnl is None:
+                time.sleep(5)
+                pnl = safe_check_win(oid)
+            if pnl is not None and pnl > 0:
                 streak = update_stats(cid, True, pnl)
                 update_pair_mem(cid, pair, True)
                 bot.send_message(cid, f"✅💚 AUTO WIN +${pnl:.2f} {pair} Streak {streak} REC 0/3 ✅")
-            else:
+            elif pnl is not None:
                 update_stats(cid, False, -amt)
                 update_pair_mem(cid, pair, False)
                 bot.send_message(cid, f"❌ AUTO LOSS -${amt:.2f} {pair} REC {DB['rec_count'].get(str(cid),0)}/3")
+            else:
+                bot.send_message(cid, f"⏳ AUTO {pair} ID {oid} - Result delayed check IQ app")
             time.sleep(15)
         except Exception as e:
             print("Auto error", e)
             time.sleep(10)
     bot.send_message(cid, "⏸️ AUTO STOPPED", reply_markup=main_menu_iq(cid))
-
 def main_menu_iq(cid):
     god=GOD_MODE.get(cid,False); rec=SMART_REC.get(cid,False); news=NEWS_FILTER.get(cid,True); mode=MARKET_MODE.get(cid,"ALL")
     ensure_user(cid); s=DB["stats"][str(cid)]; d=DB["daily"][str(cid)]
@@ -531,8 +534,8 @@ def trade_type_kb():
     return mk
 def amount_kb():
     mk=types.InlineKeyboardMarkup(row_width=3)
-    mk.add(types.InlineKeyboardButton("N1,000",callback_data="eok_amt_1000"),types.InlineKeyboardButton("N2,000",callback_data="eok_amt_2000"),types.InlineKeyboardButton("N3,000",callback_data="eok_amt_3000"))
-    mk.add(types.InlineKeyboardButton("N5,000",callback_data="eok_amt_5000"),types.InlineKeyboardButton("✏️ Custom",callback_data="eok_amt_custom"),types.InlineKeyboardButton("❌ Cancel",callback_data="cancel"))
+    mk.add(types.InlineKeyboardButton("N2,000",callback_data="eok_amt_2000"),types.InlineKeyboardButton("N3,000",callback_data="eok_amt_3000"),types.InlineKeyboardButton("N5,000",callback_data="eok_amt_5000"))
+    mk.add(types.InlineKeyboardButton("N10,000",callback_data="eok_amt_10000"),types.InlineKeyboardButton("✏️ Custom Min N1600",callback_data="eok_amt_custom"),types.InlineKeyboardButton("❌ Cancel",callback_data="cancel"))
     return mk
 def expiry_kb():
     mk=types.InlineKeyboardMarkup(row_width=3)
@@ -544,9 +547,8 @@ def eok_pairs_kb():
         mk.add(types.InlineKeyboardButton(f"{p} - Win rate {wr}%",callback_data=f"eok_pair_{p}"))
     mk.add(types.InlineKeyboardButton("🔄 More Pairs (V54)",callback_data="quick"))
     return mk
-
 @app.route('/')
-def home(): return f"👑 MASTER V7.4 FINAL PRIVATE AUTO LIVE GOLD {len(active_signals)} IQ {'🟢' if IQ_CONNECTED else '🔴'}"
+def home(): return f"👑 MASTER V7.6 REAL TRADE FIX LIVE GOLD {len(active_signals)} IQ {'🟢' if IQ_CONNECTED else '🔴'}"
 @app.route(f'/{BOT_TOKEN}', methods=['POST'])
 def webhook():
     try:
@@ -562,7 +564,6 @@ def set_webhook():
             url=f"{ext_url}/{BOT_TOKEN}"; bot.set_webhook(url=url); return f"✅ Webhook set {url}"
         return "❌ No URL"
     except Exception as e: return f"⚠️ {e}"
-
 def signal_loop():
     while True:
         try:
@@ -584,7 +585,6 @@ def signal_loop():
                     request_approval_gold(price,direction,conf,bull,bear,brains); last_signal_time["GOLD"]=time.time()
         except Exception as e: print("GOLD loop",e,flush=True)
         time.sleep(60)
-
 @bot.message_handler(commands=['start'])
 def handle_start(message):
     if not is_private_allowed(message.from_user.id):
@@ -597,29 +597,13 @@ def handle_start(message):
     NEWS_FILTER.setdefault(message.chat.id,True); MARKET_MODE.setdefault(message.chat.id,"ALL")
     s=DB["stats"][str(message.from_user.id)]; d=DB["daily"][str(message.from_user.id)]
     base=1.0; smart=get_smart_lot(message.from_user.id, base)
-    txt=f"""🤖✨ **{BRAND_NAME} MASTER V7.4 FINAL PRIVATE AUTO** 💎🔥
-━━━━━━━━━━━━━━━
-👑 Owner {OWNER_ID} | 📡 IQ {'🟢' if IQ_CONNECTED else '🔴'} | 🥇 GOLD DUAL API
-━━━━━━━━━━━━━━━
-💰 Today: ${d['pnl']:.2f} ({d['trades']}) | 🔥 Streak {s['streak']} Best {s['best_streak']}
-📈 All Time: {s['wins']}W/{s['loss']}L WR {(s['wins']/s['total']*100) if s['total'] else 0:.1f}% Profit ${s['profit']:.2f}
-💡 Smart Lot: ${base} → ${smart}
-🧠 REC Count: {DB['rec_count'].get(str(message.from_user.id),0)}/3
-━━━━━━━━━━━━━━━
-👇 **PICK YOUR BOT BELOW**
-━━━━━━━━━━━━━━━
-"""
+    if smart < 1.0: smart = 1.0
+    txt=f"🤖✨ **{BRAND_NAME} MASTER V7.6 REAL FIX** 💎🔥\n━━━━━━━━━━━━━━━\n👑 Owner {OWNER_ID} | 📡 IQ {'🟢' if IQ_CONNECTED else '🔴'} | 🥇 GOLD DUAL API\n━━━━━━━━━━━━━━━\n💰 Today: ${d['pnl']:.2f} ({d['trades']}) | 🔥 Streak {s['streak']} Best {s['best_streak']}\n📈 All Time: {s['wins']}W/{s['loss']}L WR {(s['wins']/s['total']*100) if s['total'] else 0:.1f}% Profit ${s['profit']:.2f}\n💡 Smart Lot: ${base} → ${smart} (Min $1)\n🧠 REC Count: {DB['rec_count'].get(str(message.from_user.id),0)}/3\n━━━━━━━━━━━━━━━\n👇 **PICK YOUR BOT BELOW**\n━━━━━━━━━━━━━━━\n"
     bot.send_message(message.chat.id,txt,reply_markup=master_menu())
-
 @bot.message_handler(commands=['help'])
 def handle_help(message):
     if not is_private_allowed(message.from_user.id): return
-    bot.send_message(message.chat.id, """👑 KEVIN MASTER V7.4 FINAL GUIDE 📚
-GOLD: 5-Brain DUAL API + News block 82%+
-IQ: QUICK + New Opportunity + LIVE BAR + SAFE REC 3x + BACKTEST + MEM + AUTO COMPLETE
-AUTO: Scans ALL_PAIRS every 45s, GOD filter, SAFE REC 2.2x max 3, NEWS pause, DAILY LIMIT.
-Type /start to begin.""")
-
+    bot.send_message(message.chat.id, "👑 KEVIN MASTER V7.6 GUIDE 📚\nGOLD: 5-Brain DUAL API + News block 82%+\nIQ: QUICK + New Opportunity + LIVE BAR + SAFE REC 3x + BACKTEST + MEM + AUTO COMPLETE + REAL TRADE CHECK\nFIXES: Min $1 (N1600) enforced, Real check=True, No fake ID, Safe win checker 6 retries\nType /start to begin.")
 @bot.callback_query_handler(func=lambda c: True)
 def handle_all(c):
     if not is_private_allowed(c.from_user.id):
@@ -630,12 +614,12 @@ def handle_all(c):
     if data=="master_help": handle_help(c.message); bot.answer_callback_query(c.id,"Help"); return
     if data=="master_gold":
         USER_MODE[cid]="GOLD"; g=get_gold() or 0
-        bot.send_message(cid,f"🥇 GOLD MODE V7.4 DUAL API 👑\nGOLD ${round(g,2)} OPEN ✅\nActive {len(active_signals)} Wins {performance['wins']}",reply_markup=gold_menu_kb())
+        bot.send_message(cid,f"🥇 GOLD MODE V7.6 DUAL API 👑\nGOLD ${round(g,2)} OPEN ✅\nActive {len(active_signals)} Wins {performance['wins']}",reply_markup=gold_menu_kb())
         bot.answer_callback_query(c.id,"GOLD Mode"); return
     if data=="master_iq":
         USER_MODE[cid]="IQ"
         s=DB["stats"][str(cid)]; d=DB["daily"][str(cid)]
-        bot.send_message(cid,f"📈 IQ MODE V7.4 FINAL ACTIVATED 👑\n💰 Today ${d['pnl']:.2f} Streak {s['streak']} REC {DB['rec_count'].get(str(cid),0)}/3\n\n👇 Choose:",reply_markup=main_menu_iq(cid))
+        bot.send_message(cid,f"📈 IQ MODE V7.6 REAL FIX ACTIVATED 👑\n💰 Today ${d['pnl']:.2f} Streak {s['streak']} REC {DB['rec_count'].get(str(cid),0)}/3\n\n👇 Choose:",reply_markup=main_menu_iq(cid))
         bot.answer_callback_query(c.id,"IQ Mode"); return
     if data=="master_back":
         USER_MODE[cid]=None; bot.send_message(cid,"👑 MASTER MENU\nChoose bot:",reply_markup=master_menu()); bot.answer_callback_query(c.id,"Back"); return
@@ -660,7 +644,7 @@ def handle_all(c):
                 t=f"📊 ACTIVE {len(active_signals)}\n"; 
                 for s in active_signals: t+=f"{s['symbol']} {s['action']} ${round(s['entry'],2)}\n"
                 bot.send_message(cid,t,reply_markup=gold_menu_kb())
-        elif data=="gold_godmode": bot.send_message(cid,"🧠 GOLD V7.4 DUAL API + 7 Layers\n1 SMC 2 PA 3 Trend 4 KillZone+News 5 ATR 6 Risk 7 Protection\n82%+ only",reply_markup=gold_menu_kb())
+        elif data=="gold_godmode": bot.send_message(cid,"🧠 GOLD V7.6 DUAL API + 7 Layers\n1 SMC 2 PA 3 Trend 4 KillZone+News 5 ATR 6 Risk 7 Protection\n82%+ only",reply_markup=gold_menu_kb())
         elif data=="gold_news": blocked,msg=is_news_block_gold(); bot.send_message(cid,f"🚨 {msg}",reply_markup=gold_menu_kb())
         elif data=="gold_risk": bot.send_message(cid,f"🛡️ Risk: 1% per trade, Daily {performance.get('daily_loss',0)}/3\nBE at TP1",reply_markup=gold_menu_kb())
         elif data=="gold_testsignal": g=get_gold() or 2650.0; request_approval_gold(g,"BUY",90,4,0,["🟢 Sweep Low","🟢 Bullish MSS","📈 Uptrend","🟢 London ACTIVE","🎯 4/5"]); bot.send_message(cid,"✅ Test signal sent",reply_markup=gold_menu_kb())
@@ -668,12 +652,16 @@ def handle_all(c):
     if data=="new_op": bot.send_message(cid,f"👇 **Trade Live | Trade Demo - {BRAND_NAME}**",reply_markup=trade_type_kb()); return
     if data.startswith("type_"):
         bal=data.split("_")[1]; USER_STATE[cid]['balance']=bal
-        bot.send_message(cid,f"✅ {bal} Selected\n\n💰 **Enter amount:**",reply_markup=amount_kb()); return
+        bot.send_message(cid,f"✅ {bal} Selected\n\n💰 **Enter amount (Min N1600 = $1):**",reply_markup=amount_kb()); return
     if data.startswith("eok_amt_"):
-        if data=="eok_amt_custom": bot.send_message(cid,"✏️ Enter custom amount (e.g. 29800):"); USER_STATE[cid]['awaiting_amount']=True; return
+        if data=="eok_amt_custom": bot.send_message(cid,"✏️ Enter custom amount Min N1600 (e.g. 2000):"); USER_STATE[cid]['awaiting_amount']=True; return
         if data=="cancel": bot.send_message(cid,"❌ Cancelled",reply_markup=main_menu_iq(cid)); return
-        amt=int(data.split("_")[2]); USER_STATE[cid]['amount']=amt; USER_STATE[cid]['awaiting_amount']=False
-        bot.send_message(cid,f"✅ Amount N{amt:,}\n\n⏱️ **Pick expiry**",reply_markup=expiry_kb()); return
+        amt=int(data.split("_")[2]); 
+        if amt < 1600:
+            bot.send_message(cid, f"❌ Min na N1,600 ($1) for IQ. You click N{amt:,} too small. Use N2000+", reply_markup=amount_kb())
+            return
+        USER_STATE[cid]['amount']=amt; USER_STATE[cid]['awaiting_amount']=False
+        bot.send_message(cid,f"✅ Amount N{amt:,} (${amt/1600:.2f})\n\n⏱️ **Pick expiry**",reply_markup=expiry_kb()); return
     if data.startswith("eok_exp_"):
         exp=int(data.split("_")[2]); USER_STATE[cid]['expiry']=exp
         txt=f"📊 **{BRAND_NAME} - Highest chance to win now**\n"
@@ -682,7 +670,10 @@ def handle_all(c):
         bot.send_message(cid,txt,reply_markup=eok_pairs_kb()); return
     if data.startswith("eok_pair_"):
         pair=data.replace("eok_pair_",""); USER_STATE[cid]['pair']=pair
-        amt=USER_STATE[cid].get('amount',5000); exp=USER_STATE[cid].get('expiry',30); bal=USER_STATE[cid].get('balance','PRACTICE')
+        amt=USER_STATE[cid].get('amount',2000); exp=USER_STATE[cid].get('expiry',30); bal=USER_STATE[cid].get('balance','PRACTICE')
+        if amt < 1600:
+            bot.send_message(cid, "❌ Amount too small, min N1600 ($1)", reply_markup=main_menu_iq(cid))
+            return
         ok_lim,msg_lim=check_daily_limits(cid)
         if not ok_lim: bot.send_message(cid,msg_lim,reply_markup=main_menu_iq(cid)); return
         if DB["rec_count"].get(str(cid),0)>=3:
@@ -695,22 +686,29 @@ def handle_all(c):
         if not d: bot.send_message(cid,"❌ No signal",reply_markup=eok_pairs_kb()); return
         bot.send_message(cid,f"🔒 {BRAND_NAME} 🔒\nSIGNAL FOUND\nPairs: {pair}\nAction: {d['dir']}\nAmount: N{amt:,}.00\nExpiry: {exp}s\nConf: {d['conf']:.0f}%")
         ngn_to_usd=amt/1600.0
+        if ngn_to_usd < 1.0: ngn_to_usd = 1.0
         if SMART_REC.get(cid,False) and DB["stats"][str(cid)]["last_result"]=="LOSS":
             rec_c=DB["rec_count"].get(str(cid),0)
             if rec_c<3:
                 ngn_to_usd=round(ngn_to_usd*2.2,2); bot.send_message(cid,f"🧠 REC ACTIVE {rec_c+1}/3 2.2x → N{int(ngn_to_usd*1600):,}")
         ok,oid,exp_real=iq_trade(pair,d['dir'],ngn_to_usd,bal,expiry=exp)
-        if not ok: bot.send_message(cid,"❌ Trade Failed",reply_markup=main_menu_iq(cid)); return
-        bot.send_message(cid,f"✅ Placed {oid} {exp_real}s"); time.sleep(exp_real+5)
-        try:
-            with IQ_LOCK: pnl=iq.check_win_v4(oid)
-            if pnl>0:
-                streak=update_stats(cid,True,pnl); update_pair_mem(cid,pair,True); profit_ngn=int(pnl*1600)
-                bot.send_message(cid,f"🔥 **{BRAND_NAME}**\nRESULT: ✅ WIN\nPayout: +N{profit_ngn:,}.00\nStreak {streak} REC reset 0/3 ✅",reply_markup=main_menu_iq(cid))
-            else:
-                update_stats(cid,False,-ngn_to_usd); update_pair_mem(cid,pair,False)
-                bot.send_message(cid,f"🔥 **{BRAND_NAME}**\nRESULT: ❌ LOSS\nLoss: -N{amt:,}.00 REC {DB['rec_count'].get(str(cid),0)}/3",reply_markup=main_menu_iq(cid))
-        except: bot.send_message(cid,"Check IQ manually",reply_markup=main_menu_iq(cid))
+        if not ok: 
+            bot.send_message(cid,f"❌ Trade REJECTED by IQ {pair} ${ngn_to_usd} - Pair closed or balance low. Try another pair or check logs.\nLogs show reason.",reply_markup=main_menu_iq(cid))
+            return
+        bot.send_message(cid,f"✅ Placed REAL {oid} {exp_real}s - Check IQ App!"); time.sleep(exp_real+5)
+        pnl = safe_check_win(oid)
+        if pnl is None:
+            bot.send_message(cid,f"⏳ Trade {oid} placed - checking again... ID {oid}")
+            time.sleep(5)
+            pnl = safe_check_win(oid)
+        if pnl is not None and pnl>0:
+            streak=update_stats(cid,True,pnl); update_pair_mem(cid,pair,True); profit_ngn=int(pnl*1600)
+            bot.send_message(cid,f"🔥 **{BRAND_NAME}**\nRESULT: ✅ WIN\nPayout: +N{profit_ngn:,}.00\nStreak {streak} REC reset 0/3 ✅",reply_markup=main_menu_iq(cid))
+        elif pnl is not None:
+            update_stats(cid,False,-ngn_to_usd); update_pair_mem(cid,pair,False)
+            bot.send_message(cid,f"🔥 **{BRAND_NAME}**\nRESULT: ❌ LOSS\nLoss: -N{amt:,}.00 REC {DB['rec_count'].get(str(cid),0)}/3",reply_markup=main_menu_iq(cid))
+        else:
+            bot.send_message(cid,f"⚠️ Trade {oid} ID - Result delayed, check IQ app manually. Amount N{amt:,} - Trade WAS placed!",reply_markup=main_menu_iq(cid))
         return
     if data=="backtest_menu":
         mk=types.InlineKeyboardMarkup(row_width=2)
@@ -727,25 +725,31 @@ def handle_all(c):
             wr=get_pair_wr(cid,p); label=p; 
             if wr: label+=f" {wr:.0f}%"
             mk.add(types.InlineKeyboardButton(label,callback_data=f"pair_{p}"))
-        bot.send_message(cid,f"💹 QUICK TRADE V7.4 - {BRAND_NAME}",reply_markup=mk); return
+        bot.send_message(cid,f"💹 QUICK TRADE V7.6 - {BRAND_NAME}",reply_markup=mk); return
     if data.startswith("pair_"):
         pair=data.replace("pair_",""); mk=types.InlineKeyboardMarkup(row_width=2); mk.add(types.InlineKeyboardButton("🟢 DEMO",callback_data=f"bal_PRACTICE_{pair}"),types.InlineKeyboardButton("🔴 REAL",callback_data=f"bal_REAL_{pair}"))
         bot.send_message(cid,f"{pair} ACCOUNT?",reply_markup=mk); return
     if data.startswith("bal_") and not data.startswith("auto_bal_"):
         parts=data.split("_",2); bal=parts[1]; pair=parts[2]
         base=1.0; smart=get_smart_lot(cid, base)
+        if smart < 1.0: smart = 1.0
         mk=types.InlineKeyboardMarkup(row_width=3)
-        mk.add(types.InlineKeyboardButton("N1,000",callback_data=f"qn_1000_{pair}_{bal}"),types.InlineKeyboardButton("N2,000",callback_data=f"qn_2000_{pair}_{bal}"),types.InlineKeyboardButton("N3,000",callback_data=f"qn_3000_{pair}_{bal}"))
-        mk.add(types.InlineKeyboardButton("N5,000",callback_data=f"qn_5000_{pair}_{bal}"),types.InlineKeyboardButton("✏️ Custom",callback_data=f"qn_custom_{pair}_{bal}"))
+        mk.add(types.InlineKeyboardButton("N2,000",callback_data=f"qn_2000_{pair}_{bal}"),types.InlineKeyboardButton("N3,000",callback_data=f"qn_3000_{pair}_{bal}"),types.InlineKeyboardButton("N5,000",callback_data=f"qn_5000_{pair}_{bal}"))
+        mk.add(types.InlineKeyboardButton("N10,000",callback_data=f"qn_10000_{pair}_{bal}"),types.InlineKeyboardButton("✏️ Custom Min N1600",callback_data=f"qn_custom_{pair}_{bal}"))
         mk.add(types.InlineKeyboardButton(f"💵 $1 → ${smart}",callback_data=f"amt_{smart}_{pair}_{bal}"),types.InlineKeyboardButton("💵 $5",callback_data=f"amt_5_{pair}_{bal}"),types.InlineKeyboardButton("💵 $10",callback_data=f"amt_10_{pair}_{bal}"))
-        bot.send_message(cid,f"✅ {pair} {bal}\n💰 Naira + USD\n💡 Smart Lot ${smart}",reply_markup=mk); return
+        bot.send_message(cid,f"✅ {pair} {bal}\n💰 Naira Min N1600 ($1)\n💡 Smart Lot ${smart}",reply_markup=mk); return
     if data.startswith("qn_"):
         parts=data.split("_")
         if parts[1]=="custom":
             _,_,pair,bal = data.split("_",3)
             USER_STATE[cid]['awaiting_qn']=True; USER_STATE[cid]['qn_pair']=pair; USER_STATE[cid]['qn_bal']=bal
-            bot.send_message(cid,"✏️ Enter custom Naira amount e.g. 29800"); return
-        amt_n=int(parts[1]); pair=parts[2]; bal=parts[3]; amt_usd=amt_n/1600.0
+            bot.send_message(cid,"✏️ Enter custom Naira amount Min N1600 e.g. 2000"); return
+        amt_n=int(parts[1]); pair=parts[2]; bal=parts[3]
+        if amt_n < 1600:
+            bot.send_message(cid, f"❌ Min na N1,600 ($1). You choose N{amt_n:,} too small", reply_markup=main_menu_iq(cid))
+            return
+        amt_usd=amt_n/1600.0
+        if amt_usd < 1.0: amt_usd = 1.0
         if DB["rec_count"].get(str(cid),0)>=3: bot.send_message(cid,"🛡️ REC limit 3 reached, blocked"); return
         if SMART_REC.get(cid,False) and DB["stats"][str(cid)]["last_result"]=="LOSS" and DB["rec_count"].get(str(cid),0)<3:
             amt_usd=round(amt_usd*2.2,2); bot.send_message(cid,f"🧠 REC ACTIVE {DB['rec_count'].get(str(cid),0)+1}/3 2.2x → N{int(amt_usd*1600):,}")
@@ -758,20 +762,28 @@ def handle_all(c):
         d=analyze_momentum(pair,god_mode=GOD_MODE.get(cid,False),uid=cid)
         if not d: bot.send_message(cid,"❌ No signal"); return
         ok,oid,exp=iq_trade(pair,d['dir'],amt_usd,bal,30)
-        if not ok: bot.send_message(cid,"❌ Trade Failed"); return
-        bot.send_message(cid,f"✅ Placed {oid} {exp}s - N{amt_n:,}"); time.sleep(exp+5)
-        try:
-            with IQ_LOCK: pnl=iq.check_win_v4(oid)
-            if pnl>0:
-                streak=update_stats(cid,True,pnl); update_pair_mem(cid,pair,True)
-                bot.send_message(cid,f"✅💚 WIN!!! +N{int(pnl*1600):,} Streak {streak} REC reset 0/3 ✅",reply_markup=main_menu_iq(cid))
-            else:
-                update_stats(cid,False,-amt_usd); update_pair_mem(cid,pair,False)
-                bot.send_message(cid,f"❌ LOSS -N{amt_n:,} REC {DB['rec_count'].get(str(cid),0)}/3",reply_markup=main_menu_iq(cid))
-        except: bot.send_message(cid,"Check IQ")
+        if not ok: 
+            bot.send_message(cid,f"❌ Trade REJECTED by IQ - {pair} ${amt_usd} {bal}\nCheck Render logs for reason - pair may be closed or balance low.", reply_markup=main_menu_iq(cid))
+            return
+        bot.send_message(cid,f"✅ Placed REAL {oid} {exp}s - N{amt_n:,} - Check IQ App!"); time.sleep(exp+5)
+        pnl = safe_check_win(oid)
+        if pnl is None:
+            time.sleep(3)
+            pnl = safe_check_win(oid)
+        if pnl is not None and pnl>0:
+            streak=update_stats(cid,True,pnl); update_pair_mem(cid,pair,True)
+            bot.send_message(cid,f"✅💚 WIN!!! +N{int(pnl*1600):,} Streak {streak} REC reset 0/3 ✅",reply_markup=main_menu_iq(cid))
+        elif pnl is not None:
+            update_stats(cid,False,-amt_usd); update_pair_mem(cid,pair,False)
+            bot.send_message(cid,f"❌ LOSS -N{amt_n:,} REC {DB['rec_count'].get(str(cid),0)}/3",reply_markup=main_menu_iq(cid))
+        else:
+            bot.send_message(cid,f"⚠️ Trade {oid} - Delayed, check IQ app. WAS PLACED!",reply_markup=main_menu_iq(cid))
         return
     if data.startswith("amt_") and not data.startswith("auto_amt_") and not data.startswith("eok_amt_"):
         parts=data.split("_"); amt=float(parts[1]); pair=parts[2]; bal=parts[3]
+        if amt < 1.0:
+            bot.send_message(cid, "❌ Min $1 for IQ", reply_markup=main_menu_iq(cid))
+            return
         if DB["rec_count"].get(str(cid),0)>=3: bot.send_message(cid,"🛡️ REC limit 3 reached, blocked"); return
         ok_lim,msg_lim=check_daily_limits(cid)
         if not ok_lim: bot.send_message(cid,msg_lim); return
@@ -780,17 +792,22 @@ def handle_all(c):
         d=analyze_momentum(pair,god_mode=GOD_MODE.get(cid,False),uid=cid)
         if not d: bot.send_message(cid,"❌ No signal"); return
         ok,oid,exp=iq_trade(pair,d['dir'],amt,bal,30)
-        if not ok: bot.send_message(cid,"❌ Trade Failed"); return
-        bot.send_message(cid,f"✅ Placed {oid} {exp}s"); time.sleep(exp+5)
-        try:
-            with IQ_LOCK: pnl=iq.check_win_v4(oid)
-            if pnl>0:
-                streak=update_stats(cid,True,pnl); update_pair_mem(cid,pair,True)
-                bot.send_message(cid,f"✅💚 WIN!!! +${pnl:.2f} Streak {streak} REC 0/3 ✅",reply_markup=main_menu_iq(cid))
-            else:
-                update_stats(cid,False,-amt); update_pair_mem(cid,pair,False)
-                bot.send_message(cid,f"❌ LOSS -${amt:.2f} REC {DB['rec_count'].get(str(cid),0)}/3",reply_markup=main_menu_iq(cid))
-        except: bot.send_message(cid,"Check IQ")
+        if not ok: 
+            bot.send_message(cid,f"❌ Trade REJECTED {pair} ${amt} - Check logs", reply_markup=main_menu_iq(cid))
+            return
+        bot.send_message(cid,f"✅ Placed REAL {oid} {exp}s - Check IQ App!"); time.sleep(exp+5)
+        pnl = safe_check_win(oid)
+        if pnl is None:
+            time.sleep(3)
+            pnl = safe_check_win(oid)
+        if pnl is not None and pnl>0:
+            streak=update_stats(cid,True,pnl); update_pair_mem(cid,pair,True)
+            bot.send_message(cid,f"✅💚 WIN!!! +${pnl:.2f} Streak {streak} REC 0/3 ✅",reply_markup=main_menu_iq(cid))
+        elif pnl is not None:
+            update_stats(cid,False,-amt); update_pair_mem(cid,pair,False)
+            bot.send_message(cid,f"❌ LOSS -${amt:.2f} REC {DB['rec_count'].get(str(cid),0)}/3",reply_markup=main_menu_iq(cid))
+        else:
+            bot.send_message(cid,f"⚠️ Trade {oid} - Check IQ app. WAS PLACED!",reply_markup=main_menu_iq(cid))
         return
     if data=="god": GOD_MODE[cid]=not GOD_MODE.get(cid,False); bot.send_message(cid,f"👑 GOD MODE {'✅ ON' if GOD_MODE[cid] else '❌ OFF'}",reply_markup=main_menu_iq(cid)); return
     if data=="recovery": SMART_REC[cid]=not SMART_REC.get(cid,False); bot.send_message(cid,f"🧠 REC SAFE MODE {'✅ ON (Max 3x)' if SMART_REC[cid] else '❌ OFF'} 2.2x",reply_markup=main_menu_iq(cid)); return
@@ -813,16 +830,16 @@ def handle_all(c):
         mk.add(types.InlineKeyboardButton("🟢 DEMO $1",callback_data="auto_bal_PRACTICE_1"),types.InlineKeyboardButton("🔴 REAL $1",callback_data="auto_bal_REAL_1"))
         mk.add(types.InlineKeyboardButton("🟢 DEMO $5",callback_data="auto_bal_PRACTICE_5"),types.InlineKeyboardButton("🔴 REAL $5",callback_data="auto_bal_REAL_5"))
         mk.add(types.InlineKeyboardButton("⬅️ Back",callback_data="master_iq"))
-        bot.send_message(cid,"🤖 AUTO MODE - Pick balance & base amount\nSAFE REC 2.2x Max 3 + GOD filter + NEWS",reply_markup=mk); return
+        bot.send_message(cid,"🤖 AUTO MODE - Pick balance & base amount\nMin $1 | SAFE REC 2.2x Max 3 + GOD filter + NEWS",reply_markup=mk); return
     if data.startswith("auto_bal_"):
         parts=data.split("_"); bal=parts[2]; amt=float(parts[3])
+        if amt < 1.0: amt = 1.0
         if AUTO_RUNNING.get(cid,False):
             bot.send_message(cid,"⚠️ AUTO already running! Press STOP first",reply_markup=main_menu_iq(cid)); return
         AUTO_RUNNING[cid]=True
         threading.Thread(target=auto_trading_loop, args=(cid, bal, amt), daemon=True).start()
-        bot.answer_callback_query(c.id, f"AUTO {bal} ${amt} Started")
+        bot.answer_callback_query(c.id, f"AUTO {bal} ${amt} Started REAL CHECK ON")
         return
-
 @bot.message_handler(func=lambda m: True)
 def custom_handler(m):
     if not is_private_allowed(m.from_user.id): return
@@ -830,19 +847,20 @@ def custom_handler(m):
     if cid in USER_STATE and USER_STATE[cid].get('awaiting_amount'):
         try:
             amt=int(m.text.strip().replace(",","").replace("N",""))
-            if amt<100: bot.send_message(cid,"❌ Min N100"); return
+            if amt<1600: bot.send_message(cid,"❌ Min N1600 ($1) - IQ minimum"); return
             USER_STATE[cid]['amount']=amt; USER_STATE[cid]['awaiting_amount']=False
             mk=types.InlineKeyboardMarkup(row_width=3)
             mk.add(types.InlineKeyboardButton("30s",callback_data="eok_exp_30"),types.InlineKeyboardButton("1m",callback_data="eok_exp_60"),types.InlineKeyboardButton("5m",callback_data="eok_exp_300"))
-            bot.send_message(cid,f"✅ Custom N{amt:,} - Pick expiry ⏱️",reply_markup=mk)
-        except: bot.send_message(cid,"❌ Number only e.g. 29800")
+            bot.send_message(cid,f"✅ Custom N{amt:,} (${amt/1600:.2f}) - Pick expiry ⏱️",reply_markup=mk)
+        except: bot.send_message(cid,"❌ Number only e.g. 2000 (Min N1600)")
     elif cid in USER_STATE and USER_STATE[cid].get('awaiting_qn'):
         try:
             amt_n=int(m.text.strip().replace(",","").replace("N",""))
-            if amt_n<100: bot.send_message(cid,"❌ Min N100"); return
+            if amt_n<1600: bot.send_message(cid,"❌ Min N1600 ($1)"); return
             USER_STATE[cid]['awaiting_qn']=False
             pair=USER_STATE[cid].get('qn_pair'); bal=USER_STATE[cid].get('qn_bal')
             amt_usd=amt_n/1600.0
+            if amt_usd < 1.0: amt_usd = 1.0
             if DB["rec_count"].get(str(cid),0)>=3: bot.send_message(cid,"🛡️ REC limit 3 reached, blocked"); return
             bot.send_message(cid,f"✅ Custom N{amt_n:,} (${amt_usd:.2f}) - Scanning {pair}... 🔍")
             msg_scan=bot.send_message(cid,f"🔍 **{BRAND_NAME} QUICK**\nSCANNING {pair}...\n\n░░░░░░░░░░ 0% starting")
@@ -850,19 +868,22 @@ def custom_handler(m):
             d=analyze_momentum(pair,god_mode=GOD_MODE.get(cid,False),uid=cid)
             if not d: bot.send_message(cid,"❌ No signal 😔"); return
             ok,oid,exp=iq_trade(pair,d['dir'],amt_usd,bal,30)
-            if not ok: bot.send_message(cid,"❌ Failed"); return
-            bot.send_message(cid,f"✅ Placed {oid} N{amt_n:,} 🚀"); time.sleep(exp+5)
-            with IQ_LOCK: pnl=iq.check_win_v4(oid)
-            if pnl>0: update_stats(cid,True,pnl); update_pair_mem(cid,pair,True); bot.send_message(cid,f"✅💚 WIN!!! +N{int(pnl*1600):,} REC 0/3 ✅",reply_markup=main_menu_iq(cid))
-            else: update_stats(cid,False,-amt_usd); update_pair_mem(cid,pair,False); bot.send_message(cid,f"❌ LOSS -N{amt_n:,} REC {DB['rec_count'].get(str(cid),0)}/3",reply_markup=main_menu_iq(cid))
-        except: bot.send_message(cid,"❌ Number only e.g. 29800")
-
+            if not ok: bot.send_message(cid,f"❌ Trade REJECTED - Check Render logs - pair closed or balance low"); return
+            bot.send_message(cid,f"✅ Placed REAL {oid} N{amt_n:,} 🚀 Check IQ App!"); time.sleep(exp+5)
+            pnl = safe_check_win(oid)
+            if pnl is None:
+                time.sleep(3)
+                pnl = safe_check_win(oid)
+            if pnl is not None and pnl>0: update_stats(cid,True,pnl); update_pair_mem(cid,pair,True); bot.send_message(cid,f"✅💚 WIN!!! +N{int(pnl*1600):,} REC 0/3 ✅",reply_markup=main_menu_iq(cid))
+            elif pnl is not None: update_stats(cid,False,-amt_usd); update_pair_mem(cid,pair,False); bot.send_message(cid,f"❌ LOSS -N{amt_n:,} REC {DB['rec_count'].get(str(cid),0)}/3",reply_markup=main_menu_iq(cid))
+            else: bot.send_message(cid,f"⚠️ Trade {oid} - Delayed, check IQ app - WAS PLACED!",reply_markup=main_menu_iq(cid))
+        except: bot.send_message(cid,"❌ Number only e.g. 2000 (Min N1600)")
 threading.Thread(target=signal_loop,daemon=True).start()
 if __name__=="__main__":
     try: bot.remove_webhook(); time.sleep(1)
     except: pass
     ext_url=os.getenv("RENDER_EXTERNAL_URL")
     if ext_url:
-        try: bot.set_webhook(url=f"{ext_url}/{BOT_TOKEN}"); print(f"MASTER V7.4 FINAL PRIVATE AUTO LIVE {ext_url}",flush=True)
+        try: bot.set_webhook(url=f"{ext_url}/{BOT_TOKEN}"); print(f"MASTER V7.6 REAL FIX LIVE {ext_url}",flush=True)
         except: pass
     app.run(host="0.0.0.0",port=int(os.environ.get("PORT",10000)))
