@@ -1,6 +1,5 @@
 import os, time, threading, warnings, logging
 from datetime import datetime, timezone
-import pytz
 from flask import Flask, request
 import telebot
 from telebot import types
@@ -35,6 +34,7 @@ PAIR_EMOJI = {
 STATS = {"balance":100.0,"wins":0,"loss":0}
 user_states = {}
 IQ_LOCK = threading.Lock()
+SCAN_LOCK = threading.Lock()  # ANTI-SPAM LOCK
 IQ_CONNECTED=False; iq=None
 PAYOUT_CACHE={}; PAYOUT_TIME=0
 
@@ -42,8 +42,7 @@ def is_allowed(uid): return uid == OWNER_ID
 
 def get_active_pairs():
     now_utc = datetime.now(timezone.utc)
-    weekday = now_utc.weekday()
-    hour = now_utc.hour
+    weekday = now_utc.weekday(); hour = now_utc.hour
     is_weekday = weekday < 5
     if weekday == 4 and hour >= 21: is_weekday = False
     if weekday == 5: is_weekday = False
@@ -88,9 +87,7 @@ def iq_reconnect():
         logging.disable(logging.NOTSET)
         logging.disable(logging.ERROR)
         return IQ_CONNECTED
-    except: 
-        IQ_CONNECTED=False
-        return False
+    except: IQ_CONNECTED=False; return False
 
 def get_payout(pair):
     global PAYOUT_CACHE, PAYOUT_TIME
@@ -128,51 +125,48 @@ def calc_rsi(closes, period=7):
     loss=-delta.where(delta<0,0).rolling(period).mean()
     return 100-(100/(1+gain/loss))
 
+# ===== FIXED - NO SPAM SCANNING BAR =====
 def legit_live_scan(cid, mid, pair):
-    steps = [
-        (0, "🚀 Initializing V8...", 0.15),
-        (20, f"🔌 Checking {pair}...", 0.2),
-        (40, "📊 Fetching candles...", 0.2),
-        (60, "📈 EMA9 + EMA21...", 0.15),
-        (80, "💹 RSI + Momentum...", 0.15),
-        (100, "🔒 SIGNAL LOCKED!")
-    ]
-    for pct, text, delay in steps:
-        filled = int(pct // 5)
-        bar = "█" * filled + "░" * (20 - filled)
-        color = "🟥" if pct < 40 else "🟨" if pct < 80 else "🟩" if pct < 100 else "💎"
-        is_news, news_info = is_news_time()
-        scan_txt = f"""{color} **Z-BOT V8 LEGIT SCAN** {color}
+    if not SCAN_LOCK.acquire(blocking=False):
+        try: bot.edit_message_text(f"⏳ Scan already running for {pair}...", cid, mid)
+        except: pass
+        return
+    try:
+        steps = [
+            (0, "🚀 Initializing V8.6.1...", 0.6),
+            (25, f"🔌 Checking {pair}...", 0.7),
+            (50, "📊 Fetching 50 candles...", 0.8),
+            (75, "📈 EMA9 + EMA21 + RSI...", 0.7),
+            (90, "📰 News check...", 0.5),
+            (100, "🔒 SIGNAL LOCKED!")
+        ]
+        last_text = ""
+        for pct, text, delay in steps:
+            filled = int(pct // 5)
+            bar = "█" * filled + "░" * (20 - filled)
+            color = "🟥" if pct < 50 else "🟨" if pct < 90 else "🟩" if pct < 100 else "💎"
+            is_news, news_info = is_news_time()
+            scan_txt = f"""{color} **Z-BOT V8.6.1 SCAN** {color}
 
-💱 Pair: {PAIR_EMOJI.get(pair, pair)}
-💎 IQ: {'✅ Connected' if IQ_CONNECTED else '❌ Offline'}
-
+💱 {PAIR_EMOJI.get(pair, pair)}
 {bar} {pct}%
-▓ Progress: {pct}% ▓
 
 🔍 {text}
 {news_info}
 
-⏳ Fast V8.5
+⏳ Clean scan - No spam
 """
-        try: bot.edit_message_text(scan_txt, cid, mid, parse_mode="Markdown")
-        except: pass
-        time.sleep(delay)
-    try:
-        final_txt = f"""💎 **Z-BOT V8 LEGIT SCAN** 💎
-
-💱 Pair: {PAIR_EMOJI.get(pair, pair)}
-💎 IQ: {'✅ Connected' if IQ_CONNECTED else '❌ Offline'}
-
-████████████████████ 100%
-▓ Progress: 100% ▓
-
-🔍 🔒 SIGNAL LOCKED!
-
-⏳ Complete V8.5
-"""
-        bot.edit_message_text(final_txt, cid, mid, parse_mode="Markdown")
-    except: pass
+            if scan_txt != last_text:
+                try:
+                    bot.edit_message_text(scan_txt, cid, mid, parse_mode="Markdown")
+                    last_text = scan_txt
+                except Exception as e:
+                    if "Too Many Requests" in str(e) or "too many requests" in str(e).lower():
+                        time.sleep(1.5)
+                    pass
+            time.sleep(delay)
+    finally:
+        SCAN_LOCK.release()
 
 def analyze_momentum(pair):
     df=get_candles(pair)
@@ -189,9 +183,9 @@ def analyze_momentum(pair):
         payout=get_payout(pair)
         sig="CALL" if is_green else "PUT"; score=75; reason=""
         if mom1>0.02 and mom3>0.05 and is_green and e9>e21 and rsi_now>50 and rsi_now<78:
-            sig="CALL"; score=90; reason=f"🚀 Bullish {mom1:.3f}%"
+            sig="CALL"; score=90; reason=f"🚀 Bull {mom1:.3f}%"
         elif mom1<-0.02 and mom3<-0.05 and not is_green and e9<e21 and rsi_now<50:
-            sig="PUT"; score=90; reason=f"📉 Bearish {mom1:.3f}%"
+            sig="PUT"; score=90; reason=f"📉 Bear {mom1:.3f}%"
         elif e9>e21 and is_green: sig="CALL"; score=82; reason=f"📈 EMA Bull"
         elif e9<e21 and not is_green: sig="PUT"; score=82; reason=f"📉 EMA Bear"
         return {"pair":pair,"dir":sig,"conf":min(94,score),"price":float(close.iloc[-1]),"rsi":rsi_now,"reason":reason,"mom":mom3,"payout":payout,"df":df.tail(30)}
@@ -222,21 +216,21 @@ def iq_trade(pair,direction,amount,bal):
 @bot.message_handler(commands=['start'])
 def start(m):
     if not is_allowed(m.from_user.id):
-        bot.send_message(m.chat.id, f"❌ Private\nID: {m.from_user.id}"); return
+        bot.send_message(m.chat.id, f"❌ Private ID: {m.from_user.id}"); return
     active, is_real = get_active_pairs()
     is_news, news_info = is_news_time()
-    market_type = "🌍 REAL OPEN" if is_real else "🏦 OTC Weekend"
+    market_type = "🌍 REAL OPEN" if is_real else "🏦 OTC"
     mk=types.InlineKeyboardMarkup(row_width=1)
     mk.add(types.InlineKeyboardButton("💹 TRADE NOW", callback_data="trade"))
     mk.add(types.InlineKeyboardButton("📊 MY STATS", callback_data="stats"), types.InlineKeyboardButton("⚙️ SETTINGS", callback_data="settings"))
-    txt=f"""🤖 **Z-BOT V8.5 FINAL** 🤖
+    txt=f"""🤖 **Z-BOT V8.6.1 FIXED** 🤖
 
-{market_type}
-💎 IQ: {'✅' if IQ_CONNECTED else '❌'}
-💰 ${STATS['balance']:.2f} | 🎯 {STATS['wins']}W/{STATS['loss']}L
+{market_type} | 💎 IQ: {'✅' if IQ_CONNECTED else '❌'}
+💰 ${STATS['balance']:.2f} | {STATS['wins']}W/{STATS['loss']}L
 {news_info}
+📅 {len(active)} pairs - Anti-spam scan
 
-👇 **TRADE**
+👇 TRADE
 """
     bot.send_message(m.chat.id, txt, reply_markup=mk, parse_mode="Markdown")
 
@@ -247,44 +241,37 @@ def cb(c):
     data=c.data; cid=c.message.chat.id
     
     if data=="trade":
-        is_news, news_info = is_news_time()
         active_pairs, is_real_day = get_active_pairs()
-        market_type = "🌍 REAL MARKET" if is_real_day else "🏦 OTC MARKET"
+        market_type = "🌍 REAL" if is_real_day else "🏦 OTC"
+        is_news, news_info = is_news_time()
         if is_news and is_real_day:
-            mk=types.InlineKeyboardMarkup(row_width=1)
+            mk=types.InlineKeyboardMarkup()
             for p in active_pairs[:4]:
                 mk.add(types.InlineKeyboardButton(f"{PAIR_EMOJI.get(p,p)}", callback_data=f"pair_{p}"))
             mk.add(types.InlineKeyboardButton("⚠️ TRADE ANYWAY", callback_data="bypass_news"))
             mk.add(types.InlineKeyboardButton("🔄 USE OTC", callback_data="trade_otc"))
-            bot.send_message(cid, f"🛑 **NEWS**\n{news_info}\n{market_type} volatile!", reply_markup=mk, parse_mode="Markdown")
+            bot.send_message(cid, f"🛑 NEWS {news_info}", reply_markup=mk, parse_mode="Markdown")
             return
-        bot.answer_callback_query(c.id, "Loading...")
         mk=types.InlineKeyboardMarkup(row_width=2)
         for p in active_pairs:
             mk.add(types.InlineKeyboardButton(f"{PAIR_EMOJI.get(p,p)}", callback_data=f"pair_{p}"))
-        if is_real_day:
-            mk.add(types.InlineKeyboardButton("🔄 OTC", callback_data="trade_otc"))
-        else:
-            mk.add(types.InlineKeyboardButton("🌍 REAL", callback_data="trade_real"))
-        bot.send_message(cid, f"💹 **STEP 1/3 - PAIR**\n{market_type}\n{news_info}\n👇 Choose:", reply_markup=mk, parse_mode="Markdown")
+        mk.add(types.InlineKeyboardButton("🔄 Switch OTC/REAL", callback_data="trade_otc" if is_real_day else "trade_real"))
+        bot.send_message(cid, f"💹 **STEP 1/3 - {market_type}**\n{news_info}\n👇 Choose:", reply_markup=mk, parse_mode="Markdown")
         return
 
     if data=="trade_otc":
         mk=types.InlineKeyboardMarkup(row_width=2)
         for p in OTC_PAIRS:
             mk.add(types.InlineKeyboardButton(f"{PAIR_EMOJI.get(p,p)}", callback_data=f"pair_{p}"))
-        mk.add(types.InlineKeyboardButton("🌍 REAL", callback_data="trade"))
-        bot.send_message(cid, f"🏦 **OTC 24/7**\n👇 Choose:", reply_markup=mk, parse_mode="Markdown")
+        mk.add(types.InlineKeyboardButton("🌍 REAL", callback_data="trade_real"))
+        bot.send_message(cid, "🏦 **OTC 24/7**", reply_markup=mk, parse_mode="Markdown")
         return
 
     if data=="trade_real":
-        active, is_real = get_active_pairs()
-        if not is_real:
-            bot.send_message(cid, "🛑 **REAL CLOSED**\nFri 21:00 - Sun 21:00 UTC closed\nUse OTC!")
         mk=types.InlineKeyboardMarkup(row_width=2)
         for p in REAL_PAIRS:
             mk.add(types.InlineKeyboardButton(f"{PAIR_EMOJI.get(p,p)}", callback_data=f"pair_{p}"))
-        bot.send_message(cid, f"🌍 **REAL {'OPEN ✅' if is_real else 'CLOSED ❌'}**\n👇 Choose:", reply_markup=mk, parse_mode="Markdown")
+        bot.send_message(cid, "🌍 **REAL**", reply_markup=mk, parse_mode="Markdown")
         return
 
     if data=="bypass_news":
@@ -292,7 +279,7 @@ def cb(c):
         mk=types.InlineKeyboardMarkup(row_width=2)
         for p in active:
             mk.add(types.InlineKeyboardButton(f"{PAIR_EMOJI.get(p,p)}", callback_data=f"pair_{p}"))
-        bot.send_message(cid, f"⚠️ **RISKY - NEWS!**\n👇 Select:", reply_markup=mk, parse_mode="Markdown")
+        bot.send_message(cid, "⚠️ **RISKY**", reply_markup=mk, parse_mode="Markdown")
         return
 
     if data.startswith("pair_"):
@@ -302,7 +289,7 @@ def cb(c):
         mk.add(types.InlineKeyboardButton("🟢 DEMO", callback_data=f"bal_PRACTICE_{pair}"))
         mk.add(types.InlineKeyboardButton("🔴 REAL", callback_data=f"bal_REAL_{pair}"))
         mk.add(types.InlineKeyboardButton("⬅️ BACK", callback_data="trade"))
-        bot.send_message(cid, f"✅ **{PAIR_EMOJI.get(pair,pair)}**\n\n💳 **STEP 2/3 - ACCOUNT**", reply_markup=mk, parse_mode="Markdown")
+        bot.send_message(cid, f"✅ **{PAIR_EMOJI.get(pair,pair)}**\n💳 **STEP 2/3**", reply_markup=mk, parse_mode="Markdown")
         return
 
     if data.startswith("bal_"):
@@ -317,22 +304,22 @@ def cb(c):
                types.InlineKeyboardButton("💵 $100", callback_data=f"amt_100_{pair}_{bal}"))
         mk.add(types.InlineKeyboardButton("✏️ CUSTOM", callback_data=f"custom_{pair}_{bal}"))
         mk.add(types.InlineKeyboardButton("⬅️ BACK", callback_data=f"pair_{pair}"))
-        bot.send_message(cid, f"✅ **{PAIR_EMOJI.get(pair,pair)} {bal}**\n\n💰 **STEP 3/3 - AMOUNT**", reply_markup=mk, parse_mode="Markdown")
+        bot.send_message(cid, f"✅ {PAIR_EMOJI.get(pair,pair)} {bal}\n💰 **STEP 3/3**", reply_markup=mk, parse_mode="Markdown")
         return
 
     if data.startswith("amt_") or data.startswith("custom_"):
         if data.startswith("custom_"):
             parts=data.split("_"); pair=parts[1]; bal=parts[2]
             user_states[cid]={"pair":pair,"bal":bal,"step":"await_amt"}
-            bot.send_message(cid, f"✏️ **Type amount** e.g 10\nFor {pair} {bal}", parse_mode="Markdown")
+            bot.send_message(cid, f"✏️ Type amount e.g 10 for {pair} {bal}")
             return
         
-        is_news, news_info = is_news_time()
-        if is_news and not data.split("_")[2].endswith("-OTC"):
-            bot.send_message(cid, f"🛑 **NEWS BLOCK**\n{news_info}\nUse OTC"); return
-        
         parts=data.split("_"); amt=float(parts[1]); pair=parts[2]; bal=parts[3]
-        scan_msg = bot.send_message(cid, f"🔍 **INIT {PAIR_EMOJI.get(pair,pair)}**\n░░░░ 0%", parse_mode="Markdown")
+        is_news, news_info = is_news_time()
+        if is_news and not pair.endswith("-OTC"):
+            bot.send_message(cid, f"🛑 NEWS BLOCK {news_info}\nUse OTC"); return
+        
+        scan_msg = bot.send_message(cid, f"🔍 INIT {PAIR_EMOJI.get(pair,pair)} 0%")
         legit_live_scan(cid, scan_msg.message_id, pair)
         
         d=analyze_momentum(pair)
@@ -343,13 +330,12 @@ def cb(c):
             return
         
         dir_emoji = "🟢 CALL 🟢" if d['dir']=="CALL" else "🔴 PUT 🔴"
-        signal_txt=f"""📡 **SIGNAL V8.5**
+        signal_txt=f"""📡 **SIGNAL V8.6.1**
 💱 {PAIR_EMOJI.get(pair,pair)}
 📊 {dir_emoji}
 🎯 {d['conf']:.0f}% | 💸 {int(d['payout']*100)}%
 💰 ${amt} {bal}
 📰 {news_info}
-📈 {d['reason']}
 """
         try:
             plt.figure(figsize=(6,3)); plt.plot(d['df']['close'], color='#FFD700', linewidth=2); plt.title(f"{pair} {d['dir']} {d['conf']:.0f}%"); plt.grid(alpha=0.3); plt.tight_layout(); p="/tmp/c.png"; plt.savefig(p); plt.close()
@@ -358,14 +344,13 @@ def cb(c):
             bot.send_message(cid, signal_txt, parse_mode="Markdown")
         
         time.sleep(0.5)
-        bot.send_message(cid, f"🚀 **PLACING {pair} {d['dir']} ${amt}...**", parse_mode="Markdown")
+        bot.send_message(cid, f"🚀 PLACING {pair} {d['dir']} ${amt}...")
         ok,oid,exp=iq_trade(pair,d['dir'],amt,bal)
         if not ok:
             bot.send_message(cid, "❌ Failed - Reconnect"); iq_reconnect(); return
         
-        bot.send_message(cid, f"✅ **PLACED**\n🆔 {oid}\n💱 {pair} {d['dir']} ${amt}\n⏱️ {exp}s\n⏳ Wait...", parse_mode="Markdown")
+        bot.send_message(cid, f"✅ PLACED {oid} ⏳ {exp}s")
         
-        # ===== SIMPLE WIN/LOSS =====
         time.sleep(exp+5)
         try:
             with IQ_LOCK: 
@@ -373,7 +358,6 @@ def cb(c):
                 pnl=iq.check_win_v4(oid)
                 logging.disable(logging.NOTSET)
                 logging.disable(logging.ERROR)
-            
             if pnl > 0:
                 STATS['wins']+=1; STATS['balance']+=pnl
                 mk=types.InlineKeyboardMarkup(row_width=2)
@@ -399,36 +383,30 @@ def cb(c):
         except:
             mk=types.InlineKeyboardMarkup()
             mk.add(types.InlineKeyboardButton("💹 NEW", callback_data="trade"))
-            bot.send_message(cid, f"""⏱️ **DONE**
-
-💱 {pair}
-Check IQ app
-ID: {oid}
-""", reply_markup=mk, parse_mode="Markdown")
+            bot.send_message(cid, f"⏱️ DONE Check IQ {oid}", reply_markup=mk)
         return
 
     if data=="stats":
         total=STATS['wins']+STATS['loss']; wr=(STATS['wins']/total*100) if total else 0
         active, is_real = get_active_pairs()
         is_news, news_info = is_news_time()
-        bot.send_message(cid, f"📊 **STATS V8.5**\n🏆 {STATS['wins']}W ❌ {STATS['loss']}L\n📈 {wr:.1f}%\n💰 ${STATS['balance']:.2f}\n{news_info}\nMarket: {'REAL' if is_real else 'OTC'}", parse_mode="Markdown")
+        bot.send_message(cid, f"📊 STATS V8.6.1\n{STATS['wins']}W {STATS['loss']}L {wr:.1f}%\n${STATS['balance']:.2f}\n{news_info}\nMarket: {'REAL' if is_real else 'OTC'}")
     if data=="settings": 
         is_news, news_info = is_news_time()
-        bot.send_message(cid, f"⚙️ **V8.5**\n📰 News: Light (12:30,18:00 UTC)\n💎 Scan: Fast 100%\n{news_info}")
+        bot.send_message(cid, f"⚙️ V8.6.1\nNews: Light 12:30,18:00\nScan: Anti-spam 6 steps\n{news_info}")
 
 @bot.message_handler(func=lambda m: user_states.get(m.chat.id, {}).get("step")=="await_amt")
 def handle_custom_amt(m):
     cid=m.chat.id; st=user_states.get(cid, {})
     if not is_allowed(m.from_user.id): return
     is_news, news_info = is_news_time()
-    pair_tmp = st.get("pair","")
-    if is_news and not pair_tmp.endswith("-OTC"):
-        bot.send_message(cid, f"🛑 **NEWS!** {news_info}"); return
+    if is_news and not st.get("pair","").endswith("-OTC"):
+        bot.send_message(cid, f"🛑 NEWS {news_info}"); return
     try:
         amt=float(m.text.strip())
         pair=st.get("pair"); bal=st.get("bal")
         if not pair: return
-        scan_msg = bot.send_message(cid, f"🔍 **INIT {pair}**\n░░░░ 0%")
+        scan_msg = bot.send_message(cid, f"🔍 INIT {pair} 0%")
         legit_live_scan(cid, scan_msg.message_id, pair)
         d=analyze_momentum(pair)
         if not d: bot.send_message(cid, "Failed"); return
@@ -443,12 +421,9 @@ def handle_custom_amt(m):
                     pnl=iq.check_win_v4(oid)
                     logging.disable(logging.NOTSET)
                     logging.disable(logging.ERROR)
-                if pnl>0:
-                    bot.send_message(cid, f"✅ **WIN +${pnl:.2f}**")
-                else:
-                    bot.send_message(cid, f"❌ **LOSS -${amt:.2f}**")
-            except:
-                bot.send_message(cid, f"⏱️ **DONE** - Check IQ")
+                if pnl>0: bot.send_message(cid, f"✅ **WIN +${pnl:.2f}**")
+                else: bot.send_message(cid, f"❌ **LOSS -${amt:.2f}**")
+            except: bot.send_message(cid, f"⏱️ DONE Check IQ")
         user_states.pop(cid,None)
     except: bot.send_message(cid, "❌ Number only e.g 100")
 
@@ -460,5 +435,5 @@ def home():
     if u:
         try: requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={u}/{BOT_TOKEN}", timeout=5)
         except: pass
-    return "V8.5 REAL+OTC SIMPLE WIN/LOSS FAST 100% RUNNING"
+    return "V8.6.1 REAL+OTC ANTI-SPAM SCAN SIMPLE WIN/LOSS RUNNING"
 app.run(host="0.0.0.0", port=int(os.getenv("PORT",10000)))
