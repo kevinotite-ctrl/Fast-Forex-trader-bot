@@ -417,33 +417,43 @@ def backtest_pair(pair, uid=None):
         except: pass
     if total==0: return None
     return {"wins":wins,"total":total,"wr":wins/total*100}
+# === V7.7 FIXED NO BLITZ + RETRY ===
 def iq_trade(pair,direction,amount,bal,expiry=30):
     try:
         with IQ_LOCK:
             iq.change_balance(bal)
             print(f"TRY TRADE {pair} {direction} ${amount} {bal}", flush=True)
             if amount < 1.0:
-                print(f"REJECT too small ${amount} < $1", flush=True)
+                print(f"REJECT too small ${amount}", flush=True)
                 return False, None, 0
-            try:
-                check, oid = iq.buy_blitz(pair, amount, direction.lower(), expiry)
-                print(f"Blitz check={check} oid={oid}", flush=True)
-                if check and oid:
-                    return True, oid, expiry
-            except Exception as e:
-                print(f"Blitz err {e}", flush=True)
-            try:
-                check, oid = iq.buy(amount, pair, direction.lower(), 1)
-                print(f"Binary check={check} oid={oid}", flush=True)
-                if check and oid:
-                    return True, oid, 60
-            except Exception as e:
-                print(f"Binary err {e}", flush=True)
-            print(f"REJECTED both failed {pair}", flush=True)
+            # Retry 3 times because IQ get "Time for purchasing" window
+            for attempt in range(3):
+                try:
+                    check, oid = iq.buy(amount, pair, direction.lower(), 1)  # 1 = 1 min
+                    print(f"Binary attempt {attempt+1} check={check} oid={oid}", flush=True)
+                    # oid must be numeric ID, not error message
+                    if check and oid and str(oid).strip().isdigit() or (isinstance(oid, int)):
+                        print(f"✅ SUCCESS {oid}", flush=True)
+                        return True, oid, 60
+                    # If oid is error message like "Time for purchasing..."
+                    err_msg = str(oid).lower()
+                    if "time for purchasing" in err_msg or "over" in err_msg or "closed" in err_msg:
+                        print(f"⏳ Purchase window closed, retry {attempt+1}/3...", flush=True)
+                        time.sleep(3)
+                        continue
+                    else:
+                        print(f"❌ IQ rejected: {oid}", flush=True)
+                        time.sleep(1)
+                        continue
+                except Exception as e:
+                    print(f"Buy err attempt {attempt+1}: {e}", flush=True)
+                    time.sleep(2)
+            print(f"REJECTED both failed {pair} after 3 retries", flush=True)
             return False, None, 0
     except Exception as e:
         print(f"iq_trade outer {e}", flush=True)
         return False, None, 0
+
 def safe_check_win(oid, max_retry=6):
     for attempt in range(max_retry):
         try:
