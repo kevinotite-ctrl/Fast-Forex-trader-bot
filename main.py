@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# 👑 KEVIN MASTER V7.4 FINAL 10/10 - PRIVATE + GOLD DUAL API + SAFE REC 3x + AUTO COMPLETE
+# 👑 KEVIN MASTER V7.4 FINAL 10/10 - PRIVATE + GOLD DUAL API + SAFE REC 3x + AUTO COMPLETE - FIXED
 
 import os, requests, time, threading, warnings, json, random, pytz
 from datetime import datetime, timedelta
@@ -58,7 +58,7 @@ def load_perf_gold():
         if os.path.exists(PERF_FILE):
             with open(PERF_FILE,"r") as f: return json.load(f)
     except: pass
-    return {"wins":0,"losses":0,"jackpots":0,"total":0,"streak":0,"best_streak":0,"daily_loss":0,"last_reset":str(datetime.date.today())}
+    return {"wins":0,"losses":0,"jackpots":0,"total":0,"streak":0,"best_streak":0,"daily_loss":0,"last_reset":str(datetime.now().date())}
 def save_perf_gold(p):
     try:
         with open(PERF_FILE,"w") as f: json.dump(p,f)
@@ -566,7 +566,7 @@ def set_webhook():
 def signal_loop():
     while True:
         try:
-            today=str(datetime.date.today())
+            today=str(datetime.now().date())
             if performance.get("last_reset")!=today: performance["daily_loss"]=0; performance["last_reset"]=today; save_perf_gold(performance)
             if performance.get("daily_loss",0)>=3: time.sleep(300); continue
             price=get_gold()
