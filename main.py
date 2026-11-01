@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# 👑 Z-BOT V48 V7.2 REDUCED PAIRS - FIX get_candles error - 12 PAIRS ONLY + BEST PAIRS ONLY + BEAUTIFUL SCAN + EMOJI RESULTS
+# 👑 Z-BOT V48 V7.2 REDUCED + OWNER ID - 12 PAIRS ONLY - FIX get_candles - PRIVATE BOT
 import os, time, threading, warnings, random, logging
 from datetime import date
 from flask import Flask, request
@@ -20,6 +20,14 @@ logging.disable(logging.ERROR)
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 bot = telebot.TeleBot(BOT_TOKEN)
 app = Flask(__name__)
+
+# ===== OWNER ID - PRIVATE BOT - ONLY YOU CAN USE =====
+OWNER_ID = 8659453018  # <-- CHANGE TO YOUR TELEGRAM ID IF DIFFERENT!
+# To get your ID: Go Telegram -> Search @userinfobot -> Start -> Copy ID
+ALLOWED_USERS = [OWNER_ID]
+
+def is_private_allowed(uid):
+    return uid in ALLOWED_USERS
 
 # ===== REDUCED PAIRS - 12 ONLY (6 REAL + 6 OTC) - NO BLOCK =====
 REAL_PAIRS = ["EURUSD","GBPUSD","USDJPY","AUDUSD","EURJPY","GBPJPY"]
@@ -62,7 +70,7 @@ try:
         if IQ_CONNECTED:
             try: iq.change_balance("PRACTICE")
             except: pass
-            print(f"IQ CONNECTED V7.2 REDUCED: {IQ_CONNECTED}", flush=True)
+            print(f"IQ CONNECTED V7.2: {IQ_CONNECTED}", flush=True)
         logging.disable(logging.NOTSET)
         logging.getLogger().setLevel(logging.CRITICAL)
         logging.disable(logging.ERROR)
@@ -133,9 +141,7 @@ def get_candles(pair):
             return pd.DataFrame(sorted(c,key=lambda x:x['from']))
     except Exception as e:
         if "reconnect" in str(e).lower():
-            print(f"⚠️ {pair} need reconnect -> will reconnect later", flush=True)
-            # Don't reconnect immediately to avoid spam, just return None
-            pass
+            print(f"⚠️ {pair} need reconnect", flush=True)
     return None
 
 def calc_rsi(closes, period=7):
@@ -433,14 +439,18 @@ def do_trade(cid, pair, amt, bal, duration_sec):
 
 @bot.message_handler(commands=['start'])
 def start(m):
+    if not is_private_allowed(m.from_user.id):
+        bot.send_message(m.chat.id, f"❌ Private Bot 🔒 Owner only.\nYour ID: {m.from_user.id}\nOwner ID: {OWNER_ID}")
+        return
     DAILY=check_daily()
     total=STATS['wins']+STATS['loss']; wr=(STATS['wins']/total*100) if total else 0
     mk=types.InlineKeyboardMarkup(row_width=1)
     mk.add(types.InlineKeyboardButton("💹 TRADE NOW - BEST PAIRS ONLY (12 PAIRS)", callback_data="trade"))
     mk.add(types.InlineKeyboardButton("📊 MY STATS", callback_data="stats"))
     best_txt = get_best_pairs_text()
-    txt=f"""🤖 **Z-BOT V48 V7.2 REDUCED** 🤖
+    txt=f"""🤖 **Z-BOT V48 V7.2 REDUCED + OWNER** 🤖
 
+🔒 Private - Owner {OWNER_ID}
 ✨ *12 Pairs Only - No Block - No Spam*
 
 💎 IQ: {'✅' if IQ_CONNECTED else '❌ Demo'}
@@ -459,6 +469,9 @@ def start(m):
 
 @bot.callback_query_handler(func=lambda c: True)
 def cb(c):
+    if not is_private_allowed(c.from_user.id):
+        bot.answer_callback_query(c.id, "❌ Private Bot - Owner only")
+        return
     data=c.data; cid=c.message.chat.id
     if data=="trade":
         bot.answer_callback_query(c.id, "Loading best pairs...")
@@ -523,6 +536,8 @@ def cb(c):
 
 @bot.message_handler(func=lambda m: True)
 def handle_all(m):
+    if not is_private_allowed(m.from_user.id):
+        return
     cid=m.chat.id
     st=user_states.get(cid, {})
     if st.get("step")=="await_amt":
@@ -549,5 +564,5 @@ def home():
     if u:
         try: requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={u}/{BOT_TOKEN}", timeout=5)
         except: pass
-    return "V48 V7.2 REDUCED 12 PAIRS - FIXED get_candles - BEST PAIRS ONLY - RUNNING"
+    return "V48 V7.2 REDUCED 12 PAIRS + OWNER ID - FIXED get_candles - BEST PAIRS ONLY - RUNNING"
 app.run(host="0.0.0.0", port=int(os.getenv("PORT",10000)))
