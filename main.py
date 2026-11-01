@@ -179,24 +179,6 @@ def analyze_momentum(pair):
         return {"pair":pair,"dir":sig,"conf":min(94,score),"price":float(close.iloc[-1]),"rsi":rsi_now,"reason":reason,"mom":mom3,"payout":payout,"df":df.tail(30)}
     except: return None
 
-def get_pair_score(pair):
-    try:
-        df=get_candles(pair)
-        if df is None: return 0
-        close=df['close']; open_=df['open']
-        ema9=close.ewm(9).mean(); ema21=close.ewm(21).mean()
-        rsi=calc_rsi(close,7)
-        rsi_now=float(rsi.iloc[-1]); e9=float(ema9.iloc[-1]); e21=float(ema21.iloc[-1])
-        mom1=(close.iloc[-1]-close.iloc[-2])/close.iloc[-2]*100
-        mom3=(close.iloc[-1]-close.iloc[-4])/close.iloc[-4]*100
-        is_green=float(close.iloc[-1])>float(open_.iloc[-1])
-        if mom1>0.02 and mom3>0.05 and is_green and e9>e21 and rsi_now>50 and rsi_now<78: return 90
-        elif mom1<-0.02 and mom3<-0.05 and not is_green and e9<e21 and rsi_now<50: return 90
-        elif e9>e21 and is_green: return 82
-        elif e9<e21 and not is_green: return 82
-        else: return 60
-    except: return 0
-
 def iq_trade(pair,direction,amount,bal,expiry_sec=30):
     try:
         with IQ_LOCK:
@@ -224,9 +206,9 @@ def start(m):
     mk=types.InlineKeyboardMarkup(row_width=1)
     mk.add(types.InlineKeyboardButton("💹 TRADE NOW", callback_data="trade"))
     mk.add(types.InlineKeyboardButton("📊 MY STATS", callback_data="stats"), types.InlineKeyboardButton("⚙️ SETTINGS", callback_data="settings"))
-    txt=f"""🤖 **Z-BOT PRO V8.4 FINAL** 🤖
+    txt=f"""🤖 **Z-BOT PRO V8.5 FINAL** 🤖
 
-✨ *HIGH WINRATE + REAL+OTC + EXPIRY*
+✨ *REAL+OTC + EXPIRY + RESULT TELLER*
 
 💎 IQ: {'✅' if IQ_CONNECTED else '❌'} | 💰 ${STATS['balance']:.2f}
 🏆 W: {STATS['wins']} L: {STATS['loss']} | 🔥 Streak: {STATS['streak']}
@@ -241,27 +223,11 @@ def cb(c):
         bot.answer_callback_query(c.id, "❌ Private - Owner only"); return
     data=c.data; cid=c.message.chat.id
     if data=="trade":
-        bot.answer_callback_query(c.id, "🔍 Scanning high winrate...")
-        msg = bot.send_message(cid, f"🔍 **SCANNING {len(get_active_pairs())} PAIRS FOR HIGH WIN RATE...**\n\n⏳ Checking...")
-        high_pairs = []
-        all_pairs = get_active_pairs()
-        for p in all_pairs:
-            score = get_pair_score(p)
-            try: bot.edit_message_text(f"🔍 **SCANNING...**\n\n💱 {p}: {score}%\n\n✅ Found {len(high_pairs)} high winrate...", cid, msg.message_id)
-            except: pass
-            if score >= 80:
-                high_pairs.append((p, score))
-            time.sleep(0.4)
-        high_pairs.sort(key=lambda x: x[1], reverse=True)
-        if not high_pairs:
-            bot.edit_message_text(f"⚠️ **NO 80%+ PAIRS NOW**\nAll pairs low - Showing all:", cid, msg.message_id)
-            high_pairs = [(p, get_pair_score(p)) for p in all_pairs]
-            high_pairs.sort(key=lambda x: x[1], reverse=True)
+        # ===== NO SCANNING - DIRECT PAIRS =====
         mk=types.InlineKeyboardMarkup(row_width=2)
-        for p, score in high_pairs:
-            emoji = "🔥" if score>=90 else "✅" if score>=82 else "⚠️"
-            mk.add(types.InlineKeyboardButton(f"{emoji} {PAIR_EMOJI.get(p,p)} {score}%", callback_data=f"pair_{p}"))
-        bot.send_message(cid, f"💹 **STEP 1/4 - HIGH WINRATE ONLY**\n\n🔥 {len(high_pairs)} best pairs (80%+)\nSorted by winrate\n\n👇 Choose:", reply_markup=mk, parse_mode="Markdown")
+        for p in get_active_pairs():
+            mk.add(types.InlineKeyboardButton(f"{PAIR_EMOJI.get(p,p)}", callback_data=f"pair_{p}"))
+        bot.send_message(cid, f"💹 **STEP 1/4 - SELECT PAIR**\n\n👇 Choose your pair (All pairs - No filter):", reply_markup=mk, parse_mode="Markdown")
         return
     if data.startswith("pair_"):
         pair=data.replace("pair_","")
@@ -339,7 +305,6 @@ def cb(c):
         ok,oid,exp=iq_trade(pair,d['dir'],amt,bal,expiry)
         if not ok:
             bot.send_message(cid, "❌ **Trade Failed - Reconnecting**\nTry again"); iq_reconnect(); return
-        # LIVE RESULT TELLER
         bot.send_message(cid, f"""✅ **TRADE PLACED!**
 
 🆔 `{oid}`
@@ -353,7 +318,6 @@ def cb(c):
 **I go tell you result now!**
 """, parse_mode="Markdown")
         time.sleep(exp+5)
-        # ===== BOT TELLS RESULT =====
         try:
             with IQ_LOCK:
                 logging.disable(logging.CRITICAL); pnl=iq.check_win_v4(oid)
@@ -363,7 +327,7 @@ def cb(c):
                 mk=types.InlineKeyboardMarkup(row_width=2)
                 mk.add(types.InlineKeyboardButton("🔁 SAME TRADE", callback_data=f"exp_{expiry}_{pair}_{bal}_{int(amt)}"),
                        types.InlineKeyboardButton("💹 NEW TRADE", callback_data="trade"))
-                bot.send_message(cid, f"""✅ **WINNER WINNER! ✅✅✅**
+                bot.send_message(cid, f"""✅ **WINNER! ✅✅✅**
 
 ━━━━━━━━━━━━━━━
 💰 **Profit:** +${pnl:.2f}
@@ -372,11 +336,11 @@ def cb(c):
 💵 **New Balance:** ${STATS['balance']:.2f}
 📊 **Result:** WIN ✅
 🔥 **Win Streak:** {STATS['streak']}
-🏆 **Total Wins:** {STATS['wins']} | Losses: {STATS['loss']}
+🏆 **Total:** W{STATS['wins']} L{STATS['loss']}
 ━━━━━━━━━━━━━━━
 
 🎉 **CONGRATULATIONS! MONEY DON ENTER!**
-💬 Bot: *Omo you too sabi trade! Make we do another one?*
+💬 Bot: *Omo you too sabi trade!*
 
 👇 Click below:
 """, reply_markup=mk, parse_mode="Markdown")
@@ -385,7 +349,7 @@ def cb(c):
                 mk=types.InlineKeyboardMarkup(row_width=2)
                 mk.add(types.InlineKeyboardButton(f"🔁 MARTINGALE ${amt*2.2:.0f}", callback_data=f"exp_{expiry}_{pair}_{bal}_{int(amt*2.2)}"),
                        types.InlineKeyboardButton("💹 NEW TRADE", callback_data="trade"))
-                bot.send_message(cid, f"""❌ **LOSS - E NO BE YOUR FAULT!**
+                bot.send_message(cid, f"""❌ **LOSS**
 
 ━━━━━━━━━━━━━━━
 💸 **Loss:** -${amt:.2f}
@@ -393,23 +357,23 @@ def cb(c):
 ⏱️ **Expiry:** {expiry_txt}
 💵 **Balance:** ${STATS['balance']:.2f}
 📊 **Result:** LOSS ❌
-🏆 **Wins:** {STATS['wins']} | Losses: {STATS['loss']}
+🏆 **Total:** W{STATS['wins']} L{STATS['loss']}
 ━━━━━━━━━━━━━━━
 
-💪 **Bot says:** *No worry boss, market just do shakara! Martingale go recover am!*
+💪 **Bot says:** *No worry boss, market do shakara! Martingale go recover am!*
 
 👇 Try again:
 """, reply_markup=mk, parse_mode="Markdown")
         except:
             mk=types.InlineKeyboardMarkup()
             mk.add(types.InlineKeyboardButton("💹 NEW TRADE", callback_data="trade"))
-            bot.send_message(cid, f"⏱️ **TRADE EXPIRED**\n\n💬 Bot: *Check IQ Option app boss, network delay small*\nID: {oid}\n\nTap new trade", reply_markup=mk)
+            bot.send_message(cid, f"⏱️ **TRADE EXPIRED**\nCheck IQ app\nID: {oid}", reply_markup=mk)
         return
     if data=="stats":
         total=STATS['wins']+STATS['loss']; wr=(STATS['wins']/total*100) if total else 0
-        bot.send_message(cid, f"📊 **STATS V8.4**\n\n🏆 Wins: {STATS['wins']}\n❌ Loss: {STATS['loss']}\n📈 Winrate: {wr:.1f}%\n🔥 Streak: {STATS['streak']}\n💰 Balance: ${STATS['balance']:.2f}", parse_mode="Markdown")
+        bot.send_message(cid, f"📊 **STATS V8.5**\n\n🏆 Wins: {STATS['wins']}\n❌ Loss: {STATS['loss']}\n📈 Winrate: {wr:.1f}%\n🔥 Streak: {STATS['streak']}\n💰 Balance: ${STATS['balance']:.2f}", parse_mode="Markdown")
     if data=="settings":
-        bot.send_message(cid, f"⚙️ **SETTINGS V8.4**\n\n🔥 High Winrate Filter: Active (80%+)\n💎 Fast Scan: Active\n⏱️ Expiry: Active\n🗣️ Auto Result Teller: Active\n\nOwner: {OWNER_ID}")
+        bot.send_message(cid, f"⚙️ **SETTINGS V8.5**\n\n🔥 High Winrate Scan: REMOVED\n💎 Fast Scan: Active\n⏱️ Expiry: Active\n🗣️ Auto Result Teller: Active\n\nOwner: {OWNER_ID}")
 
 @bot.message_handler(func=lambda m: user_states.get(m.chat.id, {}).get("step")=="await_amt")
 def handle_custom_amt(m):
@@ -437,5 +401,5 @@ def home():
     if u:
         try: requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={u}/{BOT_TOKEN}", timeout=5)
         except: pass
-    return "V8.4 HIGH WINRATE + EXPIRY + AUTO RESULT TELLER - RUNNING"
+    return "V8.5 NO WINRATE SCAN + EXPIRY + RESULT TELLER - RUNNING"
 app.run(host="0.0.0.0", port=int(os.getenv("PORT",10000)))
