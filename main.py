@@ -1,4 +1,4 @@
-No 1 auto trading bot
+
 import os, time, threading, warnings
 from datetime import datetime
 import pytz
