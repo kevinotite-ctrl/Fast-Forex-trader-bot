@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
-# 👑 Z-BOT PRO V48 V5 ULTIMATE - ALL COOL FEATURES
+# 👑 Z-BOT PRO V48 V5.5 FINAL - SIMPLE QUICK + DEMO $ + REAL ₦
 import os, time, threading, warnings, random
-from datetime import datetime, date
-import pytz
+from datetime import date
 from flask import Flask, request
 import telebot
 from telebot import types
@@ -23,6 +22,15 @@ def is_private_allowed(uid): return uid in ALLOWED_USERS
 
 OTC_PAIRS = ["EURUSD-OTC","GBPUSD-OTC","EURGBP-OTC","USDJPY-OTC","GBPJPY-OTC","AUDUSD-OTC","USDCHF-OTC","EURJPY-OTC"]
 PAIR_EMOJI = {"EURUSD-OTC":"🇪🇺 EUR/USD","GBPUSD-OTC":"🇬🇧 GBP/USD","EURGBP-OTC":"🇪🇺 EUR/GBP","USDJPY-OTC":"🇺🇸 USD/JPY","GBPJPY-OTC":"🇬🇧 GBP/JPY","AUDUSD-OTC":"🇦🇺 AUD/USD","USDCHF-OTC":"🇺🇸 USD/CHF","EURJPY-OTC":"🇪🇺 EUR/JPY"}
+
+USD_TO_NAIRA = 1600.0
+def to_naira(usd): return usd * USD_TO_NAIRA
+def to_usd(naira): return naira / USD_TO_NAIRA
+def fmt_demo(usd): return f"${usd:.2f}"
+def fmt_real(usd): return f"₦{to_naira(usd):,.0f}"
+def fmt_by_bal(usd, bal):
+    if bal=="REAL": return f"₦{to_naira(usd):,.0f}"
+    else: return f"${usd:.2f}"
 
 STATS = {"balance":100.0,"wins":0,"loss":0,"streak":0,"best_streak":0,"total_profit":0.0}
 PAIR_STATS = {}
@@ -105,8 +113,8 @@ def get_market_mood(pair_data):
     mom=abs(pair_data.get('mom1',0)); vol=pair_data.get('vol','LOW'); conf=pair_data.get('conf',0)
     if mom>0.1 and vol=="HIGH" and conf>=85: return "🚀 Trending FIRE!", "NOW 92% BEST!"
     elif mom>0.05 and conf>=80: return "🔥 Volatile HOT", "NOW 85% GOOD!"
-    elif vol=="LOW": return "😎 Calm - Wait", "WAIT 60% - Low Vol"
-    elif conf<70: return "😴 Sleepy Market", "WAIT 40% - Weak"
+    elif vol=="LOW": return "😎 Calm - Wait", "WAIT 60%"
+    elif conf<70: return "😴 Sleepy", "WAIT 40%"
     else: return "⚡ Active", "NOW 75% OK"
 
 def backtest_pair(pair):
@@ -177,7 +185,7 @@ def check_daily():
     return DAILY
 
 def spin_wheel():
-    prizes=[("💰 +$1 BONUS", 1, 0.4),("💸 +$5 BONUS", 5, 0.2),("🎁 FREE TRADE $1", 1, 0.2),("🔥 2x NEXT PROFIT!", 0, 0.1),("💎 +$10 JACKPOT!", 10, 0.05),("😢 Try Again", 0, 0.05)]
+    prizes=[("💰 +$1 BONUS", 1, 0.4),("💸 +$5 BONUS", 5, 0.2),("🎁 FREE $1", 1, 0.2),("🔥 2x NEXT!", 0, 0.1),("💎 +$10 JACKPOT!", 10, 0.05),("😢 Try Again", 0, 0.05)]
     r=random.random(); cum=0
     for name,val,prob in prizes:
         cum+=prob
@@ -196,27 +204,27 @@ def draw_profit_chart():
 def get_achievement():
     s=STATS['streak']
     if s>=20 and "DIAMOND KING" not in ACHIEVEMENTS:
-        ACHIEVEMENTS.append("DIAMOND KING 💎"); return "💎 NEW ACHIEVEMENT: DIAMOND KING - 20 Wins Streak!"
+        ACHIEVEMENTS.append("DIAMOND KING 💎"); return "💎 NEW ACHIEVEMENT: DIAMOND KING - 20 Wins!"
     if s>=10 and "LIGHTNING GOD" not in ACHIEVEMENTS:
-        ACHIEVEMENTS.append("LIGHTNING GOD ⚡"); return "⚡ NEW ACHIEVEMENT: LIGHTNING GOD - 10 Wins Streak! VIP Signals Unlocked!"
+        ACHIEVEMENTS.append("LIGHTNING GOD ⚡"); return "⚡ NEW ACHIEVEMENT: LIGHTNING GOD - 10 Wins!"
     if s>=5 and "FIRE BADGE" not in ACHIEVEMENTS:
-        ACHIEVEMENTS.append("FIRE BADGE 🔥"); return "🔥 NEW ACHIEVEMENT: FIRE BADGE - 5 Wins Streak!"
+        ACHIEVEMENTS.append("FIRE BADGE 🔥"); return "🔥 NEW ACHIEVEMENT: FIRE BADGE - 5 Wins!"
     return None
 
 def animate_live_scanning(cid, mid, pair):
-    steps=[(5,"🔌 Connecting..."),(15,"📊 Fetching candles..."),(30,"📈 EMA9/21..."),(45,"💹 RSI + ATR..."),(60,"🎯 BB + Vol..."),(75,"🧠 MTF + Mood..."),(85,"✅ VIP GOD..."),(100,"🔒 LOCKED!")]
+    steps=[(5,"🔌 Connecting..."),(15,"📊 Fetching candles..."),(30,"📈 EMA9/21..."),(45,"💹 RSI + ATR..."),(60,"🎯 BB + Vol..."),(75,"🧠 MTF + Mood..."),(85,"✅ VIP filter..."),(100,"🔒 LOCKED!")]
     for pct, stage in steps:
         bar="█"*(pct//10)+"▒"*(10-pct//10)
-        txt=f"⚡ **Z-BOT V5 SCAN**\n\nPair: {pair}\n\n{bar} {pct}%\n{stage}\n\n⏳ Wait..."
+        txt=f"⚡ **Z-BOT V5.5 SCAN**\n\nPair: {pair}\n\n{bar} {pct}%\n{stage}\n\n⏳ Wait..."
         try: bot.edit_message_text(txt,cid,mid,parse_mode="Markdown")
         except: pass
         time.sleep(0.3)
 
 def animate_progress_bar(cid, mid, pair, amount_text):
-    steps=[(10,"reading candles"),(25,"momentum + mood"),(50,"MTF 5m + BB"),(75,"VIP signal"),(100,"LOCKED")]
+    steps=[(10,"candles"),(25,"momentum + mood"),(50,"MTF + BB"),(75,"VIP signal"),(100,"LOCKED")]
     for pct, stage in steps:
         bar="▓"*(pct//10)+"░"*(10-pct//10)
-        txt=f"🔍 **V5 QUICK**\n{pair}...\n\n{bar} {pct}%\n> {stage}\n{amount_text}"
+        txt=f"🔍 **V5.5 QUICK**\n{pair}...\n\n{bar} {pct}%\n> {stage}\n{amount_text}"
         try: bot.edit_message_text(txt,cid,mid)
         except: pass
         time.sleep(0.25)
@@ -261,6 +269,17 @@ def safe_check_win(oid, duration_sec=60, max_retry=12):
         time.sleep(3)
     return None
 
+def duration_kb_simple(amt, bal):
+    mk=types.InlineKeyboardMarkup(row_width=3)
+    mk.add(types.InlineKeyboardButton(f"⏱️ 30 Sec", callback_data=f"qdur_30_{int(amt) if amt>=1 else amt}_{bal}"),
+           types.InlineKeyboardButton(f"⏱️ 1 Min", callback_data=f"qdur_60_{int(amt) if amt>=1 else amt}_{bal}"),
+           types.InlineKeyboardButton(f"⏱️ 2 Min", callback_data=f"qdur_120_{int(amt) if amt>=1 else amt}_{bal}"))
+    mk.add(types.InlineKeyboardButton(f"⏱️ 3 Min", callback_data=f"qdur_180_{int(amt) if amt>=1 else amt}_{bal}"),
+           types.InlineKeyboardButton(f"⏱️ 5 Min", callback_data=f"qdur_300_{int(amt) if amt>=1 else amt}_{bal}"),
+           types.InlineKeyboardButton(f"⏱️ 15 Min", callback_data=f"qdur_900_{int(amt) if amt>=1 else amt}_{bal}"))
+    mk.add(types.InlineKeyboardButton("⬅️ Menu", callback_data="back_menu"))
+    return mk
+
 def duration_kb(pair, amt, bal):
     mk=types.InlineKeyboardMarkup(row_width=3)
     mk.add(types.InlineKeyboardButton("⏱️ 30 Sec", callback_data=f"dur_30_{int(amt)}_{pair}_{bal}"),
@@ -277,7 +296,9 @@ def main_menu_kb(cid):
     comp = COMPOUND_MODE.get(cid, False)
     shield = SHIELD_MODE.get(cid, True)
     mk=types.InlineKeyboardMarkup(row_width=2)
-    mk.add(types.InlineKeyboardButton("💹 TRADE HIGH WIN", callback_data="trade"),
+    mk.add(types.InlineKeyboardButton("⚡ QUICK TRADE - DEMO ($)", callback_data="quick_simple_PRACTICE"),
+           types.InlineKeyboardButton("🔴 QUICK TRADE - REAL (₦)", callback_data="quick_simple_REAL"))
+    mk.add(types.InlineKeyboardButton("💹 HIGH WIN RATE", callback_data="trade"),
            types.InlineKeyboardButton("🤖 AUTO TRADE 🚀", callback_data="auto_menu"))
     mk.add(types.InlineKeyboardButton(f"{'💎 VIP ON' if vip else '💎 VIP OFF'}", callback_data="toggle_vip"),
            types.InlineKeyboardButton(f"{'📈 COMP ON' if comp else '📈 COMP OFF'}", callback_data="toggle_comp"))
@@ -288,7 +309,7 @@ def main_menu_kb(cid):
     mk.add(types.InlineKeyboardButton("⏸️ STOP AUTO", callback_data="stop_auto"))
     return mk
 
-def send_win_result(cid, pair, direction, amt, duration_sec, pnl, bal_after, pair_data=None):
+def send_win_result(cid, pair, direction, amt, duration_sec, pnl, bal_after, pair_data=None, bal_type="PRACTICE"):
     STATS['streak']+=1
     if STATS['streak']>STATS['best_streak']: STATS['best_streak']=STATS['streak']
     STATS['total_profit']+=pnl
@@ -306,31 +327,40 @@ def send_win_result(cid, pair, direction, amt, duration_sec, pnl, bal_after, pai
     ach = get_achievement()
     ach_txt = f"\n{ach}\n" if ach else ""
     mood, best_time = get_market_mood(pair_data)
+    if bal_type=="REAL":
+        amt_txt = fmt_real(amt); pnl_txt = fmt_real(pnl); bal_txt = fmt_real(bal_after)
+        profit_today_txt = fmt_real(DAILY['profit_today']); goal_txt = fmt_real(DAILY['goal'])
+        wheel_bonus_txt = fmt_real(wheel_val) if wheel_val>0 else ""
+    else:
+        amt_txt = fmt_demo(amt); pnl_txt = fmt_demo(pnl); bal_txt = fmt_demo(bal_after)
+        profit_today_txt = fmt_demo(DAILY['profit_today']); goal_txt = fmt_demo(DAILY['goal'])
+        wheel_bonus_txt = fmt_demo(wheel_val) if wheel_val>0 else ""
+    if wheel_val>0: bonus_txt = f"\n🎰 **LUCKY WHEEL:** {wheel_name} = {wheel_bonus_txt}\n"
     mk=types.InlineKeyboardMarkup(row_width=2)
-    mk.add(types.InlineKeyboardButton("🔁 SAME - More Wins!", callback_data=f"dur_{duration_sec}_{int(amt)}_{pair}_PRACTICE"),
-           types.InlineKeyboardButton("💹 NEW HIGH WIN", callback_data="trade"))
-    mk.add(types.InlineKeyboardButton("🤖 AUTO CONTINUE", callback_data=f"auto_start_{int(amt)}_{duration_sec}"),
-           types.InlineKeyboardButton("🎰 SPIN AGAIN", callback_data="spin"))
-    mk.add(types.InlineKeyboardButton("📊 CHART", callback_data="stats"))
+    mk.add(types.InlineKeyboardButton(f"⚡ QUICK AGAIN {amt_txt}", callback_data=f"quick_simple_{bal_type}"),
+           types.InlineKeyboardButton(f"✏️ CUSTOM {amt_txt}", callback_data=f"quick_custom_{bal_type}"))
+    mk.add(types.InlineKeyboardButton("💹 HIGH WIN", callback_data="trade"),
+           types.InlineKeyboardButton("📊 CHART", callback_data="stats"))
     goal=DAILY['goal']
     progress=int(min(100, DAILY['profit_today']/goal*100)) if goal>0 else 0
     bar="█"*(progress//10)+"░"*(10-progress//10)
+    real_tag = "🔴 REAL (₦)" if bal_type=="REAL" else "🟢 DEMO ($)"
     txt=f"""🎉🎉🎉 **WINNER WINNER** 🎉🎉🎉
 
 ━━━━━━━━━━━━━━━━━━━━━━
-✅💚 **RESULT AFTER TRADE** 💚✅
+✅💚 **RESULT AFTER TRADE** 💚✅ {real_tag}
 ━━━━━━━━━━━━━━━━━━━━━━
 
-💰 **Profit:** 🤑 **+${pnl:.2f}** 🤑{bonus_txt}
+💰 **Profit:** 🤑 **+{pnl_txt}** 🤑{bonus_txt}
 💱 **Pair:** {PAIR_EMOJI.get(pair,pair)} {direction}
 ⏱️ **Duration:** ⏰ {duration_sec}s
-💵 **Amount:** ${amt}
+💵 **Amount:** {amt_txt} {bal_type}
 🌋 **Vol:** {pair_data.get('vol','-') if pair_data else '-'} | Mood: {mood}
 
 📊 **Outcome:** ✅ **WIN** ✅
 🔥 **Streak:** {STATS['streak']} Wins! Best {STATS['best_streak']} 🏆
-💎 **Balance:** 💰 ${bal_after:.2f} 💰
-🎯 **Daily:** {bar} {progress}% (${DAILY['profit_today']:.1f}/${goal})
+💎 **Balance:** 💰 {bal_txt} 💰
+🎯 **Daily:** {bar} {progress}% ({profit_today_txt}/{goal_txt})
 ⏰ **Best Time:** {best_time}
 
 ━━━━━━━━━━━━━━━━━━━━━━
@@ -340,13 +370,13 @@ def send_win_result(cid, pair, direction, amt, duration_sec, pnl, bal_after, pai
     if STATS['streak']>=3:
         ch=draw_profit_chart()
         if ch:
-            try: bot.send_photo(cid, open(ch,'rb'), caption=f"📈 **Profit Chart** - Streak {STATS['streak']}🔥")
+            try: bot.send_photo(cid, open(ch,'rb'), caption=f"📈 **Chart** - Streak {STATS['streak']}🔥 Bal {bal_txt}")
             except: pass
     if DAILY['profit_today']>=DAILY['goal']:
-        bot.send_message(cid, f"🎯 **DAILY GOAL REACHED!** ${DAILY['profit_today']:.2f}/${goal} - Stopping!", parse_mode="Markdown")
+        bot.send_message(cid, f"🎯 **DAILY GOAL REACHED!** {profit_today_txt}/{goal_txt} - Stopping!", parse_mode="Markdown")
         AUTO_RUNNING[cid]=False
 
-def send_loss_result(cid, pair, direction, amt, duration_sec, bal_after, pair_data=None):
+def send_loss_result(cid, pair, direction, amt, duration_sec, bal_after, pair_data=None, bal_type="PRACTICE"):
     STATS['streak']=0
     STATS['total_profit']-=amt
     DAILY=check_daily()
@@ -355,50 +385,67 @@ def send_loss_result(cid, pair, direction, amt, duration_sec, bal_after, pair_da
     PROFIT_HISTORY.append(bal_after)
     if len(PROFIT_HISTORY)>30: PROFIT_HISTORY.pop(0)
     mood, best_time = get_market_mood(pair_data)
+    mart_22 = round(amt*2.2,2)
+    mart_2 = round(amt*2,2)
+    if bal_type=="REAL":
+        amt_txt = fmt_real(amt); mart_22_txt = fmt_real(mart_22); mart_2_txt = fmt_real(mart_2)
+        bal_txt = fmt_real(bal_after); profit_today_txt = fmt_real(DAILY['profit_today']); goal_txt = fmt_real(DAILY['goal'])
+    else:
+        amt_txt = fmt_demo(amt); mart_22_txt = fmt_demo(mart_22); mart_2_txt = fmt_demo(mart_2)
+        bal_txt = fmt_demo(bal_after); profit_today_txt = fmt_demo(DAILY['profit_today']); goal_txt = fmt_demo(DAILY['goal'])
     mk=types.InlineKeyboardMarkup(row_width=2)
-    mk.add(types.InlineKeyboardButton(f"🔁 MARTINGALE ${amt*2.2:.0f} 💪", callback_data=f"amt_{int(amt*2.2)}_{pair}_PRACTICE"),
-           types.InlineKeyboardButton("💹 NEW HIGH WIN", callback_data="trade"))
-    mk.add(types.InlineKeyboardButton("🤖 AUTO RECOVER", callback_data=f"auto_start_{int(amt)}_{duration_sec}"),
-           types.InlineKeyboardButton("🛡️ SHIELD ON", callback_data="toggle_shield"))
-    mk.add(types.InlineKeyboardButton("📊 CHART", callback_data="stats"))
+    mk.add(types.InlineKeyboardButton(f"🔁 MARTINGALE {mart_22_txt} (2.2x)", callback_data=f"qdur_{duration_sec}_{int(mart_22) if mart_22>=1 else mart_22}_{bal_type}"),
+           types.InlineKeyboardButton(f"🔁 MART {mart_2_txt} (2x)", callback_data=f"qdur_{duration_sec}_{int(mart_2) if mart_2>=1 else mart_2}_{bal_type}"))
+    mk.add(types.InlineKeyboardButton(f"✏️ CUSTOM MARTINGALE", callback_data=f"quick_custom_{bal_type}"),
+           types.InlineKeyboardButton(f"⚡ QUICK SAME {amt_txt}", callback_data=f"quick_simple_{bal_type}"))
+    mk.add(types.InlineKeyboardButton("📊 CHART", callback_data="stats"),
+           types.InlineKeyboardButton("🛡️ SHIELD", callback_data="toggle_shield"))
     goal=DAILY['goal']
     progress=int(min(100, max(0, DAILY['profit_today']/goal*100))) if goal>0 else 0
     bar="█"*(progress//10)+"░"*(10-progress//10)
+    real_tag = "🔴 REAL (₦)" if bal_type=="REAL" else "🟢 DEMO ($)"
     txt=f"""💔💔💔 **OOPS - NEXT ONE WIN** 💔💔💔
 
 ━━━━━━━━━━━━━━━━━━━━━━
-❌💔 **RESULT AFTER TRADE** 💔❌
+❌💔 **RESULT AFTER TRADE** 💔❌ {real_tag}
 ━━━━━━━━━━━━━━━━━━━━━━
 
-💸 **Loss:** 😢 **-${amt:.2f}** 😢
+💸 **Loss:** 😢 **-{amt_txt}** 😢
 💱 **Pair:** {PAIR_EMOJI.get(pair,pair)} {direction}
 ⏱️ **Duration:** ⏰ {duration_sec}s
-💵 **Amount:** ${amt}
+💵 **Amount:** {amt_txt} {bal_type}
 🌋 **Vol:** {pair_data.get('vol','-') if pair_data else '-'} | Mood: {mood}
 
 📊 **Outcome:** ❌ **LOSS** ❌
 🔥 **Streak Reset:** 0
-💎 **Balance:** 💰 ${bal_after:.2f} 💰
-🎯 **Daily:** {bar} {progress}% (${DAILY['profit_today']:.1f}/${goal})
+💎 **Balance:** 💰 {bal_txt} 💰
+🎯 **Daily:** {bar} {progress}% ({profit_today_txt}/{goal_txt})
 ⏰ **Best Time:** {best_time}
 
 ━━━━━━━━━━━━━━━━━━━━━━
-💪 Don't Give Up! Shield protects!
+💪 **MARTINGALE OPTIONS:**
+Tap button to recover with BEST pair!
+2.2x = Recover + Profit (Best)
+2x = Recover loss
+✏️ CUSTOM = Your own amount
+━━━━━━━━━━━━━━━━━━━━━━
 """
     bot.send_message(cid, txt, reply_markup=mk, parse_mode="Markdown")
     if DAILY['profit_today'] <= -DAILY['stop_loss']:
-        bot.send_message(cid, f"🛑 **STOP LOSS HIT!** ${DAILY['profit_today']:.2f} - Stopping!", parse_mode="Markdown")
+        bot.send_message(cid, f"🛑 **STOP LOSS HIT!** {profit_today_txt} - Stopping!", parse_mode="Markdown")
         AUTO_RUNNING[cid]=False
 
-def do_trade(cid, pair, amt, bal, duration_sec, is_auto=False):
+def do_trade(cid, pair, amt, bal, duration_sec, is_auto=False, is_quick=False):
     if COMPOUND_MODE.get(cid, False) and STATS['wins']>0:
         amt = round(amt * (1 + STATS['streak']*0.1),2)
         amt = max(1, min(amt, 100))
         if is_auto:
-            bot.send_message(cid, f"📈 **COMPOUND** Streak {STATS['streak']} → ${amt}")
-    scan_msg = bot.send_message(cid, f"🔍 **ANALYZING {PAIR_EMOJI.get(pair,pair)}**\n\n░░░░░░░░░░ 0%...", parse_mode="Markdown")
+            txt = fmt_by_bal(amt, bal)
+            bot.send_message(cid, f"📈 **COMPOUND** Streak {STATS['streak']} → {txt}")
+    amt_display = fmt_by_bal(amt, bal)
+    scan_msg = bot.send_message(cid, f"🔍 **{'⚡ QUICK' if is_quick else 'ANALYZING'} {PAIR_EMOJI.get(pair,pair)} {bal}**\n\n░░░░░░░░░░ 0%... {amt_display}", parse_mode="Markdown")
     animate_live_scanning(cid, scan_msg.message_id, pair)
-    animate_progress_bar(cid, scan_msg.message_id, pair, f"${amt} {duration_sec}s")
+    animate_progress_bar(cid, scan_msg.message_id, pair, f"{amt_display} {duration_sec}s {bal}")
     vip = VIP_MODE.get(cid, False)
     d=analyze_momentum(pair, vip_only=vip)
     if not d:
@@ -412,18 +459,18 @@ def do_trade(cid, pair, amt, bal, duration_sec, is_auto=False):
             bot.send_message(cid, f"❌ No {'VIP 90%+' if vip else ''} signal on {pair}", reply_markup=mk); return None
     dir_emoji = "🟢 CALL" if d['dir']=="CALL" else "🔴 PUT"
     mood, best_time = get_market_mood(d)
-    signal_txt=f"""📡 **SIGNAL FOUND** {'🤖 AUTO' if is_auto else ''} {'💎 VIP' if vip else ''}\n\n💱 Pair: {PAIR_EMOJI.get(pair,pair)}\n📊 Direction: {dir_emoji}\n🎯 Confidence: {d['conf']:.0f}% {'🔥 GOD!' if d['conf']>=90 else ''}\n💸 Payout: {int(d['payout']*100)}%\n💰 Amount: ${amt} {bal}\n⏱️ Duration: {duration_sec}s\n🌋 Vol: {d['vol']}\n🧠 Mood: {mood}\n⏰ Best: {best_time}\n\n📈 {d['reason']}"""
+    signal_txt=f"""📡 **SIGNAL FOUND** {'⚡ QUICK' if is_quick else ''} {'🤖 AUTO' if is_auto else ''} {'💎 VIP' if vip else ''} {bal}\n\n💱 Pair: {PAIR_EMOJI.get(pair,pair)}\n📊 Direction: {dir_emoji}\n🎯 Confidence: {d['conf']:.0f}% {'🔥 GOD!' if d['conf']>=90 else ''}\n💸 Payout: {int(d['payout']*100)}%\n💰 Amount: {amt_display} {bal}\n⏱️ Duration: {duration_sec}s\n🌋 Vol: {d['vol']}\n🧠 Mood: {mood}\n⏰ Best: {best_time}\n\n📈 {d['reason']}"""
     try:
         plt.figure(figsize=(6,3)); plt.plot(d['df']['close'], color='#FFD700', linewidth=2); plt.title(f"{pair} {d['dir']} {d['conf']:.0f}% Vol {d['vol']}"); plt.grid(alpha=0.3); plt.tight_layout(); p="/tmp/c.png"; plt.savefig(p); plt.close()
         bot.send_photo(cid, open(p,'rb'), caption=signal_txt, parse_mode="Markdown")
     except: bot.send_message(cid, signal_txt, parse_mode="Markdown")
-    bot.send_message(cid, f"🚀 **PLACING TRADE NOW...**\n\n💱 {pair} | {d['dir']} | ${amt} | {duration_sec}s | Vol {d['vol']}", parse_mode="Markdown")
+    bot.send_message(cid, f"🚀 **PLACING TRADE NOW...** {'⚡ QUICK' if is_quick else ''} {bal}\n\n💱 {pair} | {d['dir']} | {amt_display} | {duration_sec}s | Vol {d['vol']}", parse_mode="Markdown")
     ok,oid,exp=iq_trade(pair,d['dir'],amt,bal,duration_sec)
     if not ok:
         bot.send_message(cid, f"❌ **Trade Failed**", parse_mode="Markdown"); iq_reconnect(); return None
-    bot.send_message(cid, f"✅ **TRADE PLACED!**\n\n🆔 `{oid}`\n💱 {pair}\n📊 {d['dir']}\n💰 ${amt}\n⏱️ {duration_sec}s\n🌋 {d['vol']} | {mood}\n\n⏳ WAIT {duration_sec} SEC...", parse_mode="Markdown")
+    bot.send_message(cid, f"✅ **TRADE PLACED!** {'⚡ QUICK' if is_quick else ''} {bal}\n\n🆔 `{oid}`\n💱 {pair}\n📊 {d['dir']}\n💰 {amt_display}\n⏱️ {duration_sec}s\n🌋 {d['vol']} | {mood}\n\n⏳ WAIT {duration_sec} SEC...", parse_mode="Markdown")
     time.sleep(duration_sec + 5)
-    bot.send_message(cid, f"⏳ Checking result ID {oid}... 10 sec")
+    bot.send_message(cid, f"⏳ Checking result ID {oid}... 10 sec {amt_display}")
     time.sleep(5)
     pnl = safe_check_win(oid, duration_sec=duration_sec, max_retry=12)
     if pnl is None:
@@ -431,25 +478,46 @@ def do_trade(cid, pair, amt, bal, duration_sec, is_auto=False):
         pnl = safe_check_win(oid, duration_sec=duration_sec, max_retry=8)
     if pnl is not None and pnl>0:
         STATS['wins']+=1; STATS['balance']+=pnl; update_pair_stats(pair, True)
-        send_win_result(cid, pair, d['dir'], amt, duration_sec, pnl, STATS['balance'], d)
+        send_win_result(cid, pair, d['dir'], amt, duration_sec, pnl, STATS['balance'], d, bal)
         return True
     elif pnl is not None:
         STATS['loss']+=1; STATS['balance']-=amt; update_pair_stats(pair, False)
-        send_loss_result(cid, pair, d['dir'], amt, duration_sec, STATS['balance'], d)
+        send_loss_result(cid, pair, d['dir'], amt, duration_sec, STATS['balance'], d, bal)
         return False
     else:
         mk=types.InlineKeyboardMarkup(); mk.add(types.InlineKeyboardButton("💹 NEW TRADE", callback_data="trade"))
-        bot.send_message(cid, f"⏱️ **EXPIRED - CHECK IQ APP** ID {oid}", reply_markup=mk)
+        bot.send_message(cid, f"⏱️ **EXPIRED - CHECK IQ APP** ID {oid} {amt_display}", reply_markup=mk)
         return None
 
+def quick_trade_simple(cid, base_amt, duration_sec, bal="PRACTICE"):
+    amt_display = fmt_by_bal(base_amt, bal)
+    bot.send_message(cid, f"⚡ **QUICK TRADE V5.5 {bal} STARTING** ⚡\n\n💰 {amt_display} | ⏱️ {duration_sec}s | {bal}\n🏆 Auto picking BEST win rate pair...\n⏳ Scanning...", parse_mode="Markdown")
+    vip = VIP_MODE.get(cid, False)
+    ranked = get_pair_ranking(vip=vip)
+    if not ranked:
+        bot.send_message(cid, "❌ No pairs available, try again"); return
+    pair = ranked[0][0]
+    d = analyze_momentum(pair, vip_only=vip)
+    if not d:
+        for p,_,_ in ranked[1:3]:
+            d2=analyze_momentum(p, vip_only=vip)
+            if d2: pair=p; d=d2; break
+    if not d:
+        bot.send_message(cid, f"❌ No strong signal on top pairs, trying {pair} anyway...")
+        d=analyze_momentum(pair)
+        if not d: bot.send_message(cid, "❌ Failed, try again"); return
+    bot.send_message(cid, f"⚡ **QUICK PICKED {bal}:** {PAIR_EMOJI.get(pair,pair)} Win {ranked[0][1]:.1f}% | {d['dir']} {d['conf']:.0f}% {d['vol']} | Mood {get_market_mood(d)[0]}\n\n🚀 Trading NOW {amt_display}...")
+    do_trade(cid, pair, base_amt, bal, duration_sec, is_auto=False, is_quick=True)
+
 def auto_trading_loop(cid, base_amt, duration_sec, bal="PRACTICE"):
-    bot.send_message(cid, f"🤖 **AUTO V5 STARTED** 🚀\n\n💰 Base: ${base_amt} | ⏱️ {duration_sec}s | {bal}\n🏆 High Win + VIP={'ON' if VIP_MODE.get(cid) else 'OFF'} + COMP={'ON' if COMPOUND_MODE.get(cid) else 'OFF'}\n🎯 Goal ${DAILY['goal']} | Stop ${DAILY['stop_loss']}\n\n🔍 Scanning every 15s...\n\n[⏸️ STOP AUTO]", parse_mode="Markdown")
+    amt_display = fmt_by_bal(base_amt, bal)
+    bot.send_message(cid, f"🤖 **AUTO TRADE V5.5 {bal} - ONLY ON BUTTON** 🚀\n\n💰 Base: {amt_display} | ⏱️ {duration_sec}s | {bal}\n🏆 High Win + VIP={'ON' if VIP_MODE.get(cid) else 'OFF'} + COMP={'ON' if COMPOUND_MODE.get(cid) else 'OFF'}\n🎯 Goal {fmt_by_bal(DAILY['goal'], bal)} | Stop {fmt_by_bal(DAILY['stop_loss'], bal)}\n\n🔍 Scanning every 15s...\n\n[⏸️ STOP AUTO] - Will NOT restart unless you touch button!", parse_mode="Markdown")
     trades=0
     while AUTO_RUNNING.get(cid, False):
         try:
             check_daily()
             if DAILY['profit_today']>=DAILY['goal'] or DAILY['profit_today']<=-DAILY['stop_loss']:
-                bot.send_message(cid, f"🎯 Daily limit ${DAILY['profit_today']:.1f} - Stopping AUTO"); AUTO_RUNNING[cid]=False; break
+                bot.send_message(cid, f"🎯 Daily limit {fmt_by_bal(DAILY['profit_today'], bal)} - Stopping AUTO. Touch button to restart!"); AUTO_RUNNING[cid]=False; break
             vip = VIP_MODE.get(cid, False)
             ranked = get_pair_ranking(vip=vip)
             if not ranked: time.sleep(10); continue
@@ -460,19 +528,19 @@ def auto_trading_loop(cid, base_amt, duration_sec, bal="PRACTICE"):
                     d2=analyze_momentum(p, vip_only=vip)
                     if d2 and d2['conf']>= (88 if vip else 75): pair=p; d=d2; break
                 if not d or d['conf']< (88 if vip else 75):
-                    bot.send_message(cid, f"⏳ AUTO V5: No signal, waiting 15s..."); time.sleep(15); continue
+                    bot.send_message(cid, f"⏳ AUTO V5.5: No signal, waiting 15s..."); time.sleep(15); continue
             amt = base_amt
             if trades>0 and not AUTO_RUNNING.get(f"{cid}_last_win", True):
                 amt = round(base_amt*2.2,2)
-                bot.send_message(cid, f"🧠 **MARTINGALE** {trades+1} → ${amt} on {pair}")
-            bot.send_message(cid, f"🤖 **AUTO #{trades+1} V5**\n🏆 {PAIR_EMOJI.get(pair,pair)} Win {ranked[0][1]:.1f}% | {d['dir']} {d['conf']:.0f}% {d['vol']}\n💰 ${amt} | ⏱️ {duration_sec}s | Streak {STATS['streak']}🔥 | Daily ${DAILY['profit_today']:.1f}")
-            result = do_trade(cid, pair, amt, bal, duration_sec, is_auto=True)
+                bot.send_message(cid, f"🧠 **MARTINGALE** {trades+1} → {fmt_by_bal(amt, bal)} on {pair}")
+            bot.send_message(cid, f"🤖 **AUTO #{trades+1} V5.5 {bal}**\n🏆 {PAIR_EMOJI.get(pair,pair)} Win {ranked[0][1]:.1f}% | {d['dir']} {d['conf']:.0f}% {d['vol']}\n💰 {fmt_by_bal(amt, bal)} | ⏱️ {duration_sec}s | Streak {STATS['streak']}🔥 | Daily {fmt_by_bal(DAILY['profit_today'], bal)}")
+            result = do_trade(cid, pair, amt, bal, duration_sec, is_auto=True, is_quick=False)
             if result is True: AUTO_RUNNING[f"{cid}_last_win"]=True
             elif result is False: AUTO_RUNNING[f"{cid}_last_win"]=False
             else: AUTO_RUNNING[f"{cid}_last_win"]=True
             trades+=1
             if trades>=150:
-                bot.send_message(cid, "🤖 AUTO V5: 150 trades reached, pausing.", reply_markup=main_menu_kb(cid))
+                bot.send_message(cid, "🤖 AUTO V5.5: 150 trades reached, pausing. Touch AUTO button to restart!", reply_markup=main_menu_kb(cid))
                 AUTO_RUNNING[cid]=False
                 break
             time.sleep(8)
@@ -480,7 +548,7 @@ def auto_trading_loop(cid, base_amt, duration_sec, bal="PRACTICE"):
             print(f"AUTO error {e}", flush=True)
             bot.send_message(cid, f"⚠️ AUTO error {e}, retry 10s")
             time.sleep(10)
-    bot.send_message(cid, "⏸️ **AUTO V5 STOPPED** 🛑", reply_markup=main_menu_kb(cid))
+    bot.send_message(cid, "⏸️ **AUTO V5.5 STOPPED** 🛑\n\nWill NOT restart unless you touch AUTO button again!\nManual ready", reply_markup=main_menu_kb(cid))
 
 @bot.message_handler(commands=['start'])
 def start(m):
@@ -488,19 +556,26 @@ def start(m):
         bot.send_message(m.chat.id, f"❌ Private Bot 🔒 Owner only.\nYour ID: {m.from_user.id}"); return
     DAILY=check_daily()
     vip = VIP_MODE.get(m.chat.id, False)
-    txt=f"""🤖 **Z-BOT PRO V48 V5 ULTIMATE** 🤖
+    txt=f"""🤖 **Z-BOT PRO V48 V5.5 SIMPLE** 🤖
 
-✨ *ALL COOL FEATURES UNLOCKED*
+✨ *SIMPLE QUICK + DEMO $ + REAL ₦*
 🔒 PRIVATE - Only Owner {OWNER_ID}
 💎 IQ: {'✅' if IQ_CONNECTED else '❌'} | VIP: {'💎 ON 90%+' if vip else 'OFF'}
-💰 Balance: ${STATS['balance']:.2f}
+💰 Balance: {fmt_demo(STATS['balance'])} / {fmt_real(STATS['balance'])}
 🎯 Wins: {STATS['wins']} | Loss: {STATS['loss']} | Streak: {STATS['streak']}🔥 Best {STATS['best_streak']}🏆
-🎯 Daily: ${DAILY['profit_today']:.1f}/${DAILY['goal']} | Trades {DAILY['trades_today']}
-🏆 Achievements: {', '.join(ACHIEVEMENTS) if ACHIEVEMENTS else 'None - Start Winning!'}
-🤖 AUTO: {'🟢 RUNNING' if AUTO_RUNNING.get(m.chat.id) else '🔴 STOPPED'}
-📈 Profit: ${STATS['total_profit']:.2f}
+🎯 Daily: {fmt_demo(DAILY['profit_today'])} / {fmt_real(DAILY['profit_today'])} | Goal {fmt_demo(DAILY['goal'])} / {fmt_real(DAILY['goal'])}
+🏆 Achievements: {', '.join(ACHIEVEMENTS) if ACHIEVEMENTS else 'None'}
+🤖 AUTO: {'🟢 RUNNING' if AUTO_RUNNING.get(m.chat.id) else '🔴 STOPPED - Touch button to start'}
+📈 Profit: {fmt_demo(STATS['total_profit'])} / {fmt_real(STATS['total_profit'])}
+💵 **Rate:** $1 = ₦{USD_TO_NAIRA:,.0f}
 
-👇 **V5 ULTIMATE MENU:**
+⚡ **QUICK TRADE - SIMPLE:**
+- DEMO = Show in DOLLARS $
+- REAL = Show in NAIRA ₦
+- After amount, pick duration (30s to 15m)
+- Martingale + Custom amount available after loss!
+
+👇 **V5.5 SIMPLE MENU:**
 """
     bot.send_message(m.chat.id, txt, reply_markup=main_menu_kb(m.chat.id), parse_mode="Markdown")
 
@@ -509,14 +584,39 @@ def cb(c):
     if not is_private_allowed(c.from_user.id):
         bot.answer_callback_query(c.id, "❌ Private Bot - Owner only"); return
     data=c.data; cid=c.message.chat.id
+    if data.startswith("quick_simple_"):
+        bal = data.replace("quick_simple_","")
+        user_states[cid]={"step":"await_quick_simple_amt","bal":bal}
+        if bal=="REAL":
+            bot.send_message(cid, f"⚡ **QUICK TRADE - REAL (₦)**\n\n💰 **Type amount in NAIRA:**\nExample:\n`5000` = ₦5,000\n`10000` = ₦10,000\n`2000` = ₦2,000\n\nBot will pick BEST pair and ask duration after!", parse_mode="Markdown")
+        else:
+            bot.send_message(cid, f"⚡ **QUICK TRADE - DEMO ($)**\n\n💰 **Type amount in DOLLARS:**\nExample:\n`1` = $1\n`5` = $5\n`10` = $10\n\nBot will pick BEST pair and ask duration after!", parse_mode="Markdown")
+        return
+    if data.startswith("quick_custom_"):
+        bal = data.replace("quick_custom_","")
+        user_states[cid]={"step":"await_quick_simple_amt","bal":bal}
+        if bal=="REAL":
+            bot.send_message(cid, f"✏️ **QUICK CUSTOM - REAL (₦) - MARTINGALE**\n\n💰 **Type custom amount in NAIRA:**\nExample: `8000` = ₦8,000\n`16000` = ₦16,000\n\nFor REAL account - Pick duration after!", parse_mode="Markdown")
+        else:
+            bot.send_message(cid, f"✏️ **QUICK CUSTOM - DEMO ($) - MARTINGALE**\n\n💰 **Type custom amount in DOLLARS:**\nExample: `10` = $10\n`20` = $20\n\nFor DEMO account - Pick duration after!", parse_mode="Markdown")
+        return
+    if data.startswith("qdur_"):
+        parts=data.split("_")
+        try:
+            dur=int(parts[1]); amt=float(parts[2]); bal=parts[3]
+        except:
+            return
+        bot.answer_callback_query(c.id, f"⚡ {bal} {fmt_by_bal(amt, bal)} {dur}s!")
+        threading.Thread(target=quick_trade_simple, args=(cid, amt, dur, bal), daemon=True).start()
+        return
     if data=="trade":
         bot.answer_callback_query(c.id, "📊 Scanning high win...")
-        scan_msg = bot.send_message(cid, "🔍 **SCANNING PAIRS V5...**\n\n░░░░░░░░░░ 0%")
-        try: bot.edit_message_text("🔍 **SCANNING PAIRS V5...**\n\n▓▓▓░░░░░░░ 30%", cid, scan_msg.message_id)
+        scan_msg = bot.send_message(cid, "🔍 **SCANNING PAIRS V5.5...**\n\n░░░░░░░░░░ 0%")
+        try: bot.edit_message_text("🔍 **SCANNING PAIRS V5.5...**\n\n▓▓▓░░░░░░░ 30%", cid, scan_msg.message_id)
         except: pass
         vip = VIP_MODE.get(cid, False)
         ranked = get_pair_ranking(vip=vip)
-        try: bot.edit_message_text("🔍 **SCANNING V5...**\n\n▓▓▓▓▓▓░░░░ 60%", cid, scan_msg.message_id)
+        try: bot.edit_message_text("🔍 **SCANNING V5.5...**\n\n▓▓▓▓▓▓░░░░ 60%", cid, scan_msg.message_id)
         except: pass
         mk=types.InlineKeyboardMarkup(row_width=1)
         for pair, wr, src in ranked:
@@ -527,12 +627,12 @@ def cb(c):
             mood_txt = f" {get_market_mood(d)[0]}" if d else ""
             label = f"{emoji} {PAIR_EMOJI.get(pair,pair)} - {wr:.1f}%{live_txt}{mood_txt}"
             mk.add(types.InlineKeyboardButton(label, callback_data=f"pair_{pair}"))
-        mk.add(types.InlineKeyboardButton("🔄 Refresh V5", callback_data="trade"))
+        mk.add(types.InlineKeyboardButton("🔄 Refresh V5.5", callback_data="trade"))
         mk.add(types.InlineKeyboardButton("⬅️ Menu", callback_data="back_menu"))
         try:
-            bot.edit_message_text(f"💹 **V5 STEP 1/4 - HIGH WIN + MOOD** {'💎 VIP' if vip else ''}\n\n🏆 **Ranked:** Top = Best!\n\n👇 Choose:", cid, scan_msg.message_id, reply_markup=mk, parse_mode="Markdown")
+            bot.edit_message_text(f"💹 **V5.5 STEP 1/4 - HIGH WIN + MOOD** {'💎 VIP' if vip else ''}\n\n🏆 **Ranked:** Top = Best!\n\n👇 Choose:", cid, scan_msg.message_id, reply_markup=mk, parse_mode="Markdown")
         except:
-            bot.send_message(cid, "💹 **V5 STEP 1/4 - HIGH WIN**", reply_markup=mk, parse_mode="Markdown")
+            bot.send_message(cid, "💹 **V5.5 STEP 1/4 - HIGH WIN**", reply_markup=mk, parse_mode="Markdown")
         return
     if data.startswith("pair_"):
         pair=data.replace("pair_",""); user_states[cid]={"pair":pair}
@@ -541,64 +641,79 @@ def cb(c):
         d=analyze_momentum(pair)
         mood_txt = f"\n🌋 {d['vol']} | {get_market_mood(d)[0]} | {get_market_mood(d)[1]}" if d else ""
         mk=types.InlineKeyboardMarkup(row_width=2)
-        mk.add(types.InlineKeyboardButton("🟢 DEMO", callback_data=f"bal_PRACTICE_{pair}"))
-        mk.add(types.InlineKeyboardButton("🔴 REAL", callback_data=f"bal_REAL_{pair}"))
+        mk.add(types.InlineKeyboardButton("🟢 DEMO ($)", callback_data=f"bal_PRACTICE_{pair}"))
+        mk.add(types.InlineKeyboardButton("🔴 REAL (₦)", callback_data=f"bal_REAL_{pair}"))
         mk.add(types.InlineKeyboardButton("⬅️ BACK High Win", callback_data="trade"))
         bot.send_message(cid, f"✅ **PAIR: {PAIR_EMOJI.get(pair,pair)}**{wr_txt}{mood_txt}\n\n💳 **STEP 2/4 - ACCOUNT**", reply_markup=mk, parse_mode="Markdown"); return
     if data.startswith("bal_"):
         parts=data.split("_"); bal=parts[1]; pair=parts[2]; user_states[cid]={"pair":pair,"bal":bal}
         mk=types.InlineKeyboardMarkup(row_width=3)
-        mk.add(types.InlineKeyboardButton("💵 $1", callback_data=f"amt_1_{pair}_{bal}"),types.InlineKeyboardButton("💵 $5", callback_data=f"amt_5_{pair}_{bal}"),types.InlineKeyboardButton("💵 $10", callback_data=f"amt_10_{pair}_{bal}"))
-        mk.add(types.InlineKeyboardButton("💵 $20", callback_data=f"amt_20_{pair}_{bal}"),types.InlineKeyboardButton("💵 $50", callback_data=f"amt_50_{pair}_{bal}"),types.InlineKeyboardButton("💵 $100", callback_data=f"amt_100_{pair}_{bal}"))
+        if bal=="REAL":
+            mk.add(types.InlineKeyboardButton("₦1,600", callback_data=f"amt_1_{pair}_{bal}"),types.InlineKeyboardButton("₦8,000", callback_data=f"amt_5_{pair}_{bal}"),types.InlineKeyboardButton("₦16,000", callback_data=f"amt_10_{pair}_{bal}"))
+            mk.add(types.InlineKeyboardButton("₦32,000", callback_data=f"amt_20_{pair}_{bal}"),types.InlineKeyboardButton("₦80,000", callback_data=f"amt_50_{pair}_{bal}"),types.InlineKeyboardButton("₦160,000", callback_data=f"amt_100_{pair}_{bal}"))
+        else:
+            mk.add(types.InlineKeyboardButton("$1", callback_data=f"amt_1_{pair}_{bal}"),types.InlineKeyboardButton("$5", callback_data=f"amt_5_{pair}_{bal}"),types.InlineKeyboardButton("$10", callback_data=f"amt_10_{pair}_{bal}"))
+            mk.add(types.InlineKeyboardButton("$20", callback_data=f"amt_20_{pair}_{bal}"),types.InlineKeyboardButton("$50", callback_data=f"amt_50_{pair}_{bal}"),types.InlineKeyboardButton("$100", callback_data=f"amt_100_{pair}_{bal}"))
         mk.add(types.InlineKeyboardButton("✏️ CUSTOM", callback_data=f"custom_{pair}_{bal}"))
         mk.add(types.InlineKeyboardButton("⬅️ BACK", callback_data=f"pair_{pair}"))
-        bot.send_message(cid, f"✅ **PAIR: {PAIR_EMOJI.get(pair,pair)}**\n✅ **ACCOUNT: {bal}**\n\n💰 **STEP 3/4 - AMOUNT** {'📈 COMP ON' if COMPOUND_MODE.get(cid) else ''}", reply_markup=mk, parse_mode="Markdown"); return
+        bot.send_message(cid, f"✅ **PAIR: {PAIR_EMOJI.get(pair,pair)}**\n✅ **ACCOUNT: {bal}**\n\n💰 **STEP 3/4 - AMOUNT {'₦ NAIRA' if bal=='REAL' else '$ DOLLARS'}**", reply_markup=mk, parse_mode="Markdown"); return
     if data.startswith("amt_"):
         parts=data.split("_"); amt=float(parts[1]); pair=parts[2]; bal=parts[3]
         user_states[cid]={"pair":pair,"bal":bal,"amt":amt}
-        bot.answer_callback_query(c.id, f"${amt} selected")
-        bot.send_message(cid, f"✅ **AMOUNT: ${amt} {bal}**\n✅ **PAIR: {PAIR_EMOJI.get(pair,pair)}**\n\n⏱️ **STEP 4/4 - DURATION (30sec up)**", reply_markup=duration_kb(pair, amt, bal), parse_mode="Markdown")
+        amt_txt = fmt_by_bal(amt, bal)
+        bot.answer_callback_query(c.id, f"{amt_txt} selected")
+        bot.send_message(cid, f"✅ **AMOUNT: {amt_txt} {bal}**\n✅ **PAIR: {PAIR_EMOJI.get(pair,pair)}**\n\n⏱️ **STEP 4/4 - DURATION**", reply_markup=duration_kb(pair, amt, bal), parse_mode="Markdown")
         return
     if data.startswith("dur_"):
         parts=data.split("_"); duration_sec=int(parts[1]); amt=float(parts[2]); pair=parts[3]; bal=parts[4]
-        bot.answer_callback_query(c.id, f"{duration_sec}s selected")
-        do_trade(cid, pair, amt, bal, duration_sec, is_auto=False)
+        bot.answer_callback_query(c.id, f"{duration_sec}s {fmt_by_bal(amt, bal)}")
+        threading.Thread(target=do_trade, args=(cid, pair, amt, bal, duration_sec, False, False), daemon=True).start()
         return
     if data.startswith("custom_"):
         parts=data.split("_"); pair=parts[1]; bal=parts[2]
         user_states[cid]={"pair":pair,"bal":bal,"step":"await_amt"}
-        bot.send_message(cid, f"✏️ **Type amount**\nExample: `10`\nFor {pair} {bal}", parse_mode="Markdown")
+        if bal=="REAL":
+            bot.send_message(cid, f"✏️ **Type amount in NAIRA**\nExample: `5000` = ₦5,000\n`10000` = ₦10,000\nFor {pair} {bal}", parse_mode="Markdown")
+        else:
+            bot.send_message(cid, f"✏️ **Type amount in DOLLARS**\nExample: `5` = $5\n`10` = $10\nFor {pair} {bal}", parse_mode="Markdown")
         return
     if data=="auto_menu":
         mk=types.InlineKeyboardMarkup(row_width=2)
-        mk.add(types.InlineKeyboardButton("🤖 AUTO $1 - 60s", callback_data="auto_start_1_60"),
-               types.InlineKeyboardButton("🤖 AUTO $5 - 60s", callback_data="auto_start_5_60"))
-        mk.add(types.InlineKeyboardButton("🤖 AUTO $1 - 30s", callback_data="auto_start_1_30"),
-               types.InlineKeyboardButton("🤖 AUTO $10 - 60s", callback_data="auto_start_10_60"))
-        mk.add(types.InlineKeyboardButton("🤖 AUTO $1 - 5 Min", callback_data="auto_start_1_300"),
-               types.InlineKeyboardButton("🤖 AUTO $5 - 5 Min", callback_data="auto_start_5_300"))
+        mk.add(types.InlineKeyboardButton("🤖 AUTO DEMO $1 60s", callback_data="auto_start_1_60_PRACTICE"),
+               types.InlineKeyboardButton("🔴 AUTO REAL ₦1,600 60s", callback_data="auto_start_1_60_REAL"))
+        mk.add(types.InlineKeyboardButton("🤖 AUTO DEMO $5 60s", callback_data="auto_start_5_60_PRACTICE"),
+               types.InlineKeyboardButton("🔴 AUTO REAL ₦8,000 60s", callback_data="auto_start_5_60_REAL"))
+        mk.add(types.InlineKeyboardButton("🤖 DEMO $10 60s", callback_data="auto_start_10_60_PRACTICE"),
+               types.InlineKeyboardButton("🔴 REAL ₦16,000 60s", callback_data="auto_start_10_60_REAL"))
         mk.add(types.InlineKeyboardButton("⏸️ STOP AUTO", callback_data="stop_auto"),
                types.InlineKeyboardButton("⬅️ Menu", callback_data="back_menu"))
         DAILY=check_daily()
-        bot.send_message(cid, f"🤖 **AUTO V5 ULTIMATE** 🚀\n\n🏆 Best Win + VIP={'ON' if VIP_MODE.get(cid) else 'OFF'} + COMP={'ON' if COMPOUND_MODE.get(cid) else 'OFF'}\n🎯 Goal ${DAILY['goal']} | Stop ${DAILY['stop_loss']} | Today ${DAILY['profit_today']:.1f}\n🔥 Streak {STATS['streak']} | Best {STATS['best_streak']}\n\n👇 **Pick:**", reply_markup=mk, parse_mode="Markdown")
+        bot.send_message(cid, f"🤖 **AUTO TRADE V5.5 - ONLY ON BUTTON** 🚀\n\n⚠️ Auto ONLY on touch!\nDEMO = $ | REAL = ₦\n\n🏆 Best Win + VIP={'ON' if VIP_MODE.get(cid) else 'OFF'} + COMP={'ON' if COMPOUND_MODE.get(cid) else 'OFF'}\n🎯 Goal {fmt_demo(DAILY['goal'])} / {fmt_real(DAILY['goal'])} | Today {fmt_demo(DAILY['profit_today'])} / {fmt_real(DAILY['profit_today'])}\n🔥 Streak {STATS['streak']} | Best {STATS['best_streak']}\n\n👇 **Pick DEMO ($) or REAL (₦) to START:**", reply_markup=mk, parse_mode="Markdown")
         return
     if data.startswith("auto_start_"):
-        parts=data.split("_"); base_amt=float(parts[2]); dur=int(parts[3])
+        parts=data.split("_")
+        try:
+            if len(parts)>=5:
+                base_amt=float(parts[2]); dur=int(parts[3]); bal=parts[4]
+            else:
+                base_amt=float(parts[2]); dur=int(parts[3]); bal="PRACTICE"
+        except:
+            base_amt=1; dur=60; bal="PRACTICE"
         if AUTO_RUNNING.get(cid):
-            bot.send_message(cid, "⚠️ AUTO already running! Stop first.", reply_markup=main_menu_kb(cid)); return
+            bot.send_message(cid, "⚠️ AUTO already running! Touch STOP first.", reply_markup=main_menu_kb(cid)); return
         AUTO_RUNNING[cid]=True
         AUTO_RUNNING[f"{cid}_last_win"]=True
-        threading.Thread(target=auto_trading_loop, args=(cid, base_amt, dur, "PRACTICE"), daemon=True).start()
-        bot.answer_callback_query(c.id, f"AUTO ${base_amt} {dur}s Started V5!")
+        threading.Thread(target=auto_trading_loop, args=(cid, base_amt, dur, bal), daemon=True).start()
+        bot.answer_callback_query(c.id, f"AUTO {bal} {fmt_by_bal(base_amt, bal)} {dur}s Started!")
         return
     if data=="stop_auto":
         AUTO_RUNNING[cid]=False
-        bot.send_message(cid, "⏸️ **AUTO V5 STOPPED** 🛑", reply_markup=main_menu_kb(cid))
+        bot.send_message(cid, "⏸️ **AUTO V5.5 STOPPED** 🛑\n\nWill NOT restart unless you touch AUTO button again!\nUse QUICK TRADE ⚡", reply_markup=main_menu_kb(cid))
         return
     if data=="back_menu":
         DAILY=check_daily()
         vip = VIP_MODE.get(cid, False)
-        txt=f"👑 **V5 MENU**\n💰 Bal ${STATS['balance']:.2f} | Streak {STATS['streak']}🔥 | Daily ${DAILY['profit_today']:.1f}/{DAILY['goal']} | VIP {'ON' if vip else 'OFF'}"
+        txt=f"👑 **V5.5 MENU**\n💰 Bal {fmt_demo(STATS['balance'])} / {fmt_real(STATS['balance'])} | Streak {STATS['streak']}🔥 | Daily {fmt_demo(DAILY['profit_today'])} / {fmt_real(DAILY['profit_today'])} | VIP {'ON' if vip else 'OFF'}\n🤖 AUTO: {'RUNNING' if AUTO_RUNNING.get(cid) else 'STOPPED'}"
         bot.send_message(cid, txt, reply_markup=main_menu_kb(cid)); return
     if data=="toggle_vip":
         VIP_MODE[cid]=not VIP_MODE.get(cid, False)
@@ -619,36 +734,36 @@ def cb(c):
         name,val=spin_wheel()
         if val>0:
             STATS['balance']+=val
-            txt=f"🎰 **LUCKY SPIN!** 🎉\n\n🎁 You won: **{name}**\n💰 Balance: ${STATS['balance']:.2f}"
+            txt=f"🎰 **LUCKY SPIN!** 🎉\n\n🎁 You won: **{name}** = {fmt_demo(val)} / {fmt_real(val)}\n💰 Balance: {fmt_demo(STATS['balance'])} / {fmt_real(STATS['balance'])}"
         else:
             txt=f"🎰 **LUCKY SPIN!**\n\n😢 {name}\nTry again after WIN!"
         bot.send_message(cid, txt, reply_markup=main_menu_kb(cid))
         return
     if data=="daily":
         mk=types.InlineKeyboardMarkup(row_width=2)
-        mk.add(types.InlineKeyboardButton("🎯 Goal $25", callback_data="set_goal_25"),
-               types.InlineKeyboardButton("🎯 Goal $50", callback_data="set_goal_50"))
-        mk.add(types.InlineKeyboardButton("🎯 Goal $100", callback_data="set_goal_100"),
-               types.InlineKeyboardButton("🛡️ Stop $20", callback_data="set_stop_20"))
-        mk.add(types.InlineKeyboardButton("🛡️ Stop $50", callback_data="set_stop_50"),
+        mk.add(types.InlineKeyboardButton("🎯 Goal $25 / ₦40k", callback_data="set_goal_25"),
+               types.InlineKeyboardButton("🎯 Goal $50 / ₦80k", callback_data="set_goal_50"))
+        mk.add(types.InlineKeyboardButton("🎯 Goal $100 / ₦160k", callback_data="set_goal_100"),
+               types.InlineKeyboardButton("🛡️ Stop $20 / ₦32k", callback_data="set_stop_20"))
+        mk.add(types.InlineKeyboardButton("🛡️ Stop $50 / ₦80k", callback_data="set_stop_50"),
                types.InlineKeyboardButton("⬅️ Menu", callback_data="back_menu"))
         DAILY=check_daily()
         progress=int(min(100, DAILY['profit_today']/DAILY['goal']*100)) if DAILY['goal']>0 else 0
         bar="█"*(progress//10)+"░"*(10-progress//10)
-        bot.send_message(cid, f"🎯 **DAILY TARGET + STOP**\n\n🎯 Goal: ${DAILY['goal']} | Stop: ${DAILY['stop_loss']}\n💰 Today: ${DAILY['profit_today']:.2f} | Trades {DAILY['trades_today']}\n📊 {bar} {progress}%\n\nAuto stops when hit!\n👇 Set:", reply_markup=mk, parse_mode="Markdown")
+        bot.send_message(cid, f"🎯 **DAILY TARGET + STOP**\n\n🎯 Goal: {fmt_demo(DAILY['goal'])} / {fmt_real(DAILY['goal'])} | Stop: {fmt_demo(DAILY['stop_loss'])} / {fmt_real(DAILY['stop_loss'])}\n💰 Today: {fmt_demo(DAILY['profit_today'])} / {fmt_real(DAILY['profit_today'])} | Trades {DAILY['trades_today']}\n📊 {bar} {progress}%\n\n👇 Set:", reply_markup=mk, parse_mode="Markdown")
         return
     if data.startswith("set_goal_"):
         goal=float(data.replace("set_goal_","")); DAILY=check_daily(); DAILY['goal']=goal
-        bot.send_message(cid, f"🎯 Goal set ${goal}!", reply_markup=main_menu_kb(cid)); return
+        bot.send_message(cid, f"🎯 Goal set {fmt_demo(goal)} / {fmt_real(goal)}!", reply_markup=main_menu_kb(cid)); return
     if data.startswith("set_stop_"):
         stop=float(data.replace("set_stop_","")); DAILY=check_daily(); DAILY['stop_loss']=stop
-        bot.send_message(cid, f"🛡️ Stop set ${stop}!", reply_markup=main_menu_kb(cid)); return
+        bot.send_message(cid, f"🛡️ Stop set {fmt_demo(stop)} / {fmt_real(stop)}!", reply_markup=main_menu_kb(cid)); return
     if data=="stats":
         DAILY=check_daily()
         total=STATS['wins']+STATS['loss']; wr=(STATS['wins']/total*100) if total else 0
         progress=int(min(100, DAILY['profit_today']/DAILY['goal']*100)) if DAILY['goal']>0 else 0
         bar="█"*(progress//10)+"░"*(10-progress//10)
-        txt=f"📊 **V5 ULTIMATE STATS + CHART**\n\n🏆 Wins: {STATS['wins']} | ❌ Loss: {STATS['loss']} | 📈 WR: {wr:.1f}%\n🔥 Streak: {STATS['streak']} | Best: {STATS['best_streak']} 🏆\n💰 Bal: ${STATS['balance']:.2f} | Profit: ${STATS['total_profit']:.2f}\n🎯 Daily: {bar} {progress}% ${DAILY['profit_today']:.1f}/${DAILY['goal']} Trades {DAILY['trades_today']}\n🛡️ Stop: ${DAILY['stop_loss']} | Shield: {'ON' if SHIELD_MODE.get(cid, True) else 'OFF'}\n📈 COMP: {'ON' if COMPOUND_MODE.get(cid) else 'OFF'} | 💎 VIP: {'ON' if VIP_MODE.get(cid) else 'OFF'}\n\n🏆 **Achievements:** {', '.join(ACHIEVEMENTS) if ACHIEVEMENTS else 'None - Win 5 for FIRE!'}\n\n🎯 **PAIR WIN RATES:**\n"
+        txt=f"📊 **V5.5 SIMPLE STATS + CHART**\n\n🏆 Wins: {STATS['wins']} | ❌ Loss: {STATS['loss']} | 📈 WR: {wr:.1f}%\n🔥 Streak: {STATS['streak']} | Best: {STATS['best_streak']} 🏆\n💰 Bal: {fmt_demo(STATS['balance'])} / {fmt_real(STATS['balance'])} | Profit: {fmt_demo(STATS['total_profit'])} / {fmt_real(STATS['total_profit'])}\n🎯 Daily: {bar} {progress}% {fmt_demo(DAILY['profit_today'])} / {fmt_real(DAILY['profit_today'])} / {fmt_demo(DAILY['goal'])} Trades {DAILY['trades_today']}\n🛡️ Stop: {fmt_demo(DAILY['stop_loss'])} / {fmt_real(DAILY['stop_loss'])} | Shield: {'ON' if SHIELD_MODE.get(cid, True) else 'OFF'}\n📈 COMP: {'ON' if COMPOUND_MODE.get(cid) else 'OFF'} | 💎 VIP: {'ON' if VIP_MODE.get(cid) else 'OFF'}\n🤖 AUTO: {'RUNNING' if AUTO_RUNNING.get(cid) else 'STOPPED - Only on button'}\n💵 Rate: $1 = ₦{USD_TO_NAIRA:,.0f}\n\n🏆 **Achievements:** {', '.join(ACHIEVEMENTS) if ACHIEVEMENTS else 'None - Win 5 for FIRE!'}\n\n🎯 **PAIR WIN RATES:**\n"
         if not PAIR_STATS:
             txt+="No trades yet!"
         else:
@@ -658,20 +773,67 @@ def cb(c):
         bot.send_message(cid, txt, parse_mode="Markdown", reply_markup=main_menu_kb(cid))
         ch=draw_profit_chart()
         if ch:
-            try: bot.send_photo(cid, open(ch,'rb'), caption=f"📈 **V5 Chart** Streak {STATS['streak']}🔥")
+            try: bot.send_photo(cid, open(ch,'rb'), caption=f"📈 **V5.5 Chart** Streak {STATS['streak']}🔥 Bal {fmt_demo(STATS['balance'])} / {fmt_real(STATS['balance'])}")
             except: pass
         return
 
-@bot.message_handler(func=lambda m: user_states.get(m.chat.id, {}).get("step")=="await_amt")
-def handle_custom_amt(m):
+@bot.message_handler(func=lambda m: True)
+def handle_all_messages(m):
     if not is_private_allowed(m.from_user.id): return
-    cid=m.chat.id; st=user_states.get(cid, {})
-    try:
-        amt=float(m.text.strip()); pair=st.get("pair"); bal=st.get("bal")
-        if not pair: return
-        user_states[cid]={"pair":pair,"bal":bal,"amt":amt}
-        bot.send_message(cid, f"✅ **CUSTOM: ${amt} {bal}**\n\n⏱️ **STEP 4/4 - DURATION**", reply_markup=duration_kb(pair, amt, bal), parse_mode="Markdown")
-    except: bot.send_message(cid, "❌ Send number only")
+    cid=m.chat.id
+    st=user_states.get(cid, {})
+    step=st.get("step")
+    if step=="await_quick_simple_amt":
+        try:
+            raw=m.text.strip().replace(',','').replace('₦','').replace('$','')
+            val=float(raw)
+            bal=st.get("bal","PRACTICE")
+            if bal=="REAL":
+                amt = to_usd(val)
+                usd_amt = amt
+                naira_amt = val
+                if usd_amt < 1: usd_amt = 1
+                user_states[cid]={"bal":bal,"amt":usd_amt,"naira_amt":naira_amt,"step":"await_quick_simple_dur"}
+                bot.send_message(cid, f"✅ **QUICK REAL AMOUNT:** ₦{naira_amt:,.0f} = ${usd_amt:.2f}\n\n⏱️ **Pick DURATION for REAL trade:**", reply_markup=duration_kb_simple(usd_amt, bal), parse_mode="Markdown")
+            else:
+                amt = val
+                if amt < 1: amt = 1
+                user_states[cid]={"bal":bal,"amt":amt,"step":"await_quick_simple_dur"}
+                bot.send_message(cid, f"✅ **QUICK DEMO AMOUNT:** ${amt:.2f}\n\n⏱️ **Pick DURATION for DEMO trade:**", reply_markup=duration_kb_simple(amt, bal), parse_mode="Markdown")
+        except:
+            bal=st.get("bal","PRACTICE")
+            if bal=="REAL":
+                bot.send_message(cid, "❌ Send number only in NAIRA\nExample: 5000 = ₦5,000\n10000 = ₦10,000")
+            else:
+                bot.send_message(cid, "❌ Send number only in DOLLARS\nExample: 5 = $5\n10 = $10")
+        return
+    if step=="await_quick_simple_dur":
+        try:
+            raw=m.text.strip().lower()
+            dur_map={"30s":30,"30":30,"1m":60,"60s":60,"60":60,"2m":120,"120":120,"3m":180,"180":180,"5m":300,"300":300,"15m":900,"900":900}
+            dur=dur_map.get(raw,60)
+            amt=st.get("amt",1)
+            bal=st.get("bal","PRACTICE")
+            user_states[cid]={"bal":bal,"amt":amt,"step":"done"}
+            threading.Thread(target=quick_trade_simple, args=(cid, amt, dur, bal), daemon=True).start()
+        except:
+            pass
+        return
+    if step=="await_amt":
+        try:
+            raw=m.text.strip().replace(',','').replace('₦','').replace('$','')
+            val=float(raw)
+            pair=st.get("pair"); bal=st.get("bal")
+            if not pair: return
+            if bal=="REAL":
+                amt = to_usd(val) if val>=100 else val
+            else:
+                amt = val if val<1000 else to_usd(val)
+            amt = max(1, amt)
+            user_states[cid]={"pair":pair,"bal":bal,"amt":amt}
+            amt_txt = fmt_by_bal(amt, bal)
+            bot.send_message(cid, f"✅ **CUSTOM: {amt_txt} {bal}**\n\nYou typed: {m.text} → {amt_txt}\n\n⏱️ **STEP 4/4 - DURATION**", reply_markup=duration_kb(pair, amt, bal), parse_mode="Markdown")
+        except: bot.send_message(cid, "❌ Send number only")
 
 @app.route(f"/{BOT_TOKEN}", methods=['POST'])
 def wh(): bot.process_new_updates([telebot.types.Update.de_json(request.get_data().decode("utf-8"))]); return "ok"
@@ -681,5 +843,5 @@ def home():
     if u:
         try: requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={u}/{BOT_TOKEN}", timeout=5)
         except: pass
-    return "V48 V5 ULTIMATE ALL COOL FEATURES RUNNING"
+    return "V48 V5.5 SIMPLE QUICK DEMO $ REAL ₦ RUNNING"
 app.run(host="0.0.0.0", port=int(os.getenv("PORT",10000)))
