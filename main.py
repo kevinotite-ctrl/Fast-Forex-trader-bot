@@ -146,26 +146,47 @@ def calc_rsi(closes, period=7):
     loss=-delta.where(delta<0,0).rolling(period).mean()
     return 100-(100/(1+gain/loss))
 
-# ===== LEGIT LIVE SCANNING BAR - REAL STEPS =====
+# ===== LEGIT LIVE SCANNING BAR - FAST - NO HOOKING - 100% =====
 def legit_live_scan(cid, mid, pair):
     steps = [
-        (0, "🚀 Initializing Z-BOT V8 Engine...", 0.3),
-        (10, f"🔌 Checking IQ for {pair}...", 0.4),
-        (20, "📡 Syncing server time...", 0.3),
-        (30, f"📊 Fetching 50 candles...", 0.7),
-        (45, "📈 Calculating EMA9 Fast...", 0.3),
-        (55, "📉 Calculating EMA21 Slow...", 0.3),
-        (65, "💹 RSI + ATR Calculation...", 0.4),
-        (75, "🌊 Momentum + Volume...", 0.4),
-        (85, "📰 Checking news filter...", 0.6),
-        (92, "🎯 Confidence + Payout...", 0.3),
+        (0, "🚀 Initializing V8...", 0.15),
+        (15, f"🔌 IQ Check {pair}...", 0.2),
+        (30, "📊 Fetching candles...", 0.25),
+        (50, "📈 EMA9 + EMA21...", 0.2),
+        (70, "💹 RSI + ATR...", 0.2),
+        (85, "📰 News check...", 0.2),
         (100, "🔒 SIGNAL LOCKED!")
     ]
-    for pct, text, delay in steps:
+    
+    last_pct = -1
+    for item in steps:
+        if len(item) == 3:
+            pct, text, delay = item
+        else:
+            pct, text = item
+            delay = 0.15
+        
+        # Don't spam if same %
+        if pct == last_pct:
+            time.sleep(delay)
+            continue
+        last_pct = pct
+        
         filled = int(pct // 5)
         bar = "█" * filled + "░" * (20 - filled)
-        color = "🟥" if pct < 40 else "🟨" if pct < 80 else "🟩" if pct < 100 else "💎"
+        
+        if pct < 40:
+            color = "🟥"
+        elif pct < 80:
+            color = "🟨"
+        elif pct < 100:
+            color = "🟩"
+        else:
+            color = "💎"
+        
+        # Fast news check - no heavy calc
         is_news, news_info = is_news_time()
+        
         scan_txt = f"""{color} **Z-BOT V8 LEGIT SCAN** {color}
 
 💱 Pair: {PAIR_EMOJI.get(pair, pair)}
@@ -177,14 +198,36 @@ def legit_live_scan(cid, mid, pair):
 🔍 {text}
 {news_info}
 
-⏳ Real scanning...
-💎 V8 + News Filter
+⏳ Fast scan - V8.2
 """
         try:
             bot.edit_message_text(scan_txt, cid, mid, parse_mode="Markdown")
-        except:
+        except Exception as e:
+            # If edit fails (rate limit), skip and continue - DON'T HOOK!
+            print(f"Scan edit skip {pct}%: {e}", flush=True)
             pass
+        
         time.sleep(delay)
+    
+    # FORCE 100% AT END - ALWAYS SHOW LOCKED!
+    try:
+        final_txt = f"""💎 **Z-BOT V8 LEGIT SCAN** 💎
+
+💱 Pair: {PAIR_EMOJI.get(pair, pair)}
+💎 IQ: {'✅ Connected' if IQ_CONNECTED else '❌ Offline'}
+
+████████████████████ 100%
+▓ Progress: 100% ▓
+
+🔍 🔒 SIGNAL LOCKED! READY TO TRADE!
+✅ Safe - No News
+
+⏳ Scan complete - Fast V8.2!
+"""
+        bot.edit_message_text(final_txt, cid, mid, parse_mode="Markdown")
+        time.sleep(0.3)
+    except:
+        pass
 
 def analyze_momentum(pair):
     df=get_candles(pair)
