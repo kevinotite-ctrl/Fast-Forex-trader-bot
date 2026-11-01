@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# 👑 Z-BOT PRO V48 V5.5 FINAL - SIMPLE QUICK + DEMO $ + REAL ₦
+# 👑 Z-BOT PRO V48 V5.9 FINAL - ULTRA FINE SCANNING BAR + FULL MANUAL PICK + MORE PAIRS + DEMO $ REAL ₦
 import os, time, threading, warnings, random
 from datetime import date
 from flask import Flask, request
@@ -20,8 +20,21 @@ OWNER_ID = 8659453018
 ALLOWED_USERS = [OWNER_ID]
 def is_private_allowed(uid): return uid in ALLOWED_USERS
 
-OTC_PAIRS = ["EURUSD-OTC","GBPUSD-OTC","EURGBP-OTC","USDJPY-OTC","GBPJPY-OTC","AUDUSD-OTC","USDCHF-OTC","EURJPY-OTC"]
-PAIR_EMOJI = {"EURUSD-OTC":"🇪🇺 EUR/USD","GBPUSD-OTC":"🇬🇧 GBP/USD","EURGBP-OTC":"🇪🇺 EUR/GBP","USDJPY-OTC":"🇺🇸 USD/JPY","GBPJPY-OTC":"🇬🇧 GBP/JPY","AUDUSD-OTC":"🇦🇺 AUD/USD","USDCHF-OTC":"🇺🇸 USD/CHF","EURJPY-OTC":"🇪🇺 EUR/JPY"}
+REAL_PAIRS = ["EURUSD","GBPUSD","EURGBP","USDJPY","GBPJPY","AUDUSD","USDCHF","EURJPY","AUDJPY","GBPCHF","EURAUD","AUDCAD","NZDUSD","USDCAD","EURCHF","CHFJPY","CADJPY","NZDJPY","AUDNZD"]
+REAL_PAIRS = list(dict.fromkeys(REAL_PAIRS))
+OTC_PAIRS = ["EURUSD-OTC","GBPUSD-OTC","EURGBP-OTC","USDJPY-OTC","GBPJPY-OTC","AUDUSD-OTC","USDCHF-OTC","EURJPY-OTC","AUDJPY-OTC","GBPCHF-OTC","EURAUD-OTC","AUDCAD-OTC","NZDUSD-OTC","USDCAD-OTC","EURCHF-OTC","CHFJPY-OTC","CADJPY-OTC","NZDJPY-OTC"]
+ALL_PAIRS = REAL_PAIRS + OTC_PAIRS
+
+PAIR_EMOJI = {
+    "EURUSD":"🇪🇺 EUR/USD REAL","GBPUSD":"🇬🇧 GBP/USD REAL","EURGBP":"🇪🇺 EUR/GBP REAL","USDJPY":"🇺🇸 USD/JPY REAL","GBPJPY":"🇬🇧 GBP/JPY REAL",
+    "AUDUSD":"🇦🇺 AUD/USD REAL","USDCHF":"🇺🇸 USD/CHF REAL","EURJPY":"🇪🇺 EUR/JPY REAL","AUDJPY":"🇦🇺 AUD/JPY REAL","GBPCHF":"🇬🇧 GBP/CHF REAL",
+    "EURAUD":"🇪🇺 EUR/AUD REAL","AUDCAD":"🇦🇺 AUD/CAD REAL","NZDUSD":"🇳🇿 NZD/USD REAL","USDCAD":"🇺🇸 USD/CAD REAL","EURCHF":"🇪🇺 EUR/CHF REAL",
+    "CHFJPY":"🇨🇭 CHF/JPY REAL","CADJPY":"🇨🇦 CAD/JPY REAL","NZDJPY":"🇳🇿 NZD/JPY REAL","AUDNZD":"🇦🇺 AUD/NZD REAL",
+    "EURUSD-OTC":"🇪🇺 EUR/USD OTC","GBPUSD-OTC":"🇬🇧 GBP/USD OTC","EURGBP-OTC":"🇪🇺 EUR/GBP OTC","USDJPY-OTC":"🇺🇸 USD/JPY OTC","GBPJPY-OTC":"🇬🇧 GBP/JPY OTC",
+    "AUDUSD-OTC":"🇦🇺 AUD/USD OTC","USDCHF-OTC":"🇺🇸 USD/CHF OTC","EURJPY-OTC":"🇪🇺 EUR/JPY OTC","AUDJPY-OTC":"🇦🇺 AUD/JPY OTC","GBPCHF-OTC":"🇬🇧 GBP/CHF OTC",
+    "EURAUD-OTC":"🇪🇺 EUR/AUD OTC","AUDCAD-OTC":"🇦🇺 AUD/CAD OTC","NZDUSD-OTC":"🇳🇿 NZD/USD OTC","USDCAD-OTC":"🇺🇸 USD/CAD OTC","EURCHF-OTC":"🇪🇺 EUR/CHF OTC",
+    "CHFJPY-OTC":"🇨🇭 CHF/JPY OTC","CADJPY-OTC":"🇨🇦 CAD/JPY OTC","NZDJPY-OTC":"🇳🇿 NZD/JPY OTC"
+}
 
 USD_TO_NAIRA = 1600.0
 def to_naira(usd): return usd * USD_TO_NAIRA
@@ -140,10 +153,13 @@ def backtest_pair(pair):
         return {"wins":wins,"total":total,"wr":wins/total*100}
     except: return None
 
-def get_pair_ranking(vip=False):
+def get_pair_ranking(vip=False, market_filter=None):
     now=time.time()
     ranked=[]
-    for pair in OTC_PAIRS:
+    pairs_to_scan = ALL_PAIRS
+    if market_filter=="REAL": pairs_to_scan = REAL_PAIRS
+    elif market_filter=="OTC": pairs_to_scan = OTC_PAIRS
+    for pair in pairs_to_scan:
         mem = PAIR_STATS.get(pair)
         cached = PAIR_WR_CACHE.get(pair)
         if cached and now - cached['ts'] < 300:
@@ -169,6 +185,18 @@ def get_pair_ranking(vip=False):
             ranked.append((pair, fake_wr, f"{int(payout*100)}% payout"))
     ranked.sort(key=lambda x: x[1], reverse=True)
     return ranked
+
+def get_best_pairs_text(vip=False, limit=5):
+    try:
+        ranked = get_pair_ranking(vip=vip)
+        txt = "🏆 **BEST PAIRS TO TRADE NOW:**\n"
+        for i, (pair, wr, src) in enumerate(ranked[:limit],1):
+            market = "📈 REAL" if "-OTC" not in pair else "🏦 OTC"
+            emoji = PAIR_EMOJI.get(pair, pair)
+            txt += f"{i}. {emoji} - {wr:.1f}% {market} ({src})\n"
+        return txt
+    except:
+        return "🏆 **BEST PAIRS:** Scanning..."
 
 def update_pair_stats(pair, win):
     if pair not in PAIR_STATS: PAIR_STATS[pair]={'wins':0,'loss':0,'total':0}
@@ -211,20 +239,103 @@ def get_achievement():
         ACHIEVEMENTS.append("FIRE BADGE 🔥"); return "🔥 NEW ACHIEVEMENT: FIRE BADGE - 5 Wins!"
     return None
 
+# ========== ULTRA FINE SCANNING BAR V5.9 ==========
 def animate_live_scanning(cid, mid, pair):
-    steps=[(5,"🔌 Connecting..."),(15,"📊 Fetching candles..."),(30,"📈 EMA9/21..."),(45,"💹 RSI + ATR..."),(60,"🎯 BB + Vol..."),(75,"🧠 MTF + Mood..."),(85,"✅ VIP filter..."),(100,"🔒 LOCKED!")]
+    steps=[
+        (0,"🚀 Initializing Z-BOT V5.9 ULTRA..."),
+        (5,"🔌 Connecting to IQ Option API..."),
+        (12,"📡 Syncing server time..."),
+        (20,"📊 Fetching 50 candles for "+pair+"..."),
+        (30,"📈 Calculating EMA9 (Fast)..."),
+        (40,"📉 Calculating EMA21 (Slow)..."),
+        (50,"💹 RSI + ATR + Bollinger Bands..."),
+        (60,"🌊 Momentum + Volume Analysis..."),
+        (70,"🧠 Multi-Timeframe Check..."),
+        (80,"🎯 Confidence + Payout + Trend..."),
+        (88,"💎 VIP Filter 90%+ Check..."),
+        (94,"🔥 Market Mood + Volatility..."),
+        (100,"🔒 SIGNAL LOCKED! READY TO TRADE!")
+    ]
     for pct, stage in steps:
-        bar="█"*(pct//10)+"▒"*(10-pct//10)
-        txt=f"⚡ **Z-BOT V5.5 SCAN**\n\nPair: {pair}\n\n{bar} {pct}%\n{stage}\n\n⏳ Wait..."
+        filled = int(pct//5)
+        bar_filled = "█" * filled
+        bar_empty = "░" * (20 - filled)
+        if pct < 30: color_emoji = "🟥"
+        elif pct < 60: color_emoji = "🟨"
+        elif pct < 90: color_emoji = "🟩"
+        else: color_emoji = "💎"
+        txt=f"""{color_emoji} **Z-BOT V5.9 ULTRA SCAN** {color_emoji}
+
+💱 Pair: {PAIR_EMOJI.get(pair,pair)}
+💰 Scanning: {pair}
+
+{bar_filled}{bar_empty} {pct}%
+▓ Progress: {pct}% ▓
+
+🔍 Stage: {stage}
+
+⏳ Please wait... Scanning...
+✨ V5.9 More Fine Scanning...
+"""
         try: bot.edit_message_text(txt,cid,mid,parse_mode="Markdown")
+        except: pass
+        time.sleep(0.35)
+
+def animate_progress_bar(cid, mid, pair, amount_text):
+    steps=[
+        (5,"📊 Loading candle data..."),
+        (15,"📈 Analyzing EMA crossover..."),
+        (28,"💹 Checking RSI momentum..."),
+        (40,"🎯 Bollinger + ATR volatility..."),
+        (55,"🌊 Volume + Trend strength..."),
+        (70,"🧠 AI Signal prediction..."),
+        (82,"💎 VIP 90%+ validation..."),
+        (92,"🔥 Final mood check..."),
+        (100,"🔒 LOCKED & CONFIRMED!")
+    ]
+    for pct, stage in steps:
+        filled = int(pct//10)
+        bar_filled = "▓" * filled
+        bar_empty = "░" * (10 - filled)
+        if pct < 40: icon = "⏳"
+        elif pct < 80: icon = "⚡"
+        else: icon = "🔥"
+        txt=f"""{icon} **V5.9 MANUAL DEEP SCAN** {icon}
+
+💱 {pair}
+💰 {amount_text}
+
+{bar_filled}{bar_empty} {pct}%
+
+> {stage}
+
+✨ Scanning deeper for best entry...
+💎 V5.9 Ultra Fine Mode...
+"""
+        try: bot.edit_message_text(txt,cid,mid)
         except: pass
         time.sleep(0.3)
 
-def animate_progress_bar(cid, mid, pair, amount_text):
-    steps=[(10,"candles"),(25,"momentum + mood"),(50,"MTF + BB"),(75,"VIP signal"),(100,"LOCKED")]
+def animate_pair_ranking_scan(cid, mid):
+    steps=[
+        (10,"🔍 Scanning 40 pairs..."),
+        (25,"📊 Calculating win rates..."),
+        (40,"🏆 Ranking by payout..."),
+        (55,"💹 Checking live stats..."),
+        (70,"🔥 Filtering high win..."),
+        (85,"💎 VIP 90%+ filter..."),
+        (100,"✅ BEST PAIRS READY!")
+    ]
     for pct, stage in steps:
-        bar="▓"*(pct//10)+"░"*(10-pct//10)
-        txt=f"🔍 **V5.5 QUICK**\n{pair}...\n\n{bar} {pct}%\n> {stage}\n{amount_text}"
+        bar = "█" * (pct//10) + "░" * (10 - pct//10)
+        txt=f"""📊 **V5.9 BEST PAIRS SCAN**
+
+{bar} {pct}%
+{stage}
+
+⏳ Finding best pairs for you...
+💎 Scanning {len(ALL_PAIRS)} pairs...
+"""
         try: bot.edit_message_text(txt,cid,mid)
         except: pass
         time.sleep(0.25)
@@ -239,18 +350,15 @@ def iq_trade(pair,direction,amount,bal,expiry_sec=60):
             elif expiry_sec >= 180: expiry_min = 3
             elif expiry_sec >= 120: expiry_min = 2
             else: expiry_min = 1
-            print(f"TRY TRADE {pair} {direction} ${amount} {bal} req={expiry_sec}s -> IQ {expiry_min}m", flush=True)
             if amount < 1.0: return False, None, 0
             for attempt in range(3):
                 try:
                     check, oid = iq.buy(amount, pair, direction.lower(), expiry_min)
                     if check and str(oid).strip().isdigit(): return True, oid, expiry_sec
                     if "time for purchasing" in str(oid).lower(): time.sleep(3); continue
-                except Exception as e:
-                    print(f"Buy err {e}", flush=True); time.sleep(2)
+                except: time.sleep(2)
             return False, None, 0
-    except Exception as e:
-        print(f"Trade err {e}"); return False,None,0
+    except: return False,None,0
 
 def safe_check_win(oid, duration_sec=60, max_retry=12):
     for attempt in range(max_retry):
@@ -269,17 +377,6 @@ def safe_check_win(oid, duration_sec=60, max_retry=12):
         time.sleep(3)
     return None
 
-def duration_kb_simple(amt, bal):
-    mk=types.InlineKeyboardMarkup(row_width=3)
-    mk.add(types.InlineKeyboardButton(f"⏱️ 30 Sec", callback_data=f"qdur_30_{int(amt) if amt>=1 else amt}_{bal}"),
-           types.InlineKeyboardButton(f"⏱️ 1 Min", callback_data=f"qdur_60_{int(amt) if amt>=1 else amt}_{bal}"),
-           types.InlineKeyboardButton(f"⏱️ 2 Min", callback_data=f"qdur_120_{int(amt) if amt>=1 else amt}_{bal}"))
-    mk.add(types.InlineKeyboardButton(f"⏱️ 3 Min", callback_data=f"qdur_180_{int(amt) if amt>=1 else amt}_{bal}"),
-           types.InlineKeyboardButton(f"⏱️ 5 Min", callback_data=f"qdur_300_{int(amt) if amt>=1 else amt}_{bal}"),
-           types.InlineKeyboardButton(f"⏱️ 15 Min", callback_data=f"qdur_900_{int(amt) if amt>=1 else amt}_{bal}"))
-    mk.add(types.InlineKeyboardButton("⬅️ Menu", callback_data="back_menu"))
-    return mk
-
 def duration_kb(pair, amt, bal):
     mk=types.InlineKeyboardMarkup(row_width=3)
     mk.add(types.InlineKeyboardButton("⏱️ 30 Sec", callback_data=f"dur_30_{int(amt)}_{pair}_{bal}"),
@@ -291,6 +388,25 @@ def duration_kb(pair, amt, bal):
     mk.add(types.InlineKeyboardButton("⬅️ Back", callback_data=f"bal_{bal}_{pair}"))
     return mk
 
+def duration_kb_manual(amt, bal, market_type, pair=None):
+    mk=types.InlineKeyboardMarkup(row_width=3)
+    if pair:
+        mk.add(types.InlineKeyboardButton("⏱️ 30 Sec", callback_data=f"dur_30_{int(amt)}_{pair}_{bal}"),
+               types.InlineKeyboardButton("⏱️ 1 Min", callback_data=f"dur_60_{int(amt)}_{pair}_{bal}"),
+               types.InlineKeyboardButton("⏱️ 2 Min", callback_data=f"dur_120_{int(amt)}_{pair}_{bal}"))
+        mk.add(types.InlineKeyboardButton("⏱️ 3 Min", callback_data=f"dur_180_{int(amt)}_{pair}_{bal}"),
+               types.InlineKeyboardButton("⏱️ 5 Min", callback_data=f"dur_300_{int(amt)}_{pair}_{bal}"),
+               types.InlineKeyboardButton("⏱️ 15 Min", callback_data=f"dur_900_{int(amt)}_{pair}_{bal}"))
+    else:
+        mk.add(types.InlineKeyboardButton("⏱️ 30 Sec", callback_data=f"qdur_30_{int(amt) if amt>=1 else amt}_{bal}_{market_type}"),
+               types.InlineKeyboardButton("⏱️ 1 Min", callback_data=f"qdur_60_{int(amt) if amt>=1 else amt}_{bal}_{market_type}"),
+               types.InlineKeyboardButton("⏱️ 2 Min", callback_data=f"qdur_120_{int(amt) if amt>=1 else amt}_{bal}_{market_type}"))
+        mk.add(types.InlineKeyboardButton("⏱️ 3 Min", callback_data=f"qdur_180_{int(amt) if amt>=1 else amt}_{bal}_{market_type}"),
+               types.InlineKeyboardButton("⏱️ 5 Min", callback_data=f"qdur_300_{int(amt) if amt>=1 else amt}_{bal}_{market_type}"),
+               types.InlineKeyboardButton("⏱️ 15 Min", callback_data=f"qdur_900_{int(amt) if amt>=1 else amt}_{bal}_{market_type}"))
+    mk.add(types.InlineKeyboardButton("⬅️ Menu", callback_data="back_menu"))
+    return mk
+
 def main_menu_kb(cid):
     vip = VIP_MODE.get(cid, False)
     comp = COMPOUND_MODE.get(cid, False)
@@ -298,8 +414,9 @@ def main_menu_kb(cid):
     mk=types.InlineKeyboardMarkup(row_width=2)
     mk.add(types.InlineKeyboardButton("⚡ QUICK TRADE - DEMO ($)", callback_data="quick_simple_PRACTICE"),
            types.InlineKeyboardButton("🔴 QUICK TRADE - REAL (₦)", callback_data="quick_simple_REAL"))
-    mk.add(types.InlineKeyboardButton("💹 HIGH WIN RATE", callback_data="trade"),
-           types.InlineKeyboardButton("🤖 AUTO TRADE 🚀", callback_data="auto_menu"))
+    mk.add(types.InlineKeyboardButton("💹 HIGH WIN RATE - PICK PAIR", callback_data="trade"),
+           types.InlineKeyboardButton("📈 BEST PAIRS - PICK MANUAL", callback_data="best_pairs_manual"))
+    mk.add(types.InlineKeyboardButton("🤖 AUTO TRADE 🚀", callback_data="auto_menu"))
     mk.add(types.InlineKeyboardButton(f"{'💎 VIP ON' if vip else '💎 VIP OFF'}", callback_data="toggle_vip"),
            types.InlineKeyboardButton(f"{'📈 COMP ON' if comp else '📈 COMP OFF'}", callback_data="toggle_comp"))
     mk.add(types.InlineKeyboardButton(f"{'🛡️ SHIELD ON' if shield else '🛡️ SHIELD OFF'}", callback_data="toggle_shield"),
@@ -307,6 +424,14 @@ def main_menu_kb(cid):
     mk.add(types.InlineKeyboardButton("📊 STATS + CHART", callback_data="stats"),
            types.InlineKeyboardButton("🎯 DAILY GOAL", callback_data="daily"))
     mk.add(types.InlineKeyboardButton("⏸️ STOP AUTO", callback_data="stop_auto"))
+    return mk
+
+def quick_market_kb(bal):
+    mk=types.InlineKeyboardMarkup(row_width=2)
+    mk.add(types.InlineKeyboardButton("📈 REAL MARKET", callback_data=f"qmarket_REAL_{bal}"),
+           types.InlineKeyboardButton("🏦 OTC MARKET", callback_data=f"qmarket_OTC_{bal}"))
+    mk.add(types.InlineKeyboardButton("🌍 ALL MARKETS", callback_data=f"qmarket_ALL_{bal}"))
+    mk.add(types.InlineKeyboardButton("⬅️ Menu", callback_data="back_menu"))
     return mk
 
 def send_win_result(cid, pair, direction, amt, duration_sec, pnl, bal_after, pair_data=None, bal_type="PRACTICE"):
@@ -321,7 +446,6 @@ def send_win_result(cid, pair, direction, amt, duration_sec, pnl, bal_after, pai
     wheel_name, wheel_val = spin_wheel()
     bonus_txt=""
     if wheel_val>0:
-        bonus_txt=f"\n🎰 **LUCKY WHEEL:** {wheel_name}\n"
         STATS['balance']+=wheel_val
         bal_after+=wheel_val
     ach = get_achievement()
@@ -339,30 +463,27 @@ def send_win_result(cid, pair, direction, amt, duration_sec, pnl, bal_after, pai
     mk=types.InlineKeyboardMarkup(row_width=2)
     mk.add(types.InlineKeyboardButton(f"⚡ QUICK AGAIN {amt_txt}", callback_data=f"quick_simple_{bal_type}"),
            types.InlineKeyboardButton(f"✏️ CUSTOM {amt_txt}", callback_data=f"quick_custom_{bal_type}"))
-    mk.add(types.InlineKeyboardButton("💹 HIGH WIN", callback_data="trade"),
-           types.InlineKeyboardButton("📊 CHART", callback_data="stats"))
+    mk.add(types.InlineKeyboardButton("💹 PICK PAIR MANUAL", callback_data="trade"),
+           types.InlineKeyboardButton("📈 BEST PAIRS MANUAL", callback_data="best_pairs_manual"))
     goal=DAILY['goal']
     progress=int(min(100, DAILY['profit_today']/goal*100)) if goal>0 else 0
     bar="█"*(progress//10)+"░"*(10-progress//10)
     real_tag = "🔴 REAL (₦)" if bal_type=="REAL" else "🟢 DEMO ($)"
+    market_tag = "📈 REAL" if "-OTC" not in pair else "🏦 OTC"
     txt=f"""🎉🎉🎉 **WINNER WINNER** 🎉🎉🎉
-
 ━━━━━━━━━━━━━━━━━━━━━━
-✅💚 **RESULT AFTER TRADE** 💚✅ {real_tag}
+✅💚 **RESULT AFTER TRADE** 💚✅ {real_tag} {market_tag}
 ━━━━━━━━━━━━━━━━━━━━━━
-
 💰 **Profit:** 🤑 **+{pnl_txt}** 🤑{bonus_txt}
 💱 **Pair:** {PAIR_EMOJI.get(pair,pair)} {direction}
 ⏱️ **Duration:** ⏰ {duration_sec}s
 💵 **Amount:** {amt_txt} {bal_type}
 🌋 **Vol:** {pair_data.get('vol','-') if pair_data else '-'} | Mood: {mood}
-
 📊 **Outcome:** ✅ **WIN** ✅
 🔥 **Streak:** {STATS['streak']} Wins! Best {STATS['best_streak']} 🏆
 💎 **Balance:** 💰 {bal_txt} 💰
 🎯 **Daily:** {bar} {progress}% ({profit_today_txt}/{goal_txt})
 ⏰ **Best Time:** {best_time}
-
 ━━━━━━━━━━━━━━━━━━━━━━
 {ach_txt}🎊 Congratulations Boss! 🎊
 """
@@ -394,41 +515,34 @@ def send_loss_result(cid, pair, direction, amt, duration_sec, bal_after, pair_da
         amt_txt = fmt_demo(amt); mart_22_txt = fmt_demo(mart_22); mart_2_txt = fmt_demo(mart_2)
         bal_txt = fmt_demo(bal_after); profit_today_txt = fmt_demo(DAILY['profit_today']); goal_txt = fmt_demo(DAILY['goal'])
     mk=types.InlineKeyboardMarkup(row_width=2)
-    mk.add(types.InlineKeyboardButton(f"🔁 MARTINGALE {mart_22_txt} (2.2x)", callback_data=f"qdur_{duration_sec}_{int(mart_22) if mart_22>=1 else mart_22}_{bal_type}"),
-           types.InlineKeyboardButton(f"🔁 MART {mart_2_txt} (2x)", callback_data=f"qdur_{duration_sec}_{int(mart_2) if mart_2>=1 else mart_2}_{bal_type}"))
+    market_type = "REAL" if "-OTC" not in pair else "OTC"
+    mk.add(types.InlineKeyboardButton(f"🔁 MARTINGALE {mart_22_txt} (2.2x)", callback_data=f"qdur_30_{int(mart_22) if mart_22>=1 else mart_22}_{bal_type}_{market_type}"),
+           types.InlineKeyboardButton(f"🔁 MART {mart_2_txt} (2x)", callback_data=f"qdur_60_{int(mart_2) if mart_2>=1 else mart_2}_{bal_type}_{market_type}"))
     mk.add(types.InlineKeyboardButton(f"✏️ CUSTOM MARTINGALE", callback_data=f"quick_custom_{bal_type}"),
            types.InlineKeyboardButton(f"⚡ QUICK SAME {amt_txt}", callback_data=f"quick_simple_{bal_type}"))
-    mk.add(types.InlineKeyboardButton("📊 CHART", callback_data="stats"),
-           types.InlineKeyboardButton("🛡️ SHIELD", callback_data="toggle_shield"))
+    mk.add(types.InlineKeyboardButton("📈 BEST PAIRS MANUAL", callback_data="best_pairs_manual"),
+           types.InlineKeyboardButton("💹 PICK PAIR MANUAL", callback_data="trade"))
     goal=DAILY['goal']
     progress=int(min(100, max(0, DAILY['profit_today']/goal*100))) if goal>0 else 0
     bar="█"*(progress//10)+"░"*(10-progress//10)
     real_tag = "🔴 REAL (₦)" if bal_type=="REAL" else "🟢 DEMO ($)"
+    market_tag = "📈 REAL" if "-OTC" not in pair else "🏦 OTC"
     txt=f"""💔💔💔 **OOPS - NEXT ONE WIN** 💔💔💔
-
 ━━━━━━━━━━━━━━━━━━━━━━
-❌💔 **RESULT AFTER TRADE** 💔❌ {real_tag}
+❌💔 **RESULT AFTER TRADE** 💔❌ {real_tag} {market_tag}
 ━━━━━━━━━━━━━━━━━━━━━━
-
 💸 **Loss:** 😢 **-{amt_txt}** 😢
 💱 **Pair:** {PAIR_EMOJI.get(pair,pair)} {direction}
 ⏱️ **Duration:** ⏰ {duration_sec}s
 💵 **Amount:** {amt_txt} {bal_type}
 🌋 **Vol:** {pair_data.get('vol','-') if pair_data else '-'} | Mood: {mood}
-
 📊 **Outcome:** ❌ **LOSS** ❌
 🔥 **Streak Reset:** 0
 💎 **Balance:** 💰 {bal_txt} 💰
 🎯 **Daily:** {bar} {progress}% ({profit_today_txt}/{goal_txt})
 ⏰ **Best Time:** {best_time}
-
 ━━━━━━━━━━━━━━━━━━━━━━
-💪 **MARTINGALE OPTIONS:**
-Tap button to recover with BEST pair!
-2.2x = Recover + Profit (Best)
-2x = Recover loss
-✏️ CUSTOM = Your own amount
-━━━━━━━━━━━━━━━━━━━━━━
+💪 **MARTINGALE OPTIONS - YOU PICK:**
 """
     bot.send_message(cid, txt, reply_markup=mk, parse_mode="Markdown")
     if DAILY['profit_today'] <= -DAILY['stop_loss']:
@@ -443,7 +557,7 @@ def do_trade(cid, pair, amt, bal, duration_sec, is_auto=False, is_quick=False):
             txt = fmt_by_bal(amt, bal)
             bot.send_message(cid, f"📈 **COMPOUND** Streak {STATS['streak']} → {txt}")
     amt_display = fmt_by_bal(amt, bal)
-    scan_msg = bot.send_message(cid, f"🔍 **{'⚡ QUICK' if is_quick else 'ANALYZING'} {PAIR_EMOJI.get(pair,pair)} {bal}**\n\n░░░░░░░░░░ 0%... {amt_display}", parse_mode="Markdown")
+    scan_msg = bot.send_message(cid, f"🔍 **INITIALIZING V5.9 ULTRA SCAN FOR {PAIR_EMOJI.get(pair,pair)}**\n\n░░░░░░░░░░░░░░░░░░░░ 0%\n🚀 Starting...\n💰 {amt_display}", parse_mode="Markdown")
     animate_live_scanning(cid, scan_msg.message_id, pair)
     animate_progress_bar(cid, scan_msg.message_id, pair, f"{amt_display} {duration_sec}s {bal}")
     vip = VIP_MODE.get(cid, False)
@@ -489,29 +603,35 @@ def do_trade(cid, pair, amt, bal, duration_sec, is_auto=False, is_quick=False):
         bot.send_message(cid, f"⏱️ **EXPIRED - CHECK IQ APP** ID {oid} {amt_display}", reply_markup=mk)
         return None
 
-def quick_trade_simple(cid, base_amt, duration_sec, bal="PRACTICE"):
+def quick_trade_manual(cid, market_type, pair, base_amt, duration_sec, bal="PRACTICE"):
     amt_display = fmt_by_bal(base_amt, bal)
-    bot.send_message(cid, f"⚡ **QUICK TRADE V5.5 {bal} STARTING** ⚡\n\n💰 {amt_display} | ⏱️ {duration_sec}s | {bal}\n🏆 Auto picking BEST win rate pair...\n⏳ Scanning...", parse_mode="Markdown")
+    bot.send_message(cid, f"⚡ **MANUAL QUICK TRADE V5.9 {bal} {market_type}** ⚡\n\n💱 Pair: {PAIR_EMOJI.get(pair,pair)} (You picked!)\n💰 {amt_display} | ⏱️ {duration_sec}s | {bal} | Market: {market_type}\n🏆 Trading NOW with ULTRA FINE SCAN...", parse_mode="Markdown")
+    do_trade(cid, pair, base_amt, bal, duration_sec, is_auto=False, is_quick=True)
+
+def quick_trade_auto_best(cid, base_amt, duration_sec, bal="PRACTICE", market_type="ALL"):
+    amt_display = fmt_by_bal(base_amt, bal)
+    scan_msg = bot.send_message(cid, f"⚡ **QUICK TRADE V5.9 AUTO BEST {bal} {market_type}** ⚡\n\n💰 {amt_display} | ⏱️ {duration_sec}s | {bal} | Market: {market_type}\n🏆 Auto picking BEST win rate pair in {market_type}...\n⏳ Scanning...", parse_mode="Markdown")
+    animate_pair_ranking_scan(cid, scan_msg.message_id)
     vip = VIP_MODE.get(cid, False)
-    ranked = get_pair_ranking(vip=vip)
+    ranked = get_pair_ranking(vip=vip, market_filter=market_type if market_type!="ALL" else None)
     if not ranked:
         bot.send_message(cid, "❌ No pairs available, try again"); return
     pair = ranked[0][0]
     d = analyze_momentum(pair, vip_only=vip)
     if not d:
-        for p,_,_ in ranked[1:3]:
+        for p,_,_ in ranked[1:5]:
             d2=analyze_momentum(p, vip_only=vip)
             if d2: pair=p; d=d2; break
     if not d:
-        bot.send_message(cid, f"❌ No strong signal on top pairs, trying {pair} anyway...")
+        bot.send_message(cid, f"❌ No strong signal on top pairs in {market_type}, trying {pair} anyway...")
         d=analyze_momentum(pair)
         if not d: bot.send_message(cid, "❌ Failed, try again"); return
-    bot.send_message(cid, f"⚡ **QUICK PICKED {bal}:** {PAIR_EMOJI.get(pair,pair)} Win {ranked[0][1]:.1f}% | {d['dir']} {d['conf']:.0f}% {d['vol']} | Mood {get_market_mood(d)[0]}\n\n🚀 Trading NOW {amt_display}...")
+    bot.send_message(cid, f"⚡ **QUICK PICKED {bal} {market_type}:** {PAIR_EMOJI.get(pair,pair)} Win {ranked[0][1]:.1f}% | {d['dir']} {d['conf']:.0f}% {d['vol']} | Mood {get_market_mood(d)[0]}\n\n🚀 Trading NOW {amt_display} with ULTRA SCAN...")
     do_trade(cid, pair, base_amt, bal, duration_sec, is_auto=False, is_quick=True)
 
-def auto_trading_loop(cid, base_amt, duration_sec, bal="PRACTICE"):
+def auto_trading_loop(cid, base_amt, duration_sec, bal="PRACTICE", market_type="ALL"):
     amt_display = fmt_by_bal(base_amt, bal)
-    bot.send_message(cid, f"🤖 **AUTO TRADE V5.5 {bal} - ONLY ON BUTTON** 🚀\n\n💰 Base: {amt_display} | ⏱️ {duration_sec}s | {bal}\n🏆 High Win + VIP={'ON' if VIP_MODE.get(cid) else 'OFF'} + COMP={'ON' if COMPOUND_MODE.get(cid) else 'OFF'}\n🎯 Goal {fmt_by_bal(DAILY['goal'], bal)} | Stop {fmt_by_bal(DAILY['stop_loss'], bal)}\n\n🔍 Scanning every 15s...\n\n[⏸️ STOP AUTO] - Will NOT restart unless you touch button!", parse_mode="Markdown")
+    bot.send_message(cid, f"🤖 **AUTO TRADE V5.9 {bal} {market_type} - ONLY ON BUTTON** 🚀\n\n💰 Base: {amt_display} | ⏱️ {duration_sec}s | {bal} | Market: {market_type}\n🏆 High Win + VIP={'ON' if VIP_MODE.get(cid) else 'OFF'} + COMP={'ON' if COMPOUND_MODE.get(cid) else 'OFF'}\n🎯 Goal {fmt_by_bal(DAILY['goal'], bal)} | Stop {fmt_by_bal(DAILY['stop_loss'], bal)}\n\n🔍 Scanning every 15s with ULTRA FINE...\n\n[⏸️ STOP AUTO] - Will NOT restart unless you touch button!", parse_mode="Markdown")
     trades=0
     while AUTO_RUNNING.get(cid, False):
         try:
@@ -519,28 +639,28 @@ def auto_trading_loop(cid, base_amt, duration_sec, bal="PRACTICE"):
             if DAILY['profit_today']>=DAILY['goal'] or DAILY['profit_today']<=-DAILY['stop_loss']:
                 bot.send_message(cid, f"🎯 Daily limit {fmt_by_bal(DAILY['profit_today'], bal)} - Stopping AUTO. Touch button to restart!"); AUTO_RUNNING[cid]=False; break
             vip = VIP_MODE.get(cid, False)
-            ranked = get_pair_ranking(vip=vip)
+            ranked = get_pair_ranking(vip=vip, market_filter=market_type if market_type!="ALL" else None)
             if not ranked: time.sleep(10); continue
             pair = ranked[0][0]
             d = analyze_momentum(pair, vip_only=vip)
             if not d or d['conf']< (88 if vip else 75):
-                for p,_,_ in ranked[1:3]:
+                for p,_,_ in ranked[1:5]:
                     d2=analyze_momentum(p, vip_only=vip)
                     if d2 and d2['conf']>= (88 if vip else 75): pair=p; d=d2; break
                 if not d or d['conf']< (88 if vip else 75):
-                    bot.send_message(cid, f"⏳ AUTO V5.5: No signal, waiting 15s..."); time.sleep(15); continue
+                    bot.send_message(cid, f"⏳ AUTO V5.9 {market_type}: No signal, waiting 15s..."); time.sleep(15); continue
             amt = base_amt
             if trades>0 and not AUTO_RUNNING.get(f"{cid}_last_win", True):
                 amt = round(base_amt*2.2,2)
                 bot.send_message(cid, f"🧠 **MARTINGALE** {trades+1} → {fmt_by_bal(amt, bal)} on {pair}")
-            bot.send_message(cid, f"🤖 **AUTO #{trades+1} V5.5 {bal}**\n🏆 {PAIR_EMOJI.get(pair,pair)} Win {ranked[0][1]:.1f}% | {d['dir']} {d['conf']:.0f}% {d['vol']}\n💰 {fmt_by_bal(amt, bal)} | ⏱️ {duration_sec}s | Streak {STATS['streak']}🔥 | Daily {fmt_by_bal(DAILY['profit_today'], bal)}")
+            bot.send_message(cid, f"🤖 **AUTO #{trades+1} V5.9 {bal} {market_type}**\n🏆 {PAIR_EMOJI.get(pair,pair)} Win {ranked[0][1]:.1f}% | {d['dir']} {d['conf']:.0f}% {d['vol']}\n💰 {fmt_by_bal(amt, bal)} | ⏱️ {duration_sec}s | Streak {STATS['streak']}🔥 | Daily {fmt_by_bal(DAILY['profit_today'], bal)}")
             result = do_trade(cid, pair, amt, bal, duration_sec, is_auto=True, is_quick=False)
             if result is True: AUTO_RUNNING[f"{cid}_last_win"]=True
             elif result is False: AUTO_RUNNING[f"{cid}_last_win"]=False
             else: AUTO_RUNNING[f"{cid}_last_win"]=True
             trades+=1
             if trades>=150:
-                bot.send_message(cid, "🤖 AUTO V5.5: 150 trades reached, pausing. Touch AUTO button to restart!", reply_markup=main_menu_kb(cid))
+                bot.send_message(cid, "🤖 AUTO V5.9: 150 trades reached, pausing. Touch AUTO button to restart!", reply_markup=main_menu_kb(cid))
                 AUTO_RUNNING[cid]=False
                 break
             time.sleep(8)
@@ -548,7 +668,7 @@ def auto_trading_loop(cid, base_amt, duration_sec, bal="PRACTICE"):
             print(f"AUTO error {e}", flush=True)
             bot.send_message(cid, f"⚠️ AUTO error {e}, retry 10s")
             time.sleep(10)
-    bot.send_message(cid, "⏸️ **AUTO V5.5 STOPPED** 🛑\n\nWill NOT restart unless you touch AUTO button again!\nManual ready", reply_markup=main_menu_kb(cid))
+    bot.send_message(cid, "⏸️ **AUTO V5.9 STOPPED** 🛑\n\nWill NOT restart unless you touch AUTO button again!\nManual ready", reply_markup=main_menu_kb(cid))
 
 @bot.message_handler(commands=['start'])
 def start(m):
@@ -556,26 +676,37 @@ def start(m):
         bot.send_message(m.chat.id, f"❌ Private Bot 🔒 Owner only.\nYour ID: {m.from_user.id}"); return
     DAILY=check_daily()
     vip = VIP_MODE.get(m.chat.id, False)
-    txt=f"""🤖 **Z-BOT PRO V48 V5.5 SIMPLE** 🤖
+    best_txt = get_best_pairs_text(vip=vip, limit=5)
+    txt=f"""🤖 **Z-BOT PRO V48 V5.9 ULTRA FINE** 🤖
 
-✨ *SIMPLE QUICK + DEMO $ + REAL ₦*
+✨ *YOU PICK EVERYTHING + ULTRA FINE SCANNING BAR!*
 🔒 PRIVATE - Only Owner {OWNER_ID}
 💎 IQ: {'✅' if IQ_CONNECTED else '❌'} | VIP: {'💎 ON 90%+' if vip else 'OFF'}
 💰 Balance: {fmt_demo(STATS['balance'])} / {fmt_real(STATS['balance'])}
 🎯 Wins: {STATS['wins']} | Loss: {STATS['loss']} | Streak: {STATS['streak']}🔥 Best {STATS['best_streak']}🏆
 🎯 Daily: {fmt_demo(DAILY['profit_today'])} / {fmt_real(DAILY['profit_today'])} | Goal {fmt_demo(DAILY['goal'])} / {fmt_real(DAILY['goal'])}
+📈 Total Pairs: {len(ALL_PAIRS)} (Real {len(REAL_PAIRS)} + OTC {len(OTC_PAIRS)})
 🏆 Achievements: {', '.join(ACHIEVEMENTS) if ACHIEVEMENTS else 'None'}
 🤖 AUTO: {'🟢 RUNNING' if AUTO_RUNNING.get(m.chat.id) else '🔴 STOPPED - Touch button to start'}
 📈 Profit: {fmt_demo(STATS['total_profit'])} / {fmt_real(STATS['total_profit'])}
 💵 **Rate:** $1 = ₦{USD_TO_NAIRA:,.0f}
 
-⚡ **QUICK TRADE - SIMPLE:**
-- DEMO = Show in DOLLARS $
-- REAL = Show in NAIRA ₦
-- After amount, pick duration (30s to 15m)
-- Martingale + Custom amount available after loss!
+{best_txt}
 
-👇 **V5.5 SIMPLE MENU:**
+✨ **V5.9 ULTRA FINE SCANNING:**
+- 13 steps live bar with colors 🟥🟨🟩💎
+- Shows each analysis stage
+- 20 blocks progress bar █░
+- Pair name + amount live update!
+
+⚡ **MANUAL FLOW - YOU PICK:**
+1. DEMO ($) or REAL (₦)
+2. REAL or OTC market
+3. Pair YOU want
+4. Amount YOU want ($ or ₦)
+5. Duration YOU want (30s-15m)
+
+👇 **V5.9 MENU - ULTRA FINE SCAN:**
 """
     bot.send_message(m.chat.id, txt, reply_markup=main_menu_kb(m.chat.id), parse_mode="Markdown")
 
@@ -584,55 +715,137 @@ def cb(c):
     if not is_private_allowed(c.from_user.id):
         bot.answer_callback_query(c.id, "❌ Private Bot - Owner only"); return
     data=c.data; cid=c.message.chat.id
+    
     if data.startswith("quick_simple_"):
         bal = data.replace("quick_simple_","")
-        user_states[cid]={"step":"await_quick_simple_amt","bal":bal}
-        if bal=="REAL":
-            bot.send_message(cid, f"⚡ **QUICK TRADE - REAL (₦)**\n\n💰 **Type amount in NAIRA:**\nExample:\n`5000` = ₦5,000\n`10000` = ₦10,000\n`2000` = ₦2,000\n\nBot will pick BEST pair and ask duration after!", parse_mode="Markdown")
-        else:
-            bot.send_message(cid, f"⚡ **QUICK TRADE - DEMO ($)**\n\n💰 **Type amount in DOLLARS:**\nExample:\n`1` = $1\n`5` = $5\n`10` = $10\n\nBot will pick BEST pair and ask duration after!", parse_mode="Markdown")
+        best_txt = get_best_pairs_text(vip=VIP_MODE.get(cid, False), limit=5)
+        bot.send_message(cid, f"⚡ **QUICK TRADE - {bal} - MANUAL PICK + ULTRA SCAN**\n\n{best_txt}\n\n👇 **STEP 1/5 - PICK MARKET (YOU PICK):**\n📈 REAL MARKET = Live forex (Weekdays)\n🏦 OTC MARKET = 24/7 (Weekend best)\n🌍 ALL = Best from both!", reply_markup=quick_market_kb(bal), parse_mode="Markdown")
         return
+    
+    if data.startswith("qmarket_"):
+        parts=data.split("_")
+        try:
+            market_type=parts[1]
+            bal=parts[2]
+        except:
+            market_type="ALL"; bal="PRACTICE"
+        user_states[cid]={"step":"pick_pair","bal":bal,"market_type":market_type}
+        scan_msg = bot.send_message(cid, f"🔍 **SCANNING {market_type} MARKET - {len(REAL_PAIRS) if market_type=='REAL' else len(OTC_PAIRS) if market_type=='OTC' else len(ALL_PAIRS)} pairs...**\n\n░░░░░░░░░░ 0%")
+        animate_pair_ranking_scan(cid, scan_msg.message_id)
+        ranked = get_pair_ranking(vip=VIP_MODE.get(cid, False), market_filter=market_type if market_type!="ALL" else None)
+        market_best = f"🏆 **BEST PAIRS IN {market_type} - YOU PICK PAIR:**\n"
+        for i,(pair,wr,src) in enumerate(ranked[:8],1):
+            market_best+=f"{i}. {PAIR_EMOJI.get(pair,pair)} {wr:.1f}% ({src})\n"
+        mk=types.InlineKeyboardMarkup(row_width=1)
+        for pair, wr, src in ranked[:12]:
+            market_tag = "📈 REAL" if "-OTC" not in pair else "🏦 OTC"
+            label = f"{market_tag} {pair} - {wr:.1f}% - PICK THIS PAIR"
+            mk.add(types.InlineKeyboardButton(label, callback_data=f"pick_pair_{pair}_{bal}_{market_type}"))
+        mk.add(types.InlineKeyboardButton("⬅️ Menu", callback_data="back_menu"))
+        try:
+            bot.edit_message_text(f"✅ **MARKET: {market_type}** {bal}\n{market_best}\n\n👇 **STEP 2/5 - PICK PAIR (YOU PICK):**\nTouch any pair you want to trade!\n✨ Ultra fine scanning ready!", cid, scan_msg.message_id, reply_markup=mk, parse_mode="Markdown")
+        except:
+            bot.send_message(cid, f"✅ **MARKET: {market_type}** {bal}\n{market_best}\n\n👇 **STEP 2/5 - PICK PAIR (YOU PICK):**", reply_markup=mk, parse_mode="Markdown")
+        return
+    
+    if data.startswith("pick_pair_"):
+        rest = data.replace("pick_pair_","")
+        rparts = rest.rsplit("_",2)
+        try:
+            pair = rparts[0]
+            bal = rparts[1]
+            market_type = rparts[2] if len(rparts)>=3 else "ALL"
+        except:
+            pair = rest; bal="PRACTICE"; market_type="ALL"
+        user_states[cid]={"step":"await_quick_simple_amt","bal":bal,"market_type":market_type,"pair":pair}
+        if bal=="REAL":
+            bot.send_message(cid, f"✅ **PAIR PICKED: {PAIR_EMOJI.get(pair,pair)}**\n✅ **MARKET: {market_type}**\n\n💰 **STEP 3/5 - Type amount in NAIRA (YOU PICK):**\nExample: 5000 = ₦5,000\n10000 = ₦10,000\n\nFor {pair} {market_type} - {bal}!", parse_mode="Markdown")
+        else:
+            bot.send_message(cid, f"✅ **PAIR PICKED: {PAIR_EMOJI.get(pair,pair)}**\n✅ **MARKET: {market_type}**\n\n💰 **STEP 3/5 - Type amount in DOLLARS (YOU PICK):**\nExample: 1 = $1\n5 = $5\n10 = $10\n\nFor {pair} {market_type} - {bal}!", parse_mode="Markdown")
+        return
+    
     if data.startswith("quick_custom_"):
         bal = data.replace("quick_custom_","")
-        user_states[cid]={"step":"await_quick_simple_amt","bal":bal}
-        if bal=="REAL":
-            bot.send_message(cid, f"✏️ **QUICK CUSTOM - REAL (₦) - MARTINGALE**\n\n💰 **Type custom amount in NAIRA:**\nExample: `8000` = ₦8,000\n`16000` = ₦16,000\n\nFor REAL account - Pick duration after!", parse_mode="Markdown")
-        else:
-            bot.send_message(cid, f"✏️ **QUICK CUSTOM - DEMO ($) - MARTINGALE**\n\n💰 **Type custom amount in DOLLARS:**\nExample: `10` = $10\n`20` = $20\n\nFor DEMO account - Pick duration after!", parse_mode="Markdown")
+        best_txt = get_best_pairs_text(vip=VIP_MODE.get(cid, False), limit=3)
+        bot.send_message(cid, f"✏️ **QUICK CUSTOM - {bal} - FULL MANUAL + ULTRA SCAN**\n\n{best_txt}\n\n👇 **STEP 1/5 - PICK MARKET:**", reply_markup=quick_market_kb(bal), parse_mode="Markdown")
         return
+    
     if data.startswith("qdur_"):
         parts=data.split("_")
         try:
-            dur=int(parts[1]); amt=float(parts[2]); bal=parts[3]
+            dur=int(parts[1])
+            amt=float(parts[2])
+            bal=parts[3]
+            market_type=parts[4] if len(parts)>=5 else "ALL"
         except:
             return
-        bot.answer_callback_query(c.id, f"⚡ {bal} {fmt_by_bal(amt, bal)} {dur}s!")
-        threading.Thread(target=quick_trade_simple, args=(cid, amt, dur, bal), daemon=True).start()
+        st = user_states.get(cid, {})
+        pair = st.get("pair")
+        if bal=="REAL" and amt>=100:
+            amt_usd = to_usd(amt)
+            amt_usd = max(1, amt_usd)
+        else:
+            amt_usd = amt
+        bot.answer_callback_query(c.id, f"⚡ {bal} {fmt_by_bal(amt_usd, bal)} {dur}s {market_type}! ULTRA SCAN STARTING!")
+        if pair:
+            threading.Thread(target=quick_trade_manual, args=(cid, market_type, pair, amt_usd, dur, bal), daemon=True).start()
+        else:
+            threading.Thread(target=quick_trade_auto_best, args=(cid, amt_usd, dur, bal, market_type), daemon=True).start()
         return
+    
+    if data=="best_pairs_manual":
+        vip = VIP_MODE.get(cid, False)
+        scan_msg = bot.send_message(cid, "🔍 **SCANNING BEST PAIRS ULTRA FINE...**\n\n░░░░░░░░░░ 0%")
+        animate_pair_ranking_scan(cid, scan_msg.message_id)
+        real_ranked = get_pair_ranking(vip=vip, market_filter="REAL")
+        otc_ranked = get_pair_ranking(vip=vip, market_filter="OTC")
+        mk=types.InlineKeyboardMarkup(row_width=1)
+        txt = f"📊 **BEST PAIRS - FULL MANUAL PICK + ULTRA SCAN** ⚡\n\n"
+        txt += f"💡 **YOU PICK EVERYTHING:**\n1. Pick Market (REAL/OTC)\n2. Pick Pair (You choose)\n3. Type Amount (You choose)\n4. Pick Duration (You choose)\n\n"
+        txt += f"📈 **REAL MARKET - PICK PAIR:**\n"
+        for i,(pair,wr,src) in enumerate(real_ranked[:5],1):
+            txt+=f"{i}. {PAIR_EMOJI.get(pair,pair)} - {wr:.1f}% ({src})\n"
+        for pair, wr, src in real_ranked[:5]:
+            label = f"📈 PICK {pair} {wr:.1f}%"
+            mk.add(types.InlineKeyboardButton(label, callback_data=f"pick_pair_{pair}_PRACTICE_REAL"))
+        txt += f"\n🏦 **OTC MARKET - PICK PAIR:**\n"
+        for i,(pair,wr,src) in enumerate(otc_ranked[:5],1):
+            txt+=f"{i}. {PAIR_EMOJI.get(pair,pair)} - {wr:.1f}% ({src})\n"
+        for pair, wr, src in otc_ranked[:5]:
+            label = f"🏦 PICK {pair} {wr:.1f}%"
+            mk.add(types.InlineKeyboardButton(label, callback_data=f"pick_pair_{pair}_PRACTICE_OTC"))
+        mk.add(types.InlineKeyboardButton("📈 REAL MARKET LIST", callback_data="qmarket_REAL_PRACTICE"))
+        mk.add(types.InlineKeyboardButton("🏦 OTC MARKET LIST", callback_data="qmarket_OTC_PRACTICE"))
+        mk.add(types.InlineKeyboardButton("⬅️ Menu", callback_data="back_menu"))
+        try:
+            bot.edit_message_text(txt, cid, scan_msg.message_id, reply_markup=mk, parse_mode="Markdown")
+        except:
+            bot.send_message(cid, txt, reply_markup=mk, parse_mode="Markdown")
+        return
+    
     if data=="trade":
         bot.answer_callback_query(c.id, "📊 Scanning high win...")
-        scan_msg = bot.send_message(cid, "🔍 **SCANNING PAIRS V5.5...**\n\n░░░░░░░░░░ 0%")
-        try: bot.edit_message_text("🔍 **SCANNING PAIRS V5.5...**\n\n▓▓▓░░░░░░░ 30%", cid, scan_msg.message_id)
-        except: pass
+        scan_msg = bot.send_message(cid, "🔍 **SCANNING ALL 40 PAIRS V5.9 ULTRA FINE...**\n\n░░░░░░░░░░░░░░░░░░░░ 0%\n🚀 Starting...")
+        animate_pair_ranking_scan(cid, scan_msg.message_id)
         vip = VIP_MODE.get(cid, False)
         ranked = get_pair_ranking(vip=vip)
-        try: bot.edit_message_text("🔍 **SCANNING V5.5...**\n\n▓▓▓▓▓▓░░░░ 60%", cid, scan_msg.message_id)
-        except: pass
         mk=types.InlineKeyboardMarkup(row_width=1)
-        for pair, wr, src in ranked:
+        for pair, wr, src in ranked[:15]:
             emoji = "🔥" if wr>=80 else "⭐" if wr>=70 else "📊"
             mem = PAIR_STATS.get(pair)
             live_txt = f" Live {mem['wins']}/{mem['total']}" if mem and mem['total']>=1 else ""
             d=analyze_momentum(pair)
             mood_txt = f" {get_market_mood(d)[0]}" if d else ""
-            label = f"{emoji} {PAIR_EMOJI.get(pair,pair)} - {wr:.1f}%{live_txt}{mood_txt}"
+            market_tag = "📈" if "-OTC" not in pair else "🏦"
+            label = f"{emoji} {market_tag} {PAIR_EMOJI.get(pair,pair)} - {wr:.1f}%{live_txt}{mood_txt} - PICK"
             mk.add(types.InlineKeyboardButton(label, callback_data=f"pair_{pair}"))
-        mk.add(types.InlineKeyboardButton("🔄 Refresh V5.5", callback_data="trade"))
+        mk.add(types.InlineKeyboardButton("🔄 Refresh V5.9 Ultra", callback_data="trade"))
+        mk.add(types.InlineKeyboardButton("📈 BEST PAIRS MANUAL", callback_data="best_pairs_manual"))
         mk.add(types.InlineKeyboardButton("⬅️ Menu", callback_data="back_menu"))
         try:
-            bot.edit_message_text(f"💹 **V5.5 STEP 1/4 - HIGH WIN + MOOD** {'💎 VIP' if vip else ''}\n\n🏆 **Ranked:** Top = Best!\n\n👇 Choose:", cid, scan_msg.message_id, reply_markup=mk, parse_mode="Markdown")
+            bot.edit_message_text(f"💹 **V5.9 MANUAL STEP 1/4 - PICK PAIR (YOU PICK) + ULTRA SCAN** {'💎 VIP' if vip else ''}\n\n🏆 **Top 15 Best Win Rate from {len(ALL_PAIRS)} pairs:**\n👇 Touch pair YOU want to trade:", cid, scan_msg.message_id, reply_markup=mk, parse_mode="Markdown")
         except:
-            bot.send_message(cid, "💹 **V5.5 STEP 1/4 - HIGH WIN**", reply_markup=mk, parse_mode="Markdown")
+            bot.send_message(cid, "💹 **V5.9 MANUAL STEP 1/4 - PICK PAIR**", reply_markup=mk, parse_mode="Markdown")
         return
     if data.startswith("pair_"):
         pair=data.replace("pair_",""); user_states[cid]={"pair":pair}
@@ -640,11 +853,12 @@ def cb(c):
         wr_txt = f" Win rate {wr_info['wr']:.1f}%" if wr_info else ""
         d=analyze_momentum(pair)
         mood_txt = f"\n🌋 {d['vol']} | {get_market_mood(d)[0]} | {get_market_mood(d)[1]}" if d else ""
+        market_tag = "📈 REAL MARKET" if "-OTC" not in pair else "🏦 OTC MARKET"
         mk=types.InlineKeyboardMarkup(row_width=2)
-        mk.add(types.InlineKeyboardButton("🟢 DEMO ($)", callback_data=f"bal_PRACTICE_{pair}"))
-        mk.add(types.InlineKeyboardButton("🔴 REAL (₦)", callback_data=f"bal_REAL_{pair}"))
+        mk.add(types.InlineKeyboardButton("🟢 DEMO ($) - YOU PICK AMT", callback_data=f"bal_PRACTICE_{pair}"))
+        mk.add(types.InlineKeyboardButton("🔴 REAL (₦) - YOU PICK AMT", callback_data=f"bal_REAL_{pair}"))
         mk.add(types.InlineKeyboardButton("⬅️ BACK High Win", callback_data="trade"))
-        bot.send_message(cid, f"✅ **PAIR: {PAIR_EMOJI.get(pair,pair)}**{wr_txt}{mood_txt}\n\n💳 **STEP 2/4 - ACCOUNT**", reply_markup=mk, parse_mode="Markdown"); return
+        bot.send_message(cid, f"✅ **PAIR PICKED: {PAIR_EMOJI.get(pair,pair)}**\n{market_tag}{wr_txt}{mood_txt}\n\n💳 **STEP 2/4 - PICK ACCOUNT (YOU PICK) + ULTRA SCAN READY**", reply_markup=mk, parse_mode="Markdown"); return
     if data.startswith("bal_"):
         parts=data.split("_"); bal=parts[1]; pair=parts[2]; user_states[cid]={"pair":pair,"bal":bal}
         mk=types.InlineKeyboardMarkup(row_width=3)
@@ -654,66 +868,75 @@ def cb(c):
         else:
             mk.add(types.InlineKeyboardButton("$1", callback_data=f"amt_1_{pair}_{bal}"),types.InlineKeyboardButton("$5", callback_data=f"amt_5_{pair}_{bal}"),types.InlineKeyboardButton("$10", callback_data=f"amt_10_{pair}_{bal}"))
             mk.add(types.InlineKeyboardButton("$20", callback_data=f"amt_20_{pair}_{bal}"),types.InlineKeyboardButton("$50", callback_data=f"amt_50_{pair}_{bal}"),types.InlineKeyboardButton("$100", callback_data=f"amt_100_{pair}_{bal}"))
-        mk.add(types.InlineKeyboardButton("✏️ CUSTOM", callback_data=f"custom_{pair}_{bal}"))
+        mk.add(types.InlineKeyboardButton("✏️ CUSTOM - YOU TYPE", callback_data=f"custom_{pair}_{bal}"))
         mk.add(types.InlineKeyboardButton("⬅️ BACK", callback_data=f"pair_{pair}"))
-        bot.send_message(cid, f"✅ **PAIR: {PAIR_EMOJI.get(pair,pair)}**\n✅ **ACCOUNT: {bal}**\n\n💰 **STEP 3/4 - AMOUNT {'₦ NAIRA' if bal=='REAL' else '$ DOLLARS'}**", reply_markup=mk, parse_mode="Markdown"); return
+        bot.send_message(cid, f"✅ **PAIR: {PAIR_EMOJI.get(pair,pair)}**\n✅ **ACCOUNT: {bal}**\n\n💰 **STEP 3/4 - PICK AMOUNT (YOU PICK) {'₦ NAIRA' if bal=='REAL' else '$ DOLLARS'}**", reply_markup=mk, parse_mode="Markdown"); return
     if data.startswith("amt_"):
         parts=data.split("_"); amt=float(parts[1]); pair=parts[2]; bal=parts[3]
         user_states[cid]={"pair":pair,"bal":bal,"amt":amt}
         amt_txt = fmt_by_bal(amt, bal)
-        bot.answer_callback_query(c.id, f"{amt_txt} selected")
-        bot.send_message(cid, f"✅ **AMOUNT: {amt_txt} {bal}**\n✅ **PAIR: {PAIR_EMOJI.get(pair,pair)}**\n\n⏱️ **STEP 4/4 - DURATION**", reply_markup=duration_kb(pair, amt, bal), parse_mode="Markdown")
+        bot.answer_callback_query(c.id, f"{amt_txt} selected - YOU PICKED!")
+        bot.send_message(cid, f"✅ **AMOUNT PICKED: {amt_txt} {bal}**\n✅ **PAIR: {PAIR_EMOJI.get(pair,pair)}**\n\n⏱️ **STEP 4/4 - PICK DURATION (YOU PICK) + ULTRA SCAN**", reply_markup=duration_kb(pair, amt, bal), parse_mode="Markdown")
         return
     if data.startswith("dur_"):
         parts=data.split("_"); duration_sec=int(parts[1]); amt=float(parts[2]); pair=parts[3]; bal=parts[4]
-        bot.answer_callback_query(c.id, f"{duration_sec}s {fmt_by_bal(amt, bal)}")
+        bot.answer_callback_query(c.id, f"{duration_sec}s {fmt_by_bal(amt, bal)} - YOU PICKED! ULTRA SCAN STARTING!")
         threading.Thread(target=do_trade, args=(cid, pair, amt, bal, duration_sec, False, False), daemon=True).start()
         return
     if data.startswith("custom_"):
         parts=data.split("_"); pair=parts[1]; bal=parts[2]
         user_states[cid]={"pair":pair,"bal":bal,"step":"await_amt"}
         if bal=="REAL":
-            bot.send_message(cid, f"✏️ **Type amount in NAIRA**\nExample: `5000` = ₦5,000\n`10000` = ₦10,000\nFor {pair} {bal}", parse_mode="Markdown")
+            bot.send_message(cid, f"✏️ **TYPE AMOUNT IN NAIRA - YOU PICK**\nExample: `5000` = ₦5,000\n`10000` = ₦10,000\nFor {pair} {bal}", parse_mode="Markdown")
         else:
-            bot.send_message(cid, f"✏️ **Type amount in DOLLARS**\nExample: `5` = $5\n`10` = $10\nFor {pair} {bal}", parse_mode="Markdown")
+            bot.send_message(cid, f"✏️ **TYPE AMOUNT IN DOLLARS - YOU PICK**\nExample: `5` = $5\n`10` = $10\nFor {pair} {bal}", parse_mode="Markdown")
         return
     if data=="auto_menu":
         mk=types.InlineKeyboardMarkup(row_width=2)
-        mk.add(types.InlineKeyboardButton("🤖 AUTO DEMO $1 60s", callback_data="auto_start_1_60_PRACTICE"),
-               types.InlineKeyboardButton("🔴 AUTO REAL ₦1,600 60s", callback_data="auto_start_1_60_REAL"))
-        mk.add(types.InlineKeyboardButton("🤖 AUTO DEMO $5 60s", callback_data="auto_start_5_60_PRACTICE"),
-               types.InlineKeyboardButton("🔴 AUTO REAL ₦8,000 60s", callback_data="auto_start_5_60_REAL"))
-        mk.add(types.InlineKeyboardButton("🤖 DEMO $10 60s", callback_data="auto_start_10_60_PRACTICE"),
-               types.InlineKeyboardButton("🔴 REAL ₦16,000 60s", callback_data="auto_start_10_60_REAL"))
+        mk.add(types.InlineKeyboardButton("🤖 AUTO DEMO $1 60s", callback_data="auto_start_1_60_PRACTICE_ALL"),
+               types.InlineKeyboardButton("🔴 AUTO REAL ₦1,600 60s", callback_data="auto_start_1_60_REAL_ALL"))
+        mk.add(types.InlineKeyboardButton("🤖 AUTO DEMO $5 60s", callback_data="auto_start_5_60_PRACTICE_ALL"),
+               types.InlineKeyboardButton("🔴 AUTO REAL ₦8,000 60s", callback_data="auto_start_5_60_REAL_ALL"))
+        mk.add(types.InlineKeyboardButton("📈 AUTO REAL MARKET", callback_data="auto_market_REAL"),
+               types.InlineKeyboardButton("🏦 AUTO OTC MARKET", callback_data="auto_market_OTC"))
         mk.add(types.InlineKeyboardButton("⏸️ STOP AUTO", callback_data="stop_auto"),
                types.InlineKeyboardButton("⬅️ Menu", callback_data="back_menu"))
         DAILY=check_daily()
-        bot.send_message(cid, f"🤖 **AUTO TRADE V5.5 - ONLY ON BUTTON** 🚀\n\n⚠️ Auto ONLY on touch!\nDEMO = $ | REAL = ₦\n\n🏆 Best Win + VIP={'ON' if VIP_MODE.get(cid) else 'OFF'} + COMP={'ON' if COMPOUND_MODE.get(cid) else 'OFF'}\n🎯 Goal {fmt_demo(DAILY['goal'])} / {fmt_real(DAILY['goal'])} | Today {fmt_demo(DAILY['profit_today'])} / {fmt_real(DAILY['profit_today'])}\n🔥 Streak {STATS['streak']} | Best {STATS['best_streak']}\n\n👇 **Pick DEMO ($) or REAL (₦) to START:**", reply_markup=mk, parse_mode="Markdown")
+        best_txt = get_best_pairs_text(vip=VIP_MODE.get(cid, False), limit=3)
+        bot.send_message(cid, f"🤖 **AUTO TRADE V5.9 MANUAL - ONLY ON BUTTON + ULTRA SCAN** 🚀\n\n{best_txt}\n\n⚠️ Auto ONLY on touch! YOU PICK market!\nDEMO = $ | REAL = ₦\n\n🏆 Best Win + VIP={'ON' if VIP_MODE.get(cid) else 'OFF'} + COMP={'ON' if COMPOUND_MODE.get(cid) else 'OFF'}\n🎯 Goal {fmt_demo(DAILY['goal'])} / {fmt_real(DAILY['goal'])} | Today {fmt_demo(DAILY['profit_today'])} / {fmt_real(DAILY['profit_today'])}\n🔥 Streak {STATS['streak']} | Best {STATS['best_streak']}\n\n👇 **Pick DEMO ($) or REAL (₦) or Market to START:**", reply_markup=mk, parse_mode="Markdown")
+        return
+    if data.startswith("auto_market_"):
+        market_type = data.replace("auto_market_","")
+        mk=types.InlineKeyboardMarkup(row_width=2)
+        mk.add(types.InlineKeyboardButton(f"🤖 DEMO $1 {market_type}", callback_data=f"auto_start_1_60_PRACTICE_{market_type}"),
+               types.InlineKeyboardButton(f"🔴 REAL ₦1.6k {market_type}", callback_data=f"auto_start_1_60_REAL_{market_type}"))
+        mk.add(types.InlineKeyboardButton(f"🤖 DEMO $5 {market_type}", callback_data=f"auto_start_5_60_PRACTICE_{market_type}"),
+               types.InlineKeyboardButton(f"🔴 REAL ₦8k {market_type}", callback_data=f"auto_start_5_60_REAL_{market_type}"))
+        mk.add(types.InlineKeyboardButton("⬅️ Back", callback_data="auto_menu"))
+        bot.send_message(cid, f"🤖 **AUTO {market_type} MARKET - YOU PICK + ULTRA SCAN**\n\nPick DEMO ($) or REAL (₦) for {market_type} market only!", reply_markup=mk, parse_mode="Markdown")
         return
     if data.startswith("auto_start_"):
         parts=data.split("_")
         try:
-            if len(parts)>=5:
-                base_amt=float(parts[2]); dur=int(parts[3]); bal=parts[4]
-            else:
-                base_amt=float(parts[2]); dur=int(parts[3]); bal="PRACTICE"
+            base_amt=float(parts[2]); dur=int(parts[3]); bal=parts[4]; market_type=parts[5] if len(parts)>=6 else "ALL"
         except:
-            base_amt=1; dur=60; bal="PRACTICE"
+            base_amt=1; dur=60; bal="PRACTICE"; market_type="ALL"
         if AUTO_RUNNING.get(cid):
             bot.send_message(cid, "⚠️ AUTO already running! Touch STOP first.", reply_markup=main_menu_kb(cid)); return
         AUTO_RUNNING[cid]=True
         AUTO_RUNNING[f"{cid}_last_win"]=True
-        threading.Thread(target=auto_trading_loop, args=(cid, base_amt, dur, bal), daemon=True).start()
-        bot.answer_callback_query(c.id, f"AUTO {bal} {fmt_by_bal(base_amt, bal)} {dur}s Started!")
+        threading.Thread(target=auto_trading_loop, args=(cid, base_amt, dur, bal, market_type), daemon=True).start()
+        bot.answer_callback_query(c.id, f"AUTO {bal} {fmt_by_bal(base_amt, bal)} {dur}s {market_type} Started! ULTRA SCAN!")
         return
     if data=="stop_auto":
         AUTO_RUNNING[cid]=False
-        bot.send_message(cid, "⏸️ **AUTO V5.5 STOPPED** 🛑\n\nWill NOT restart unless you touch AUTO button again!\nUse QUICK TRADE ⚡", reply_markup=main_menu_kb(cid))
+        bot.send_message(cid, "⏸️ **AUTO V5.9 STOPPED** 🛑\n\nWill NOT restart unless you touch AUTO button again!\nUse QUICK TRADE ⚡", reply_markup=main_menu_kb(cid))
         return
     if data=="back_menu":
         DAILY=check_daily()
         vip = VIP_MODE.get(cid, False)
-        txt=f"👑 **V5.5 MENU**\n💰 Bal {fmt_demo(STATS['balance'])} / {fmt_real(STATS['balance'])} | Streak {STATS['streak']}🔥 | Daily {fmt_demo(DAILY['profit_today'])} / {fmt_real(DAILY['profit_today'])} | VIP {'ON' if vip else 'OFF'}\n🤖 AUTO: {'RUNNING' if AUTO_RUNNING.get(cid) else 'STOPPED'}"
+        best_txt = get_best_pairs_text(vip=vip, limit=3)
+        txt=f"👑 **V5.9 ULTRA MENU**\n💰 Bal {fmt_demo(STATS['balance'])} / {fmt_real(STATS['balance'])} | Streak {STATS['streak']}🔥 | Daily {fmt_demo(DAILY['profit_today'])} / {fmt_real(DAILY['profit_today'])} | VIP {'ON' if vip else 'OFF'}\n🤖 AUTO: {'RUNNING' if AUTO_RUNNING.get(cid) else 'STOPPED'}\n✨ ULTRA FINE SCAN V5.9\n\n{best_txt}"
         bot.send_message(cid, txt, reply_markup=main_menu_kb(cid)); return
     if data=="toggle_vip":
         VIP_MODE[cid]=not VIP_MODE.get(cid, False)
@@ -763,17 +986,18 @@ def cb(c):
         total=STATS['wins']+STATS['loss']; wr=(STATS['wins']/total*100) if total else 0
         progress=int(min(100, DAILY['profit_today']/DAILY['goal']*100)) if DAILY['goal']>0 else 0
         bar="█"*(progress//10)+"░"*(10-progress//10)
-        txt=f"📊 **V5.5 SIMPLE STATS + CHART**\n\n🏆 Wins: {STATS['wins']} | ❌ Loss: {STATS['loss']} | 📈 WR: {wr:.1f}%\n🔥 Streak: {STATS['streak']} | Best: {STATS['best_streak']} 🏆\n💰 Bal: {fmt_demo(STATS['balance'])} / {fmt_real(STATS['balance'])} | Profit: {fmt_demo(STATS['total_profit'])} / {fmt_real(STATS['total_profit'])}\n🎯 Daily: {bar} {progress}% {fmt_demo(DAILY['profit_today'])} / {fmt_real(DAILY['profit_today'])} / {fmt_demo(DAILY['goal'])} Trades {DAILY['trades_today']}\n🛡️ Stop: {fmt_demo(DAILY['stop_loss'])} / {fmt_real(DAILY['stop_loss'])} | Shield: {'ON' if SHIELD_MODE.get(cid, True) else 'OFF'}\n📈 COMP: {'ON' if COMPOUND_MODE.get(cid) else 'OFF'} | 💎 VIP: {'ON' if VIP_MODE.get(cid) else 'OFF'}\n🤖 AUTO: {'RUNNING' if AUTO_RUNNING.get(cid) else 'STOPPED - Only on button'}\n💵 Rate: $1 = ₦{USD_TO_NAIRA:,.0f}\n\n🏆 **Achievements:** {', '.join(ACHIEVEMENTS) if ACHIEVEMENTS else 'None - Win 5 for FIRE!'}\n\n🎯 **PAIR WIN RATES:**\n"
+        txt=f"📊 **V5.9 ULTRA STATS + CHART**\n\n🏆 Wins: {STATS['wins']} | ❌ Loss: {STATS['loss']} | 📈 WR: {wr:.1f}%\n🔥 Streak: {STATS['streak']} | Best: {STATS['best_streak']} 🏆\n💰 Bal: {fmt_demo(STATS['balance'])} / {fmt_real(STATS['balance'])} | Profit: {fmt_demo(STATS['total_profit'])} / {fmt_real(STATS['total_profit'])}\n🎯 Daily: {bar} {progress}% {fmt_demo(DAILY['profit_today'])} / {fmt_real(DAILY['profit_today'])} / {fmt_demo(DAILY['goal'])} Trades {DAILY['trades_today']}\n🛡️ Stop: {fmt_demo(DAILY['stop_loss'])} / {fmt_real(DAILY['stop_loss'])} | Shield: {'ON' if SHIELD_MODE.get(cid, True) else 'OFF'}\n📈 COMP: {'ON' if COMPOUND_MODE.get(cid) else 'OFF'} | 💎 VIP: {'ON' if VIP_MODE.get(cid) else 'OFF'}\n🤖 AUTO: {'RUNNING' if AUTO_RUNNING.get(cid) else 'STOPPED - Only on button'}\n💵 Rate: $1 = ₦{USD_TO_NAIRA:,.0f}\n📈 Pairs: {len(ALL_PAIRS)} (Real {len(REAL_PAIRS)} + OTC {len(OTC_PAIRS)})\n✨ Scanning: ULTRA FINE V5.9\n\n🏆 **Achievements:** {', '.join(ACHIEVEMENTS) if ACHIEVEMENTS else 'None - Win 5 for FIRE!'}\n\n{get_best_pairs_text(vip=VIP_MODE.get(cid, False), limit=10)}\n\n🎯 **PAIR WIN RATES:**\n"
         if not PAIR_STATS:
             txt+="No trades yet!"
         else:
-            for p, s in sorted(PAIR_STATS.items(), key=lambda x: x[1]['wins']/x[1]['total'] if x[1]['total'] else 0, reverse=True):
+            for p, s in sorted(PAIR_STATS.items(), key=lambda x: x[1]['wins']/x[1]['total'] if x[1]['total'] else 0, reverse=True)[:15]:
                 pw = s['wins']/s['total']*100 if s['total'] else 0
-                txt+=f"{p}: {pw:.0f}% {s['wins']}/{s['total']}\n"
+                market_tag = "📈" if "-OTC" not in p else "🏦"
+                txt+=f"{market_tag} {p}: {pw:.0f}% {s['wins']}/{s['total']}\n"
         bot.send_message(cid, txt, parse_mode="Markdown", reply_markup=main_menu_kb(cid))
         ch=draw_profit_chart()
         if ch:
-            try: bot.send_photo(cid, open(ch,'rb'), caption=f"📈 **V5.5 Chart** Streak {STATS['streak']}🔥 Bal {fmt_demo(STATS['balance'])} / {fmt_real(STATS['balance'])}")
+            try: bot.send_photo(cid, open(ch,'rb'), caption=f"📈 **V5.9 Ultra Chart** Streak {STATS['streak']}🔥 Bal {fmt_demo(STATS['balance'])} / {fmt_real(STATS['balance'])}")
             except: pass
         return
 
@@ -788,24 +1012,32 @@ def handle_all_messages(m):
             raw=m.text.strip().replace(',','').replace('₦','').replace('$','')
             val=float(raw)
             bal=st.get("bal","PRACTICE")
+            market_type=st.get("market_type","ALL")
+            pair=st.get("pair")
             if bal=="REAL":
                 amt = to_usd(val)
                 usd_amt = amt
                 naira_amt = val
                 if usd_amt < 1: usd_amt = 1
-                user_states[cid]={"bal":bal,"amt":usd_amt,"naira_amt":naira_amt,"step":"await_quick_simple_dur"}
-                bot.send_message(cid, f"✅ **QUICK REAL AMOUNT:** ₦{naira_amt:,.0f} = ${usd_amt:.2f}\n\n⏱️ **Pick DURATION for REAL trade:**", reply_markup=duration_kb_simple(usd_amt, bal), parse_mode="Markdown")
+                user_states[cid]={"bal":bal,"amt":usd_amt,"naira_amt":naira_amt,"step":"await_quick_simple_dur","market_type":market_type,"pair":pair}
+                if pair:
+                    bot.send_message(cid, f"✅ **AMOUNT PICKED: ₦{naira_amt:,.0f} = ${usd_amt:.2f}**\n✅ **PAIR: {PAIR_EMOJI.get(pair,pair)}**\n✅ **MARKET: {market_type}**\n\n⏱️ **STEP 4/5 - PICK DURATION (YOU PICK) for {pair}:**\n✨ Ultra fine scan ready!", reply_markup=duration_kb_manual(usd_amt, bal, market_type, pair), parse_mode="Markdown")
+                else:
+                    bot.send_message(cid, f"✅ **AMOUNT PICKED: ₦{naira_amt:,.0f} = ${usd_amt:.2f}**\n✅ **MARKET: {market_type}**\n\n⏱️ **STEP 4/5 - PICK DURATION (YOU PICK):**\n✨ Ultra fine scan ready!", reply_markup=duration_kb_manual(usd_amt, bal, market_type), parse_mode="Markdown")
             else:
                 amt = val
                 if amt < 1: amt = 1
-                user_states[cid]={"bal":bal,"amt":amt,"step":"await_quick_simple_dur"}
-                bot.send_message(cid, f"✅ **QUICK DEMO AMOUNT:** ${amt:.2f}\n\n⏱️ **Pick DURATION for DEMO trade:**", reply_markup=duration_kb_simple(amt, bal), parse_mode="Markdown")
+                user_states[cid]={"bal":bal,"amt":amt,"step":"await_quick_simple_dur","market_type":market_type,"pair":pair}
+                if pair:
+                    bot.send_message(cid, f"✅ **AMOUNT PICKED: ${amt:.2f}**\n✅ **PAIR: {PAIR_EMOJI.get(pair,pair)}**\n✅ **MARKET: {market_type}**\n\n⏱️ **STEP 4/5 - PICK DURATION (YOU PICK) for {pair}:**\n✨ Ultra fine scan ready!", reply_markup=duration_kb_manual(amt, bal, market_type, pair), parse_mode="Markdown")
+                else:
+                    bot.send_message(cid, f"✅ **AMOUNT PICKED: ${amt:.2f}**\n✅ **MARKET: {market_type}**\n\n⏱️ **STEP 4/5 - PICK DURATION (YOU PICK):**\n✨ Ultra fine scan ready!", reply_markup=duration_kb_manual(amt, bal, market_type), parse_mode="Markdown")
         except:
             bal=st.get("bal","PRACTICE")
             if bal=="REAL":
-                bot.send_message(cid, "❌ Send number only in NAIRA\nExample: 5000 = ₦5,000\n10000 = ₦10,000")
+                bot.send_message(cid, "❌ Send number only in NAIRA\nExample: 5000 = ₦5,000\n10000 = ₦10,000 - YOU PICK!")
             else:
-                bot.send_message(cid, "❌ Send number only in DOLLARS\nExample: 5 = $5\n10 = $10")
+                bot.send_message(cid, "❌ Send number only in DOLLARS\nExample: 5 = $5\n10 = $10 - YOU PICK!")
         return
     if step=="await_quick_simple_dur":
         try:
@@ -814,8 +1046,13 @@ def handle_all_messages(m):
             dur=dur_map.get(raw,60)
             amt=st.get("amt",1)
             bal=st.get("bal","PRACTICE")
-            user_states[cid]={"bal":bal,"amt":amt,"step":"done"}
-            threading.Thread(target=quick_trade_simple, args=(cid, amt, dur, bal), daemon=True).start()
+            market_type=st.get("market_type","ALL")
+            pair=st.get("pair")
+            user_states[cid]={"bal":bal,"amt":amt,"step":"done","market_type":market_type,"pair":pair}
+            if pair:
+                threading.Thread(target=quick_trade_manual, args=(cid, market_type, pair, amt, dur, bal), daemon=True).start()
+            else:
+                threading.Thread(target=quick_trade_auto_best, args=(cid, amt, dur, bal, market_type), daemon=True).start()
         except:
             pass
         return
@@ -832,8 +1069,8 @@ def handle_all_messages(m):
             amt = max(1, amt)
             user_states[cid]={"pair":pair,"bal":bal,"amt":amt}
             amt_txt = fmt_by_bal(amt, bal)
-            bot.send_message(cid, f"✅ **CUSTOM: {amt_txt} {bal}**\n\nYou typed: {m.text} → {amt_txt}\n\n⏱️ **STEP 4/4 - DURATION**", reply_markup=duration_kb(pair, amt, bal), parse_mode="Markdown")
-        except: bot.send_message(cid, "❌ Send number only")
+            bot.send_message(cid, f"✅ **CUSTOM AMOUNT PICKED: {amt_txt} {bal}**\n\nYou typed: {m.text} → {amt_txt} - YOU PICKED!\n\n⏱️ **STEP 4/4 - PICK DURATION (YOU PICK) + ULTRA SCAN**", reply_markup=duration_kb(pair, amt, bal), parse_mode="Markdown")
+        except: bot.send_message(cid, "❌ Send number only - YOU PICK!")
 
 @app.route(f"/{BOT_TOKEN}", methods=['POST'])
 def wh(): bot.process_new_updates([telebot.types.Update.de_json(request.get_data().decode("utf-8"))]); return "ok"
@@ -843,5 +1080,5 @@ def home():
     if u:
         try: requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={u}/{BOT_TOKEN}", timeout=5)
         except: pass
-    return "V48 V5.5 SIMPLE QUICK DEMO $ REAL ₦ RUNNING"
+    return "V48 V5.9 ULTRA FINE SCANNING MANUAL PICK RUNNING"
 app.run(host="0.0.0.0", port=int(os.getenv("PORT",10000)))
