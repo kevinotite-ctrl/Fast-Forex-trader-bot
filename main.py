@@ -32,7 +32,7 @@ PAIR_EMOJI = {
 }
 STATS = {"balance":100.0,"wins":0,"loss":0,"streak":0}
 user_states = {}
-AUTO_STATE = {} # cid: {running, pair, bal, base_amt, curr_amt, expiry, martingale, sniper, trades}
+AUTO_STATE = {}
 IQ_LOCK = threading.Lock()
 IQ_CONNECTED=False; iq=None
 PAYOUT_CACHE={}; PAYOUT_TIME=0
@@ -105,7 +105,7 @@ def calc_rsi(closes, period=7):
     loss=-delta.where(delta<0,0).rolling(period).mean()
     return 100-(100/(1+gain/loss))
 
-# ===== LEGIT LIVE SCANNING BAR - FAST - NO HOOKING - 100% =====
+# ===== YOUR EXACT ORIGINAL - NO NEWS - 100% =====
 def legit_live_scan(cid, mid, pair):
     steps = [
         (0, "🚀 Initializing V8...", 0.15),
@@ -113,7 +113,7 @@ def legit_live_scan(cid, mid, pair):
         (30, "📊 Fetching candles...", 0.25),
         (50, "📈 EMA9 + EMA21...", 0.2),
         (70, "💹 RSI + ATR...", 0.2),
-        (85, "📰 News check...", 0.2),
+        (85, "📰 Final check...", 0.2),
         (100, "🔒 SIGNAL LOCKED!")
     ]
     
@@ -125,7 +125,6 @@ def legit_live_scan(cid, mid, pair):
             pct, text = item
             delay = 0.15
         
-        # Don't spam if same %
         if pct == last_pct:
             time.sleep(delay)
             continue
@@ -143,9 +142,6 @@ def legit_live_scan(cid, mid, pair):
         else:
             color = "💎"
         
-        # Fast news check - no heavy calc
-        is_news, news_info = is_news_time()
-        
         scan_txt = f"""{color} **Z-BOT V8 LEGIT SCAN** {color}
 
 💱 Pair: {PAIR_EMOJI.get(pair, pair)}
@@ -155,20 +151,17 @@ def legit_live_scan(cid, mid, pair):
 ▓ Progress: {pct}% ▓
 
 🔍 {text}
-{news_info}
 
 ⏳ Fast scan - V8.2
 """
         try:
             bot.edit_message_text(scan_txt, cid, mid, parse_mode="Markdown")
         except Exception as e:
-            # If edit fails (rate limit), skip and continue - DON'T HOOK!
             print(f"Scan edit skip {pct}%: {e}", flush=True)
             pass
         
         time.sleep(delay)
     
-    # FORCE 100% AT END - ALWAYS SHOW LOCKED!
     try:
         final_txt = f"""💎 **Z-BOT V8 LEGIT SCAN** 💎
 
@@ -179,7 +172,6 @@ def legit_live_scan(cid, mid, pair):
 ▓ Progress: 100% ▓
 
 🔍 🔒 SIGNAL LOCKED! READY TO TRADE!
-✅ Safe - No News
 
 ⏳ Scan complete - Fast V8.2!
 """
@@ -207,7 +199,6 @@ def analyze_momentum(pair, sniper_mode=False):
         elif e9>e21 and is_green: sig="CALL"; score=82; reason=f"📈 EMA Bull"
         elif e9<e21 and not is_green: sig="PUT"; score=82; reason=f"📉 EMA Bear"
         else: score=60; reason="Low momentum"
-        # SNIPER MODE - REJECT BELOW 90%
         if sniper_mode and score < 90:
             return {"pair":pair,"dir":sig,"conf":score,"price":float(close.iloc[-1]),"rsi":rsi_now,"reason":reason,"payout":payout,"df":df.tail(30),"rejected":True}
         return {"pair":pair,"dir":sig,"conf":min(94,score),"price":float(close.iloc[-1]),"rsi":rsi_now,"reason":reason,"payout":payout,"df":df.tail(30),"rejected":False}
@@ -233,31 +224,24 @@ def iq_trade(pair,direction,amount,bal,expiry_sec=30):
     except Exception as e:
         print(f"Trade err {e}"); return False,None,0
 
-# ===== AUTO TRADER LOOP =====
 def auto_trader_loop(cid):
     state = AUTO_STATE.get(cid)
     if not state: return
     bot.send_message(cid, f"""🤖 **AUTO-TRADER STARTED!**
 
-💱 Pair: {PAIR_EMOJI.get(state['pair'], state['pair'])} (or Auto-Scan All)
-💰 Base Amount: ${state['base_amt']}
-💳 Account: {state['bal']}
-⏱️ Expiry: {state['expiry']}s
-🔁 Martingale: {'✅ ON x2.2' if state['martingale'] else '❌ OFF'}
-🎯 Sniper: {'✅ ON - Only 90%+' if state['sniper'] else '❌ OFF'}
+💱 Pair: {PAIR_EMOJI.get(state['pair'], state['pair'])}
+💰 Base: ${state['base_amt']}
+💳 {state['bal']}
+⏱️ {state['expiry']}s
+🔁 Martingale ON | 🎯 Sniper 90%+ ON
 
-🤖 Bot dey trade by itself now!
 Type /stop to stop
-
-🔥 Monitoring...
 """, parse_mode="Markdown")
     consecutive_losses = 0
     while AUTO_STATE.get(cid, {}).get('running', False):
         try:
             state = AUTO_STATE.get(cid)
             if not state or not state['running']: break
-            
-            # Pick pair - if AUTO then scan best
             pair_to_trade = state['pair']
             if pair_to_trade == "AUTO":
                 best = None; best_score = 0
@@ -266,7 +250,6 @@ Type /stop to stop
                     if d and not d.get('rejected') and d['conf'] > best_score:
                         best_score = d['conf']; best = d
                 if not best:
-                    bot.send_message(cid, f"🎯 Sniper: No 90%+ signal now - Waiting 30s...")
                     time.sleep(30); continue
                 d = best
                 pair_to_trade = d['pair']
@@ -275,33 +258,15 @@ Type /stop to stop
                 if not d:
                     time.sleep(10); continue
                 if d.get('rejected'):
-                    bot.send_message(cid, f"🎯 Sniper Reject: {pair_to_trade} {d['conf']}% < 90% - Skipping, waiting 20s for better signal...")
                     time.sleep(20); continue
-            
-            # Calculate amount with martingale
             curr_amt = state['base_amt'] * (2.2 ** consecutive_losses) if state['martingale'] else state['base_amt']
-            curr_amt = min(curr_amt, state['base_amt'] * 8) # max 3 martingale steps safety
+            curr_amt = min(curr_amt, state['base_amt'] * 8)
             AUTO_STATE[cid]['curr_amt'] = curr_amt
-            
-            dir_emoji = "🟢 CALL" if d['dir']=="CALL" else "🔴 PUT"
-            bot.send_message(cid, f"""🤖 **AUTO SIGNAL FOUND!**
-
-💱 {PAIR_EMOJI.get(pair_to_trade, pair_to_trade)}
-📊 {dir_emoji} | 🎯 {d['conf']:.0f}% | {d['reason']}
-💰 Amount: ${curr_amt:.2f} {'(Martingale x'+str(consecutive_losses+1)+')' if consecutive_losses>0 else ''}
-⏱️ {state['expiry']}s | 💳 {state['bal']}
-
-🤖 **AUTO PLACING...**
-""", parse_mode="Markdown")
-            
             ok, oid, exp = iq_trade(pair_to_trade, d['dir'], curr_amt, state['bal'], state['expiry'])
             if not ok:
-                bot.send_message(cid, "❌ Auto trade failed - retry in 10s"); time.sleep(10); continue
-            
-            bot.send_message(cid, f"✅ Auto placed {oid} | Waiting {exp}s for result...")
+                time.sleep(10); continue
+            bot.send_message(cid, f"🤖 Auto {pair_to_trade} {d['dir']} ${curr_amt:.2f} {d['conf']}% - ID {oid}")
             time.sleep(exp+5)
-            
-            # Check result
             try:
                 with IQ_LOCK:
                     logging.disable(logging.CRITICAL); pnl=iq.check_win_v4(oid)
@@ -309,45 +274,23 @@ Type /stop to stop
                 if pnl>0:
                     STATS['wins']+=1; STATS['balance']+=pnl; STATS['streak']+=1
                     AUTO_STATE[cid]['trades']+=1
-                    bot.send_message(cid, f"""✅ **AUTO WIN! ✅**
-
-💰 +${pnl:.2f} | 💱 {pair_to_trade} {d['dir']}
-💵 Balance: ${STATS['balance']:.2f}
-🔥 Streak: {STATS['streak']} | Total Trades: {AUTO_STATE[cid]['trades']}
-🎯 Martingale reset to base
-
-🤖 Continuing auto...
-""", parse_mode="Markdown")
+                    bot.send_message(cid, f"✅ AUTO WIN +${pnl:.2f} | {pair_to_trade} | Bal ${STATS['balance']:.2f} | Streak {STATS['streak']}")
                     consecutive_losses = 0
                 else:
                     STATS['loss']+=1; STATS['balance']-=curr_amt; STATS['streak']=0
                     AUTO_STATE[cid]['trades']+=1
                     consecutive_losses += 1
-                    if state['martingale']:
-                        next_amt = state['base_amt'] * (2.2 ** consecutive_losses)
-                        bot.send_message(cid, f"""❌ **AUTO LOSS - MARTINGALE ACTIVATED!**
-
-💸 -${curr_amt:.2f} | {pair_to_trade}
-💵 Balance: ${STATS['balance']:.2f}
-🔁 Next: ${next_amt:.2f} (x{consecutive_losses+1})
-
-🤖 Martingale go recover am!
-""", parse_mode="Markdown")
-                        if consecutive_losses >= 3:
-                            bot.send_message(cid, f"⚠️ **3 Losses in a row!** Martingale reset to base for safety. Pausing 60s...")
-                            consecutive_losses = 0
-                            time.sleep(60)
-                    else:
-                        bot.send_message(cid, f"❌ **AUTO LOSS** -${curr_amt:.2f} | Continuing...")
+                    next_amt = state['base_amt'] * (2.2 ** consecutive_losses)
+                    bot.send_message(cid, f"❌ AUTO LOSS -${curr_amt:.2f} | Next ${next_amt:.2f} Martingale")
+                    if consecutive_losses >= 3:
+                        consecutive_losses = 0
+                        time.sleep(60)
             except:
-                bot.send_message(cid, f"⏱️ Auto trade expired - Check IQ app {oid} | Continuing...")
-            
-            time.sleep(10) # Wait between trades
-            
+                bot.send_message(cid, f"⏱️ Expired {oid}")
+            time.sleep(10)
         except Exception as e:
             print(f"Auto loop err {e}"); time.sleep(10)
-    
-    bot.send_message(cid, f"🛑 **AUTO-TRADER STOPPED**\n\n🏆 Stats: W{STATS['wins']} L{STATS['loss']}\n💰 Balance: ${STATS['balance']:.2f}")
+    bot.send_message(cid, f"🛑 **AUTO STOPPED** W{STATS['wins']} L{STATS['loss']} Bal ${STATS['balance']:.2f}")
 
 @bot.message_handler(commands=['start','stop'])
 def start(m):
@@ -370,10 +313,6 @@ def start(m):
 
 💎 IQ: {'✅' if IQ_CONNECTED else '❌'} | 💰 ${STATS['balance']:.2f}
 🏆 W: {STATS['wins']} L: {STATS['loss']} | 🔥 {STATS['streak']}
-
-🤖 **NEW:** Auto-trader dey trade by itself!
-🎯 Only 90%+ signals
-🔁 Auto martingale if loss
 
 👇 **Choose:**
 """
@@ -411,7 +350,7 @@ def cb(c):
                types.InlineKeyboardButton("💵 $5", callback_data=f"auto_amt_5_{pair}_{bal}"),
                types.InlineKeyboardButton("💵 $10", callback_data=f"auto_amt_10_{pair}_{bal}"))
         mk.add(types.InlineKeyboardButton("💵 $20", callback_data=f"auto_amt_20_{pair}_{bal}"))
-        bot.send_message(cid, f"✅ {pair} {bal}\n\n🤖 **SETUP 3/4 - BASE AMOUNT**\nMartingale go use this as base:", reply_markup=mk, parse_mode="Markdown"); return
+        bot.send_message(cid, f"✅ {pair} {bal}\n\n🤖 **SETUP 3/4 - BASE AMOUNT**", reply_markup=mk, parse_mode="Markdown"); return
     if data.startswith("auto_amt_"):
         parts=data.split("_"); amt=float(parts[2]); pair=parts[3]; bal=parts[4]
         user_states[cid]={"pair":pair,"bal":bal,"amt":amt,"step":"auto_exp"}
@@ -423,27 +362,10 @@ def cb(c):
         bot.send_message(cid, f"✅ Base ${amt}\n\n🤖 **SETUP 4/4 - EXPIRY**", reply_markup=mk, parse_mode="Markdown"); return
     if data.startswith("auto_exp_"):
         parts=data.split("_"); expiry=int(parts[2]); pair=parts[3]; bal=parts[4]; amt=float(parts[5])
-        # Start auto trader
-        AUTO_STATE[cid] = {
-            "running": True,
-            "pair": pair,
-            "bal": bal,
-            "base_amt": amt,
-            "curr_amt": amt,
-            "expiry": expiry,
-            "martingale": True,
-            "sniper": True,
-            "trades": 0
-        }
+        AUTO_STATE[cid] = {"running": True,"pair": pair,"bal": bal,"base_amt": amt,"curr_amt": amt,"expiry": expiry,"martingale": True,"sniper": True,"trades": 0}
         mk=types.InlineKeyboardMarkup()
         mk.add(types.InlineKeyboardButton("🛑 STOP AUTO", callback_data="stop_auto"))
-        bot.send_message(cid, f"""🚀 **STARTING AUTO-TRADER!**
-
-💱 {pair if pair!='AUTO' else 'AUTO-SCAN ALL'}
-💰 ${amt} base | {expiry}s | {bal}
-🔁 Martingale ON | 🎯 Sniper 90%+ ON
-
-Bot go start now...""", reply_markup=mk, parse_mode="Markdown")
+        bot.send_message(cid, f"🚀 **STARTING AUTO!** {pair} ${amt} {expiry}s Martingale+Sniper ON", reply_markup=mk, parse_mode="Markdown")
         threading.Thread(target=auto_trader_loop, args=(cid,), daemon=True).start()
         return
     if data=="stop_auto":
@@ -451,7 +373,6 @@ Bot go start now...""", reply_markup=mk, parse_mode="Markdown")
             AUTO_STATE[cid]['running']=False
             bot.send_message(cid, "🛑 Stopping...")
         return
-    # MANUAL FLOW
     if data.startswith("pair_"):
         pair=data.replace("pair_","")
         user_states[cid]={"pair":pair}
@@ -488,16 +409,16 @@ Bot go start now...""", reply_markup=mk, parse_mode="Markdown")
     if data.startswith("exp_"):
         parts=data.split("_"); expiry=int(parts[1]); pair=parts[2]; bal=parts[3]; amt=float(parts[4])
         bot.answer_callback_query(c.id, f"Analyzing...")
-        scan_msg = bot.send_message(cid, f"🔍 **V8.6 SNIPER SCAN {PAIR_EMOJI.get(pair,pair)}**\n\n0%\n🚀 Starting...")
+        scan_msg = bot.send_message(cid, f"🔍 **V8 SCAN {PAIR_EMOJI.get(pair,pair)}**\n\n0%\n🚀 Starting...")
         legit_live_scan(cid, scan_msg.message_id, pair)
         d=analyze_momentum(pair, sniper_mode=True)
         if not d:
             bot.send_message(cid, f"❌ Failed analyze {pair}"); return
         if d.get('rejected'):
             mk=types.InlineKeyboardMarkup()
-            mk.add(types.InlineKeyboardButton("🔄 RETRY (Wait for 90%+)", callback_data=f"exp_{expiry}_{pair}_{bal}_{int(amt)}"))
+            mk.add(types.InlineKeyboardButton("🔄 RETRY", callback_data=f"exp_{expiry}_{pair}_{bal}_{int(amt)}"))
             mk.add(types.InlineKeyboardButton("💹 NEW PAIR", callback_data="trade"))
-            bot.send_message(cid, f"🎯 **SNIPER REJECTED - {d['conf']:.0f}% < 90%**\n\n💱 {pair} only {d['conf']}% confidence - Not enough for Sniper!\nWaiting for 90%+ signal = Higher winrate!\n\nTry again in 30s or pick another pair", reply_markup=mk, parse_mode="Markdown")
+            bot.send_message(cid, f"🎯 **SNIPER REJECTED {d['conf']:.0f}% < 90%**\n\n💱 {pair} {d['conf']}% - Waiting for 90%+", reply_markup=mk, parse_mode="Markdown")
             return
         dir_emoji = "🟢 CALL" if d['dir']=="CALL" else "🔴 PUT"
         expiry_txt = f"{expiry}s" if expiry < 60 else f"{expiry//60} min"
@@ -514,7 +435,7 @@ Bot go start now...""", reply_markup=mk, parse_mode="Markdown")
         ok,oid,exp=iq_trade(pair,d['dir'],amt,bal,expiry)
         if not ok:
             bot.send_message(cid, "❌ Trade Failed"); iq_reconnect(); return
-        bot.send_message(cid, f"✅ Placed {oid} | Waiting {exp}s... I go tell you result!")
+        bot.send_message(cid, f"✅ Placed {oid} | Waiting {exp}s...")
         time.sleep(exp+5)
         try:
             with IQ_LOCK:
@@ -525,13 +446,13 @@ Bot go start now...""", reply_markup=mk, parse_mode="Markdown")
                 mk=types.InlineKeyboardMarkup(row_width=2)
                 mk.add(types.InlineKeyboardButton("🔁 SAME", callback_data=f"exp_{expiry}_{pair}_{bal}_{int(amt)}"),
                        types.InlineKeyboardButton("💹 NEW", callback_data="trade"))
-                bot.send_message(cid, f"✅ **WIN +${pnl:.2f}**\n💱 {pair} {expiry_txt}\n🔥 Streak {STATS['streak']} | Balance ${STATS['balance']:.2f}\n🎉 Sniper win!", reply_markup=mk, parse_mode="Markdown")
+                bot.send_message(cid, f"✅ **WIN +${pnl:.2f}**\n💱 {pair} {expiry_txt}\n🔥 Streak {STATS['streak']} | Bal ${STATS['balance']:.2f}", reply_markup=mk, parse_mode="Markdown")
             else:
                 STATS['loss']+=1; STATS['balance']-=amt; STATS['streak']=0
                 mk=types.InlineKeyboardMarkup(row_width=2)
                 mk.add(types.InlineKeyboardButton(f"🔁 MARTINGALE ${amt*2.2:.0f}", callback_data=f"exp_{expiry}_{pair}_{bal}_{int(amt*2.2)}"),
                        types.InlineKeyboardButton("💹 NEW", callback_data="trade"))
-                bot.send_message(cid, f"❌ **LOSS -${amt}**\n💱 {pair} {expiry_txt}\n💪 Martingale: Next ${amt*2.2:.0f} to recover!", reply_markup=mk, parse_mode="Markdown")
+                bot.send_message(cid, f"❌ **LOSS -${amt}**\n💱 {pair} {expiry_txt}\nMartingale ${amt*2.2:.0f}", reply_markup=mk, parse_mode="Markdown")
         except:
             bot.send_message(cid, f"⏱️ Expired - Check IQ app {oid}")
         return
@@ -539,10 +460,10 @@ Bot go start now...""", reply_markup=mk, parse_mode="Markdown")
         total=STATS['wins']+STATS['loss']; wr=(STATS['wins']/total*100) if total else 0
         auto_info = ""
         if cid in AUTO_STATE and AUTO_STATE[cid]['running']:
-            auto_info = f"\n🤖 Auto: RUNNING | Trades: {AUTO_STATE[cid]['trades']} | Base ${AUTO_STATE[cid]['base_amt']}"
-        bot.send_message(cid, f"📊 **STATS V8.6 AUTO**\n\n🏆 Wins: {STATS['wins']}\n❌ Loss: {STATS['loss']}\n📈 Winrate: {wr:.1f}%\n🔥 Streak: {STATS['streak']}\n💰 Balance: ${STATS['balance']:.2f}{auto_info}", parse_mode="Markdown")
+            auto_info = f"\n🤖 Auto: RUNNING | Trades: {AUTO_STATE[cid]['trades']}"
+        bot.send_message(cid, f"📊 **STATS V8.6**\n\n🏆 Wins: {STATS['wins']}\n❌ Loss: {STATS['loss']}\n📈 Winrate: {wr:.1f}%\n🔥 Streak: {STATS['streak']}\n💰 Balance: ${STATS['balance']:.2f}{auto_info}", parse_mode="Markdown")
     if data=="settings":
-        bot.send_message(cid, f"⚙️ **SETTINGS V8.6**\n\n🤖 Auto-Trader: ✅\n🔁 Martingale x2.2: ✅\n🎯 Sniper 90%+: ✅\n⏱️ Expiry: ✅\n🗣️ Result Teller: ✅")
+        bot.send_message(cid, f"⚙️ **SETTINGS V8.6**\n\n🤖 Auto-Trader: ✅\n🔁 Martingale x2.2: ✅\n🎯 Sniper 90%+: ✅\n⏱️ Expiry: ✅\nResult Teller: ✅\nScan Bar: Original No News ✅")
 
 @bot.message_handler(func=lambda m: user_states.get(m.chat.id, {}).get("step")=="await_amt")
 def handle_custom_amt(m):
@@ -570,5 +491,5 @@ def home():
     if u:
         try: requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={u}/{BOT_TOKEN}", timeout=5)
         except: pass
-    return "V8.6 AUTO + MARTINGALE + SNIPER 90%+ - RUNNING"
+    return "V8.6 FINAL - NO NEWS - ORIGINAL SCAN BAR - RUNNING"
 app.run(host="0.0.0.0", port=int(os.getenv("PORT",10000)))
