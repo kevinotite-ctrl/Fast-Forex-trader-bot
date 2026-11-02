@@ -206,22 +206,59 @@ def iq_trade(pair,direction,amount,bal,expiry_sec=30):
     def is_err(m): 
         if not m: return True
         s=str(m).lower()
-        return any(x in s for x in ["suspend","cannot","active","closed","error"])
+        return any(x in s for x in ["suspend","cannot","active","closed","error","fail"])
+    
+    is_real = "OTC" not in pair
+    print(f"🚀 Trading {pair} {direction} ${amount} {bal} {expiry_sec}s REAL={is_real}")
+    
     try:
         with IQ_LOCK:
-            iq.change_balance(bal); time.sleep(0.5)
-            if expiry_sec <= 90:
+            iq.change_balance(bal)
+            time.sleep(1.0)  # Give IQ time to switch
+            
+            # REAL pairs DON'T like blitz 30sec, they like 1min, 2min, 5min
+            if is_real:
+                # Try REAL with 1min, 2min, 5min first - most stable for REAL
+                for mins in [1, 2, 5, 3]:
+                    try:
+                        print(f"Trying REAL {pair} {mins}min...")
+                        check, oid = iq.buy(amount, pair, direction.lower(), mins)
+                        print(f"REAL {pair} {mins}min result: {check} {oid}")
+                        if not is_err(oid) and check != False and oid is not None:
+                            print(f"✅ REAL TRADE SUCCESS {pair} {mins}min {oid}")
+                            return True, oid, mins*60
+                    except Exception as e:
+                        print(f"REAL {pair} {mins}min error: {e}")
+                        continue
+                    time.sleep(0.5)
+                
+                # Last try blitz for REAL
                 try:
-                    check,oid = iq.buy_blitz(pair,amount,direction.lower(),expiry_sec)
-                    if not is_err(oid) and check!=False: return True,oid,expiry_sec
+                    check, oid = iq.buy_blitz(pair, amount, direction.lower(), expiry_sec)
+                    if not is_err(oid) and check != False:
+                        return True, oid, expiry_sec
                 except: pass
-            for mins in [1,2]:
-                try:
-                    check,oid = iq.buy(amount,pair,direction.lower(),mins)
-                    if not is_err(oid) and check!=False: return True,oid,mins*60
-                except: continue
-            return False,"Suspended",0
-    except Exception as e: return False,str(e),0
+                
+            else:
+                # OTC logic - blitz first
+                if expiry_sec <= 90:
+                    try:
+                        check, oid = iq.buy_blitz(pair, amount, direction.lower(), expiry_sec)
+                        if not is_err(oid) and check != False:
+                            return True, oid, expiry_sec
+                    except: pass
+                for mins in [1, 2]:
+                    try:
+                        check, oid = iq.buy(amount, pair, direction.lower(), mins)
+                        if not is_err(oid) and check != False:
+                            return True, oid, mins*60
+                    except: continue
+            
+            print(f"💔 ALL EXPIRES FAILED for {pair}")
+            return False, "Suspended", 0
+    except Exception as e:
+        print(f"Trade exception {pair}: {e}")
+        return False, str(e), 0
 
 def auto_trader_loop(cid):
     consecutive_losses=0; win_streak=0; AUTO_LOCK[cid]=True
