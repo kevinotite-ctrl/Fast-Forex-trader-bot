@@ -69,38 +69,96 @@ def get_payout(pair):
         return 0.85
     except: return PAYOUT_CACHE.get(pair,0.85)
 
-# ==== REAL FIXED GET_CANDLES — 5 RETRIES + AGGRESSIVE ====
+# === REPLACE ONLY THESE 2 FUNCTIONS IN YOUR CODE ===
+
 def get_candles(pair):
     global IQ_CONNECTED
     if not IQ_CONNECTED:
         iq_reconnect()
-        if not IQ_CONNECTED:
-            print(f"❌ IQ NOT CONNECTED for {pair}")
-            return None
     
-    # REAL pairs need more retries
-    max_try = 5 if "OTC" not in pair else 3
+    # REAL NEED MORE AGGRESSIVE FETCH
+    is_real = "OTC" not in pair
+    tries = 6 if is_real else 3
     
-    for attempt in range(max_try):
+    for attempt in range(tries):
         try:
             with IQ_LOCK:
-                # Try 60 sec candles
-                c=iq.get_candles(pair,60,50,time.time())
-            if c and len(c)>20:
-                print(f"✅ Got {len(c)} candles for {pair} attempt {attempt+1}")
-                return pd.DataFrame(sorted(c,key=lambda x:x['from']))
-            else:
-                print(f"⚠️ No candles {pair} attempt {attempt+1} got {len(c) if c else 0}")
+                # Try 1min first
+                c = iq.get_candles(pair, 60, 50, time.time())
+                if c and len(c) > 20:
+                    print(f"✅ {pair} got {len(c)} candles 1min attempt {attempt+1}")
+                    return pd.DataFrame(sorted(c, key=lambda x: x['from']))
+                
+                # REAL fail 1min? Try 5min as backup!
+                if is_real and attempt >= 2:
+                    c2 = iq.get_candles(pair, 300, 50, time.time())
+                    if c2 and len(c2) > 20:
+                        print(f"✅ {pair} got {len(c2)} candles 5min attempt {attempt+1}")
+                        return pd.DataFrame(sorted(c2, key=lambda x: x['from']))
+                
+                print(f"⚠️ {pair} no candles attempt {attempt+1}")
         except Exception as e:
-            print(f"❌ Candle error {pair} attempt {attempt+1}: {e}")
+            print(f"❌ {pair} candle error attempt {attempt+1}: {e}")
         
-        # Retry logic
-        time.sleep(1.5)
-        if attempt >=2:
+        time.sleep(1.2)
+        if attempt >= 2:
             iq_reconnect()
     
-    print(f"💔 FINAL FAIL no candles {pair} after {max_try} tries")
+    print(f"💔 FINAL FAIL {pair}")
     return None
+
+def analyze_momentum(pair, sniper=False, mode="NORMAL"):
+    df = get_candles(pair)
+    if df is None:
+        # REAL: show different message
+        if "OTC" not in pair:
+            return {"pair":pair,"conf":0,"rejected":True,"reason":f"⏳ IQ server slow for REAL {pair} — Click RETRY! (IQ dey load REAL market)","payout":0.85,"no_candle":True,"is_real":True}
+        else:
+            return {"pair":pair,"conf":0,"rejected":True,"reason":f"❌ No candles {pair}","payout":0.85,"no_candle":True}
+    
+    try:
+        payout = get_payout(pair)
+        # === FIX 1: REAL PAYOUT FILTER DISABLED! ===
+        # REAL allow even 50% payout, OTC need 70%
+        if "OTC" in pair:
+            if payout < 0.70:
+                return {"pair":pair,"conf":0,"rejected":True,"reason":f"⚠️ OTC Payout low {int(payout*100)}% skip {pair}","payout":payout}
+        else:
+            # REAL: allow low payout, don't block!
+            if payout < 0.50:
+                print(f"REAL {pair} payout {payout} but allow trading")
+                payout = 0.85  # Force 85% for REAL if low
+        
+        close=df['close']; open_=df['open']; high=df['high']; low=df['low']
+        ema9=close.ewm(9).mean(); ema21=close.ewm(21).mean()
+        rsi=calc_rsi(close,7)
+        rsi_now=float(rsi.iloc[-1]); e9=float(ema9.iloc[-1]); e21=float(ema21.iloc[-1])
+        mom1=(close.iloc[-1]-close.iloc[-2])/close.iloc[-2]*100
+        is_green=float(close.iloc[-1])>float(open_.iloc[-1])
+        body_size = abs(float(close.iloc[-1])-float(open_.iloc[-1]))
+        upper_wick = float(high.iloc[-1]) - max(float(close.iloc[-1]), float(open_.iloc[-1]))
+        lower_wick = min(float(close.iloc[-1]), float(open_.iloc[-1])) - float(low.iloc[-1])
+        sig="CALL" if is_green else "PUT"; score=75; reason="OTC"
+        if mode=="KING":
+            if e9>e21 and is_green and 55<=rsi_now<=72 and upper_wick < body_size*0.5 and mom1>0.02:
+                sig="CALL"; score=95; reason=f"👑 KING Bull {mom1:.3f}% RSI {rsi_now:.0f}"
+            elif e9<e21 and not is_green and 28<=rsi_now<=45 and lower_wick < body_size*0.5 and mom1<-0.02:
+                sig="PUT"; score=95; reason=f"👑 KING Bear {mom1:.3f}% RSI {rsi_now:.0f}"
+            elif e9>e21 and is_green: sig="CALL"; score=86; reason="👑 KING EMA Bull"
+            else: sig="PUT"; score=86; reason="👑 KING EMA Bear"
+        else:
+            if e9>e21 and is_green and rsi_now>55: sig="CALL"; score=92; reason=f"🚀 Bull {mom1:.3f}%"
+            elif e9<e21 and not is_green and rsi_now<45: sig="PUT"; score=92; reason=f"📉 Bear {mom1:.3f}%"
+            elif e9>e21: sig="CALL"; score=84; reason="📈 EMA Bull"
+            else: sig="PUT"; score=84; reason="📉 EMA Bear"
+        if sniper:
+            need = 95 if mode=="SNIPER" else 88 if mode in ["KING","SAFE"] else 80 if mode=="AGGRO" else 88
+            if score < need:
+                return {"pair":pair,"conf":score,"rejected":True,"payout":payout,"reason":f"{reason} {score}% < {need}%"}
+        return {"pair":pair,"dir":sig,"conf":score,"price":float(close.iloc[-1]),"reason":reason,"df":df.tail(30),"rejected":False,"payout":payout}
+    except Exception as e:
+        print(f"Analyze err {pair}: {e}")
+        return {"pair":pair,"conf":0,"rejected":True,"reason":f"❌ Analyze Error {e}","payout":0.85}
 
 def calc_rsi(closes, period=7):
     delta=closes.diff(); gain=delta.where(delta>0,0).rolling(period).mean()
