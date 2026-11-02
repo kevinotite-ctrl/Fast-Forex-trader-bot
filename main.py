@@ -79,19 +79,15 @@ def get_candles(pair):
                     c = iq.get_candles(pair, 300, 50, time.time())
             if c and len(c) > 20:
                 df = pd.DataFrame(sorted(c, key=lambda x: x['from']))
-                # *** CRITICAL FIX FOR REAL ***
-                # REAL returns max/min, OTC returns high/low
-                # Convert to same format
+                # FIX REAL max/min -> high/low
                 if 'max' in df.columns:
                     df['high'] = df['max']
                 if 'min' in df.columns:
                     df['low'] = df['min']
-                # Ensure high/low exist
                 if 'high' not in df.columns:
                     df['high'] = df['close']
                 if 'low' not in df.columns:
                     df['low'] = df['close']
-                
                 print(f"✅ {pair} {len(df)} candles cols {list(df.columns)} attempt {attempt+1}")
                 return df
             print(f"⚠️ {pair} no candles attempt {attempt+1}")
@@ -108,22 +104,58 @@ def calc_rsi(closes, period=7):
     loss=-delta.where(delta<0,0).rolling(period).mean()
     return 100-(100/(1+gain/loss))
 
+# === YOUR ORIGINAL LEGIT LIVE SCAN BAR - I NO TOUCH AM AGAIN! ===
 def legit_live_scan(cid, mid, pair):
-    for pct, text, delay in [(0,"🚀 Init V8...",0.12),(15,f"🔌 {pair}...",0.15),(30,"📊 Candles...",0.2),(50,"📈 EMA...",0.15),(70,"💹 RSI...",0.15),(85,"Final...",0.15),(100,"LOCKED!")]:
+    steps = [
+        (0, "🚀 Initializing V8...", 0.15),
+        (15, f"🔌 IQ Check {pair}...", 0.2),
+        (30, "📊 Fetching candles...", 0.25),
+        (50, "📈 EMA9 + EMA21...", 0.2),
+        (70, "💹 RSI + ATR...", 0.2),
+        (85, "📰 Final check...", 0.2),
+        (100, "🔒 SIGNAL LOCKED!")
+    ]
+    last_pct = -1
+    for item in steps:
+        if len(item) == 3: pct, text, delay = item
+        else: pct, text = item; delay = 0.15
+        if pct == last_pct: time.sleep(delay); continue
+        last_pct = pct
         filled = int(pct // 5); bar = "█" * filled + "░" * (20 - filled)
-        color = "🟥" if pct<40 else "🟨" if pct<80 else "🟩" if pct<100 else "💎"
-        txt = f"""{color} **Z-BOT V8 SCAN** {color}
+        if pct < 40: color = "🟥"
+        elif pct < 80: color = "🟨"
+        elif pct < 100: color = "🟩"
+        else: color = "💎"
+        scan_txt = f"""{color} **Z-BOT V8 LEGIT SCAN** {color}
 
-💱 {PAIR_EMOJI.get(pair,pair)}
-💎 IQ: {'✅' if IQ_CONNECTED else '❌'}
+💱 Pair: {PAIR_EMOJI.get(pair, pair)}
+💎 IQ: {'✅ Connected' if IQ_CONNECTED else '❌ Offline'}
 
 {bar} {pct}%
+▓ Progress: {pct}% ▓
+
 🔍 {text}
+
+⏳ Fast scan - V8.2
 """
-        try: bot.edit_message_text(txt, cid, mid, parse_mode="Markdown")
+        try: bot.edit_message_text(scan_txt, cid, mid, parse_mode="Markdown")
         except: pass
         time.sleep(delay)
-    try: bot.edit_message_text(f"💎 **SCAN DONE** 💎\n💱 {PAIR_EMOJI.get(pair,pair)}\n████████████████████ 100%\n🔒 SIGNAL LOCKED!", cid, mid, parse_mode="Markdown")
+    try:
+        final_txt = f"""💎 **Z-BOT V8 LEGIT SCAN** 💎
+
+💱 Pair: {PAIR_EMOJI.get(pair, pair)}
+💎 IQ: {'✅ Connected' if IQ_CONNECTED else '❌ Offline'}
+
+████████████████████ 100%
+▓ Progress: 100% ▓
+
+🔍 🔒 SIGNAL LOCKED! READY TO TRADE!
+
+⏳ Scan complete - Fast V8.2!
+"""
+        bot.edit_message_text(final_txt, cid, mid, parse_mode="Markdown")
+        time.sleep(0.3)
     except: pass
 
 def analyze_momentum(pair, sniper=False, mode="NORMAL"):
@@ -139,7 +171,6 @@ def analyze_momentum(pair, sniper=False, mode="NORMAL"):
             return {"pair":pair,"conf":0,"rejected":True,"reason":f"⚠️ OTC Payout low {int(payout*100)}%","payout":payout}
         if "OTC" not in pair and payout < 0.50:
             payout = 0.85
-        
         close = df['close']; open_ = df['open']; high = df['high']; low = df['low']
         ema9 = close.ewm(9).mean(); ema21 = close.ewm(21).mean()
         rsi = calc_rsi(close,7)
@@ -169,7 +200,7 @@ def analyze_momentum(pair, sniper=False, mode="NORMAL"):
         return {"pair":pair,"dir":sig,"conf":score,"price":float(close.iloc[-1]),"reason":reason,"df":df.tail(30),"rejected":False,"payout":payout}
     except Exception as e:
         import traceback; traceback.print_exc()
-        return {"pair":pair,"conf":0,"rejected":True,"reason":f"❌ REAL Fix Error {e} for {pair}","payout":0.85}
+        return {"pair":pair,"conf":0,"rejected":True,"reason":f"❌ Analyze Error {e}","payout":0.85}
 
 def iq_trade(pair,direction,amount,bal,expiry_sec=30):
     def is_err(m): 
@@ -252,14 +283,16 @@ def start(m):
     mk.add(types.InlineKeyboardButton("💹 MANUAL TRADE (OTC+REAL)", callback_data="trade"))
     mk.add(types.InlineKeyboardButton("🤖 AUTO (OTC+REAL)", callback_data="auto_setup"))
     mk.add(types.InlineKeyboardButton("📊 MY STATS", callback_data="stats"))
-    txt=f"""🔥 **KEVIN V7.9.5 REAL FIXED** 🔥
+    txt=f"""🔥 **KEVIN V7.9.6 REAL + ORIGINAL SCAN** 🔥
 
 💎 IQ: {'✅' if IQ_CONNECTED else '❌'} | 💰 ${STATS['balance']:.2f} W{STATS['wins']} L{STATS['loss']} Day {STATS['daily_trades']}/50
 
-✅ **FIXED:**
-🐛 Fixed 'high' error for REAL! max/min → high/low
-💵 REAL: EURUSD + GBPUSD now 100% working!
+✅ **FIXED REAL:**
+💵 EURUSD + GBPUSD REAL now work! max/min fix
 🇪🇺 OTC: 8 pairs
+
+🔥 **ORIGINAL SCAN BAR BACK!**
+🟥🟨🟩💎 + ███░░░ + Progress %
 
 👇 **Trade REAL now:**
 """
@@ -281,7 +314,7 @@ def cb(c):
         mk.add(types.InlineKeyboardButton("👑 KING 👑", callback_data="auto_mode_KING"),types.InlineKeyboardButton("🛡️ SAFE 88%+", callback_data="auto_mode_SAFE"))
         mk.add(types.InlineKeyboardButton("🚀 AGGRO 80%+", callback_data="auto_mode_AGGRO"),types.InlineKeyboardButton("🎯 SNIPER 95%+", callback_data="auto_mode_SNIPER"))
         mk.add(types.InlineKeyboardButton("🔥 STREAK BOOSTER", callback_data="auto_mode_STREAK"),types.InlineKeyboardButton("⚡ SCALP", callback_data="auto_mode_SCALP"))
-        bot.send_message(cid, "🤖 **AUTO - REAL FIXED!**", reply_markup=mk, parse_mode="Markdown"); return
+        bot.send_message(cid, "🤖 **AUTO - REAL FIXED + ORIGINAL SCAN!**", reply_markup=mk, parse_mode="Markdown"); return
     if data.startswith("auto_mode_"):
         mode = data.replace("auto_mode_",""); user_states[cid] = user_states.get(cid,{}); user_states[cid]['auto_mode'] = mode
         mk=types.InlineKeyboardMarkup(row_width=2)
@@ -362,7 +395,7 @@ def cb(c):
         for p in OTC_PAIRS: mk.add(types.InlineKeyboardButton(f"{PAIR_EMOJI.get(p,p)}", callback_data=f"pair_{p}"))
         mk.add(types.InlineKeyboardButton("── REAL FIXED! 2 ──", callback_data="ignore"))
         for p in REAL_PAIRS: mk.add(types.InlineKeyboardButton(f"{PAIR_EMOJI.get(p,p)}", callback_data=f"pair_{p}"))
-        bot.send_message(cid, "💹 **MANUAL 1/3 - REAL FIXED!**", reply_markup=mk, parse_mode="Markdown"); return
+        bot.send_message(cid, "💹 **MANUAL 1/3 - REAL FIXED + ORIGINAL SCAN!**", reply_markup=mk, parse_mode="Markdown"); return
     if data.startswith("pair_"):
         pair=data.replace("pair_","")
         mk=types.InlineKeyboardMarkup(row_width=2)
@@ -432,7 +465,7 @@ def cb(c):
         return
     if data=="stats":
         total=STATS['wins']+STATS['loss']; wr=(STATS['wins']/total*100) if total else 0
-        bot.send_message(cid, f"📊 **V7.9.5 STATS**\nW {STATS['wins']} L {STATS['loss']} {wr:.1f}%\nBal ${STATS['balance']:.2f} Streak {STATS['streak']}\nDay {STATS['daily_trades']}/50\nPairs: 8 OTC + 2 REAL FIXED", parse_mode="Markdown")
+        bot.send_message(cid, f"📊 **V7.9.6 STATS**\nW {STATS['wins']} L {STATS['loss']} {wr:.1f}%\nBal ${STATS['balance']:.2f} Streak {STATS['streak']}\nDay {STATS['daily_trades']}/50\nPairs: 8 OTC + 2 REAL FIXED + ORIGINAL SCAN", parse_mode="Markdown")
 
 @bot.message_handler(func=lambda m: user_states.get(m.chat.id, {}).get('step')=='await_tp')
 def handle_custom_tp(m):
@@ -490,5 +523,5 @@ def home():
     if u:
         try: requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={u}/{BOT_TOKEN}", timeout=5)
         except: pass
-    return "KEVIN V7.9.5 REAL FIXED"
+    return "KEVIN V7.9.6 ORIGINAL SCAN + REAL FIXED"
 app.run(host="0.0.0.0", port=int(os.getenv("PORT",10000)))
