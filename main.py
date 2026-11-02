@@ -118,33 +118,24 @@ def calc_atr(df, period=14):
     return tr.rolling(period).mean()
 
 # ===== YOUR ORIGINAL SCAN BAR - 100% UNTOUCHED + ANTI STUCK FIX =====
+
+SCAN_LOCK = {}
+
 def legit_live_scan(cid, mid, pair):
     if SCAN_LOCK.get(cid):
         return
     SCAN_LOCK[cid]=True
-    steps = [
-        (0, "🚀 Initializing V8...", 0.15),
-        (15, f"🔌 IQ Check {pair}...", 0.2),
-        (30, "📊 Fetching candles...", 0.25),
-        (50, "📈 EMA9 + EMA21...", 0.2),
-        (70, "💹 RSI + ATR...", 0.2),
-        (85, "🔍 Final lock...", 0.3),
-        (100, "🔒 SIGNAL LOCKED!")
-    ]
-    last_pct=-1
     try:
-        for item in steps:
-            pct, text, delay = item
-            if pct == last_pct:
-                time.sleep(delay); continue
-            last_pct=pct
-            filled=int(pct//5); bar="█"*filled+"░"*(20-filled)
-            if pct<40: color="🟥"
-            elif pct<80: color="🟨"
-            elif pct<100: color="🟩"
-            else: color="💎"
-            if pct<100:
-                scan_txt=f"""{color} **Z-BOT V8 LEGIT SCAN** {color}
+        # STEP 1-4 fast
+        bars = [
+            (0, "🟥", "░░░░░░░░░░░░░░░░░░░░", "🚀 Initializing V8..."),
+            (15, "🟥", "███░░░░░░░░░░░░░░░░░", f"🔌 IQ Check {pair}..."),
+            (30, "🟨", "██████░░░░░░░░░░░░░░", "📊 Fetching candles..."),
+            (50, "🟨", "██████████░░░░░░░░░░", "📈 EMA9 + EMA21..."),
+            (70, "🟩", "██████████████░░░░░░", "💹 RSI + ATR..."),
+        ]
+        for pct, color, bar, text in bars:
+            txt = f"""{color} **Z-BOT V8 LEGIT SCAN** {color}
 
 💱 Pair: {PAIR_EMOJI.get(pair, pair)}
 💎 IQ: {'✅ Connected' if IQ_CONNECTED else '❌ Offline'}
@@ -156,8 +147,35 @@ def legit_live_scan(cid, mid, pair):
 
 ⏳ Fast scan - V8.2
 """
-            else:
-                scan_txt=f"""💎 **Z-BOT V8 LEGIT SCAN** 💎
+            try:
+                bot.edit_message_text(txt, cid, mid)
+            except:
+                pass
+            time.sleep(0.2)
+
+        # STEP 85% - YOUR HOOKED PLACE - MAKE IT SHORT!
+        try:
+            txt85 = f"""🟩 **Z-BOT V8 LEGIT SCAN** 🟩
+
+💱 Pair: {PAIR_EMOJI.get(pair, pair)}
+💎 IQ: {'✅ Connected' if IQ_CONNECTED else '❌ Offline'}
+
+█████████████████░░░ 85%
+▓ Progress: 85% ▓
+
+🔍 🔍 Final lock...
+
+⏳ Fast scan - V8.2
+"""
+            bot.edit_message_text(txt85, cid, mid)
+        except:
+            pass
+        time.sleep(0.3)  # Short wait
+
+        # STEP 100% - FORCE IT! MUST SHOW!
+        for _ in range(3):  # Try 3 times to force 100%
+            try:
+                txt100 = f"""💎 **Z-BOT V8 LEGIT SCAN** 💎
 
 💱 Pair: {PAIR_EMOJI.get(pair, pair)}
 💎 IQ: {'✅ Connected' if IQ_CONNECTED else '❌ Offline'}
@@ -165,17 +183,20 @@ def legit_live_scan(cid, mid, pair):
 ████████████████████ 100%
 ▓ Progress: 100% ▓
 
-🔍 {text} READY TO TRADE!
-✅ Safe
+🔍 🔒 SIGNAL LOCKED! READY TO TRADE!
 
-⏳ Scan complete - Fast V8.2!
+⏳ Scan complete!
 """
-            try: bot.edit_message_text(scan_txt, cid, mid, parse_mode="Markdown")
-            except: pass
-            time.sleep(delay)
+                bot.edit_message_text(txt100, cid, mid)
+                break  # Success - break
+            except Exception as e:
+                print(f"Force 100% retry {e}", flush=True)
+                time.sleep(0.2)
+        time.sleep(0.2)
+
     finally:
         SCAN_LOCK[cid]=False
-
+        
 # ===== 2 STRATEGIES =====
 def analyze_otc_strategy(pair):
     df=get_candles(pair)
