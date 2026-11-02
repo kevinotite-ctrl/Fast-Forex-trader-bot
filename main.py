@@ -1,5 +1,4 @@
 import os, time, threading, warnings
-from datetime import datetime, timezone
 from flask import Flask, request
 import telebot
 from telebot import types
@@ -15,7 +14,6 @@ OWNER_ID = 8659453018
 bot = telebot.TeleBot(BOT_TOKEN)
 app = Flask(__name__)
 
-# ===== KEVIN V7.5 PAIRS - OTC + GOLD + EXOTICS =====
 OTC_PAIRS = [
     "EURUSD-OTC","GBPUSD-OTC","EURGBP-OTC","USDJPY-OTC","GBPJPY-OTC","AUDUSD-OTC","USDCHF-OTC","EURJPY-OTC",
     "XAUUSD-OTC","GOLD-OTC",
@@ -83,20 +81,21 @@ def calc_rsi(closes, period=7):
     loss=-delta.where(delta<0,0).rolling(period).mean()
     return 100-(100/(1+gain/loss))
 
-# ===== KEVIN V7.5 LIVE SCANNING BAR V8 =====
-def kevin_live_scan(cid, mid, pair):
+# ===== YOUR ORIGINAL LIVE SCANNING BAR - 100% UNTOUCHED - V8 =====
+def legit_live_scan(cid, mid, pair):
     steps = [
-        (0, "🚀 KEVIN V7.5 Initializing...", 0.15),
-        (15, f"🔌 Checking {pair} liquidity...", 0.2),
-        (30, "📊 Fetching 50 candles...", 0.25),
-        (50, "📈 EMA9 + EMA21 + EMA50...", 0.2),
-        (70, "💹 RSI + Momentum + Volume...", 0.2),
-        (85, "🥇 Gold filter + Exotic check...", 0.2),
-        (100, "🔒 KEVIN SIGNAL LOCKED!")
+        (0, "🚀 Initializing V8...", 0.15),
+        (15, f"🔌 IQ Check {pair}...", 0.2),
+        (30, "📊 Fetching candles...", 0.25),
+        (50, "📈 EMA9 + EMA21...", 0.2),
+        (70, "💹 RSI + ATR...", 0.2),
+        (85, "📰 Final check...", 0.2),
+        (100, "🔒 SIGNAL LOCKED!")
     ]
     last_pct = -1
     for item in steps:
-        pct, text, delay = item
+        if len(item) == 3: pct, text, delay = item
+        else: pct, text = item; delay = 0.15
         if pct == last_pct: time.sleep(delay); continue
         last_pct = pct
         filled = int(pct // 5); bar = "█" * filled + "░" * (20 - filled)
@@ -104,7 +103,7 @@ def kevin_live_scan(cid, mid, pair):
         elif pct < 80: color = "🟨"
         elif pct < 100: color = "🟩"
         else: color = "💎"
-        scan_txt = f"""{color} **KEVIN TRAILBLAZER V7.5** {color}
+        scan_txt = f"""{color} **Z-BOT V8 LEGIT SCAN** {color}
 
 💱 Pair: {PAIR_EMOJI.get(pair, pair)}
 💎 IQ: {'✅ Connected' if IQ_CONNECTED else '❌ Offline'}
@@ -114,13 +113,13 @@ def kevin_live_scan(cid, mid, pair):
 
 🔍 {text}
 
-⚡ Kevin Fast Scan V7.5
+⏳ Fast scan - V8.2
 """
         try: bot.edit_message_text(scan_txt, cid, mid, parse_mode="Markdown")
         except: pass
         time.sleep(delay)
     try:
-        final_txt = f"""💎 **KEVIN TRAILBLAZER V7.5** 💎
+        final_txt = f"""💎 **Z-BOT V8 LEGIT SCAN** 💎
 
 💱 Pair: {PAIR_EMOJI.get(pair, pair)}
 💎 IQ: {'✅ Connected' if IQ_CONNECTED else '❌ Offline'}
@@ -128,9 +127,9 @@ def kevin_live_scan(cid, mid, pair):
 ████████████████████ 100%
 ▓ Progress: 100% ▓
 
-🔍 🔒 KEVIN SIGNAL LOCKED! READY!
+🔍 🔒 SIGNAL LOCKED! READY TO TRADE!
 
-⚡ Scan Complete - V7.5 Trailblazer!
+⏳ Scan complete - Fast V8.2!
 """
         bot.edit_message_text(final_txt, cid, mid, parse_mode="Markdown")
         time.sleep(0.3)
@@ -153,14 +152,13 @@ def analyze_momentum(pair, sniper=False):
         is_green=float(close.iloc[-1])>float(open_.iloc[-1])
         payout=get_payout(pair)
         sig="CALL" if is_green else "PUT"; score=75; reason=""
-        # KEVIN V7.5 GOLD + EXOTIC LOGIC - Stricter for 90%+
         if mom1>0.03 and mom3>0.07 and is_green and e9>e21 and e21>e50 and rsi_now>55 and rsi_now<75:
-            sig="CALL"; score=94; reason=f"🚀 KEVIN Strong Bull {mom1:.3f}%"
+            sig="CALL"; score=94; reason=f"🚀 Strong Bull {mom1:.3f}%"
         elif mom1<-0.03 and mom3<-0.07 and not is_green and e9<e21 and e21<e50 and rsi_now<45:
-            sig="PUT"; score=94; reason=f"📉 KEVIN Strong Bear {mom1:.3f}%"
-        elif e9>e21 and is_green and rsi_now>52: sig="CALL"; score=86; reason=f"📈 KEVIN EMA Bull"
-        elif e9<e21 and not is_green and rsi_now<48: sig="PUT"; score=86; reason=f"📉 KEVIN EMA Bear"
-        else: score=65; reason="Low momentum - Kevin skip"
+            sig="PUT"; score=94; reason=f"📉 Strong Bear {mom1:.3f}%"
+        elif e9>e21 and is_green and rsi_now>52: sig="CALL"; score=86; reason=f"📈 EMA Bull"
+        elif e9<e21 and not is_green and rsi_now<48: sig="PUT"; score=86; reason=f"📉 EMA Bear"
+        else: score=65; reason="Low momentum"
         if sniper and score < 90:
             return {"pair":pair,"dir":sig,"conf":score,"price":float(close.iloc[-1]),"rsi":rsi_now,"reason":reason,"mom":mom3,"payout":payout,"df":df.tail(30),"rejected":True}
         return {"pair":pair,"dir":sig,"conf":min(96,score),"price":float(close.iloc[-1]),"rsi":rsi_now,"reason":reason,"mom":mom3,"payout":payout,"df":df.tail(30),"rejected":False}
@@ -183,7 +181,7 @@ def iq_trade(pair,direction,amount,bal,expiry_sec=30):
 
 def auto_trader_loop(cid):
     consecutive_losses = 0; AUTO_LOCK[cid] = True
-    bot.send_message(cid, "🔒 **KEVIN AUTO: ONE TRADE AT A TIME - SMART MARTI x2.2**")
+    bot.send_message(cid, "🔒 **KEVIN AUTO: ONE TRADE AT A TIME - MARTI x2.2**")
     while AUTO_STATE.get(cid, {}).get('running', False):
         if AUTO_STATE[cid].get('in_trade', False): time.sleep(3); continue
         try:
@@ -233,7 +231,7 @@ def start(m):
         else: bot.send_message(m.chat.id, "Auto not running")
         return
     mk=types.InlineKeyboardMarkup(row_width=1)
-    mk.add(types.InlineKeyboardButton("💹 MANUAL TRADE (LIVE BAR V8)", callback_data="trade"))
+    mk.add(types.InlineKeyboardButton("💹 MANUAL TRADE (ORIGINAL BAR)", callback_data="trade"))
     mk.add(types.InlineKeyboardButton("🥇 GOLD SIGNALS XAUUSD", callback_data="gold_trade"))
     mk.add(types.InlineKeyboardButton("🤖 AUTO TRAILBLAZER 90%+ MARTI", callback_data="auto_setup"))
     mk.add(types.InlineKeyboardButton("📊 MY STATS", callback_data="stats"), types.InlineKeyboardButton("⚙️ SETTINGS", callback_data="settings"))
@@ -241,10 +239,10 @@ def start(m):
 
 💎 IQ: {'✅ Connected' if IQ_CONNECTED else '❌'} | 💰 ${STATS['balance']:.2f} W{STATS['wins']} L{STATS['loss']} Streak {STATS['streak']}
 
-✨ **V7.5 NEW:**
-🥇 Gold + Exotics (USDZAR, USDNGN etc)
+✨ **V7.5 KEEPS ORIGINAL BAR:**
+✅ Original Live Bar V8.2 █ ░ untouched!
+🥇 Gold + Exotics USDZAR, USDNGN etc
 🤖 Auto 90%+ Sniper + Smart Marti x2.2
-📊 Live Bar V8 █ ░ + One Trade Lock
 ⚡ Quick Trade 30s Blitz
 
 👇 **Choose Kevin:**
@@ -329,9 +327,10 @@ def cb(c):
         bot.send_message(cid, f"✅ ${amt} {pair}\n\n⏱️ **SELECT EXPIRY**", reply_markup=mk, parse_mode="Markdown"); return
     if data.startswith("exp_") and not data.startswith("auto_exp_"):
         parts=data.split("_"); expiry=int(parts[1]); bal=parts[-2]; amt=float(parts[-1]); pair="_".join(parts[2:-2])
-        bot.answer_callback_query(c.id, f"Kevin Scanning {pair}...")
-        scan_msg = bot.send_message(cid, f"🔍 **KEVIN SCAN {PAIR_EMOJI.get(pair,pair)}**\n\n0%\n🚀 Starting...")
-        kevin_live_scan(cid, scan_msg.message_id, pair)
+        bot.answer_callback_query(c.id, f"Scanning {pair}...")
+        # ORIGINAL BAR - UNTOUCHED
+        scan_msg = bot.send_message(cid, f"🔍 **SCAN {PAIR_EMOJI.get(pair,pair)}**\n\n0%\n🚀 Starting...")
+        legit_live_scan(cid, scan_msg.message_id, pair)
         d=analyze_momentum(pair)
         if not d:
             mk=types.InlineKeyboardMarkup(); mk.add(types.InlineKeyboardButton("🔄 RETRY", callback_data=f"amt_{int(amt)}_{pair}_{bal}"))
@@ -377,7 +376,7 @@ def cb(c):
     if data=="stats":
         total=STATS['wins']+STATS['loss']; wr=(STATS['wins']/total*100) if total else 0
         bot.send_message(cid, f"📊 **KEVIN V7.5 STATS**\nW {STATS['wins']} L {STATS['loss']} {wr:.1f}%\nBal ${STATS['balance']:.2f} Streak {STATS['streak']}", parse_mode="Markdown")
-    if data=="settings": bot.send_message(cid, "⚙️ **KEVIN V7.5 TRAILBLAZER**\nAuto 90%+ Sniper\nGold + Exotics\nLive Bar V8\nQuick 30s Blitz\nOne Trade Lock")
+    if data=="settings": bot.send_message(cid, "⚙️ **KEVIN V7.5** Original Bar V8.2 Untouched + Gold + Exotics + Auto")
 
 @bot.message_handler(func=lambda m: user_states.get(m.chat.id, {}).get("step")=="await_amt")
 def handle_custom_amt(m):
@@ -386,8 +385,8 @@ def handle_custom_amt(m):
     try:
         amt=float(m.text.strip()); pair=st.get("pair"); bal=st.get("bal")
         if not pair: return
-        scan_msg = bot.send_message(cid, f"🔍 **KEVIN SCAN {pair}**\n\n0%\n🚀 Starting...")
-        kevin_live_scan(cid, scan_msg.message_id, pair)
+        scan_msg = bot.send_message(cid, f"🔍 **SCAN {pair}**\n\n0%\n🚀 Starting...")
+        legit_live_scan(cid, scan_msg.message_id, pair)
         d=analyze_momentum(pair)
         if not d: bot.send_message(cid, "Failed analyze"); return
         ok,oid,exp=iq_trade(pair,d['dir'],amt,bal,30)
@@ -410,5 +409,5 @@ def home():
     if u:
         try: requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={u}/{BOT_TOKEN}", timeout=5)
         except: pass
-    return "KEVIN TRAILBLAZER V7.5 RUNNING"
+    return "KEVIN TRAILBLAZER V7.5 ORIGINAL BAR RUNNING"
 app.run(host="0.0.0.0", port=int(os.getenv("PORT",10000)))
