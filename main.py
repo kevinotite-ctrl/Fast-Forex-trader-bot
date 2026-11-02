@@ -15,7 +15,6 @@ OWNER_ID = 8659453018
 bot = telebot.TeleBot(BOT_TOKEN)
 app = Flask(__name__)
 
-# ===== OTC ONLY =====
 OTC_PAIRS = ["EURUSD-OTC","GBPUSD-OTC","EURGBP-OTC","USDJPY-OTC","GBPJPY-OTC","AUDUSD-OTC","USDCHF-OTC","EURJPY-OTC"]
 PAIR_EMOJI = {
     "EURUSD-OTC":"🇪🇺 EUR/USD OTC","GBPUSD-OTC":"🇬🇧 GBP/USD OTC","EURGBP-OTC":"🇪🇺 EUR/GBP OTC",
@@ -76,7 +75,7 @@ def calc_rsi(closes, period=7):
     loss=-delta.where(delta<0,0).rolling(period).mean()
     return 100-(100/(1+gain/loss))
 
-# ===== YOUR ORIGINAL LIVE SCANNING BAR - 100% UNTOUCHED - I NO TOUCH AM! =====
+# ===== YOUR ORIGINAL LIVE SCANNING BAR - 100% UNTOUCHED - NO TOUCH! =====
 def legit_live_scan(cid, mid, pair):
     steps = [
         (0, "🚀 Initializing V8...", 0.15),
@@ -134,9 +133,8 @@ def analyze_momentum(pair, sniper=False, mode="NORMAL"):
     df=get_candles(pair)
     if df is None: return None
     try:
-        # PAYOUT FILTER - NEW!
         payout=get_payout(pair)
-        if payout < 0.80 and mode not in ["AGGRO"]: # Skip low payout
+        if payout < 0.80 and mode not in ["AGGRO"]:
             return {"pair":pair,"conf":0,"rejected":True,"reason":f"Low payout {int(payout*100)}% skip","payout":payout}
         
         close=df['close']; open_=df['open']; high=df['high']; low=df['low']
@@ -146,16 +144,13 @@ def analyze_momentum(pair, sniper=False, mode="NORMAL"):
         mom1=(close.iloc[-1]-close.iloc[-2])/close.iloc[-2]*100
         is_green=float(close.iloc[-1])>float(open_.iloc[-1])
         
-        # Wick calculation
         body_size = abs(float(close.iloc[-1])-float(open_.iloc[-1]))
         upper_wick = float(high.iloc[-1]) - max(float(close.iloc[-1]), float(open_.iloc[-1]))
         lower_wick = min(float(close.iloc[-1]), float(open_.iloc[-1])) - float(low.iloc[-1])
         
         sig="CALL" if is_green else "PUT"; score=75; reason="OTC"
         
-        # ===== NEW STRATEGY 1: OTC KING - BEST FOR OTC! =====
         if mode=="KING":
-            # Bull: EMA up + RSI 55-75 + small upper wick + green + momentum up
             if e9>e21 and is_green and 55<=rsi_now<=72 and upper_wick < body_size*0.5 and mom1>0.02:
                 sig="CALL"; score=95; reason=f"👑 KING Bull Wick OK {mom1:.3f}% RSI {rsi_now:.0f}"
             elif e9<e21 and not is_green and 28<=rsi_now<=45 and lower_wick < body_size*0.5 and mom1<-0.02:
@@ -163,13 +158,11 @@ def analyze_momentum(pair, sniper=False, mode="NORMAL"):
             elif e9>e21 and is_green: sig="CALL"; score=86; reason="👑 KING EMA Bull"
             else: sig="PUT"; score=86; reason="👑 KING EMA Bear"
         else:
-            # Normal logic
             if e9>e21 and is_green and rsi_now>55: sig="CALL"; score=92; reason=f"🚀 Bull {mom1:.3f}%"
             elif e9<e21 and not is_green and rsi_now<45: sig="PUT"; score=92; reason=f"📉 Bear {mom1:.3f}%"
             elif e9>e21: sig="CALL"; score=84; reason="📈 EMA Bull"
             else: sig="PUT"; score=84; reason="📉 EMA Bear"
         
-        # Sniper threshold
         if sniper:
             need = 95 if mode=="SNIPER" else 88 if mode=="KING" else 80 if mode=="AGGRO" else 88
             if score < need:
@@ -187,10 +180,6 @@ def iq_trade(pair,direction,amount,bal,expiry_sec=30):
         return any(x in s for x in ["suspend","cannot","active","closed","error"])
     try:
         with IQ_LOCK:
-            # BALANCE CHECK - NEW!
-            try:
-                bal_info = iq.get_balances()
-            except: pass
             iq.change_balance(bal)
             time.sleep(0.3)
             if expiry_sec <= 90:
@@ -210,28 +199,24 @@ def auto_trader_loop(cid):
     consecutive_losses=0; win_streak=0; AUTO_LOCK[cid]=True
     state=AUTO_STATE.get(cid,{})
     mode=state.get('mode','NORMAL'); target=state.get('target',100.0); stoploss=state.get('stoploss',-30.0)
-    profit_now=0.0; daily_limit=30
+    profit_now=0.0; daily_limit=50
     
     bot.send_message(cid, f"🔒 **{mode} AUTO STARTED**\n🎯 Target: +${target:.0f} | SL: ${stoploss:.0f} | Daily Limit: {daily_limit} trades")
     
     while AUTO_STATE.get(cid,{}).get('running',False):
-        # DAILY DATE RESET
         if STATS['daily_date'] != datetime.now().date():
             STATS['daily_date']=datetime.now().date(); STATS['daily_trades']=0
         
-        # CHECK DAILY LIMIT - NEW!
         if STATS['daily_trades'] >= daily_limit:
             AUTO_STATE[cid]['running']=False
-            bot.send_message(cid, f"🛑 **DAILY LIMIT REACHED!**\n{STATS['daily_trades']}/{daily_limit} trades today\n🛑 AUTO STOPPED!")
+            bot.send_message(cid, f"🛑 **DAILY LIMIT 50 REACHED!**\n{STATS['daily_trades']}/{daily_limit} trades today\n🛑 AUTO STOPPED!")
             break
         
-        # CHECK TARGET PROFIT
         if profit_now >= target:
             AUTO_STATE[cid]['running']=False
             bot.send_message(cid, f"🎉 **TARGET REACHED!** 🎉\n\n🧠 Strategy: {mode}\n🎯 Target: +${target:.0f}\n💰 Profit: ${profit_now:.2f}\nTrades: {AUTO_STATE[cid]['trades']}\n\n🛑 **AUTO STOPPED!**")
             break
         
-        # CHECK STOP LOSS - NEW!
         if profit_now <= stoploss:
             AUTO_STATE[cid]['running']=False
             bot.send_message(cid, f"💔 **STOP LOSS HIT!**\n\n🧠 Strategy: {mode}\n🛑 SL: ${stoploss:.0f}\n💰 Profit: ${profit_now:.2f} (Loss)\nTrades: {AUTO_STATE[cid]['trades']}\n\n🛑 **AUTO STOPPED TO PROTECT ACCOUNT!**")
@@ -254,7 +239,6 @@ def auto_trader_loop(cid):
             else:
                 d=analyze_momentum(pair_to_trade,sniper=True,mode=mode)
                 if not d or d.get('rejected'):
-                    # If low payout, tell user
                     if d and "payout" in d and "Low payout" in d.get('reason',''):
                         bot.send_message(cid, f"⚠️ {pair_to_trade} payout low {int(d['payout']*100)}% — skipping!")
                     time.sleep(8 if mode=="AGGRO" else 10); continue
@@ -301,15 +285,16 @@ def start(m):
     mk.add(types.InlineKeyboardButton("💹 MANUAL OTC TRADE", callback_data="trade"))
     mk.add(types.InlineKeyboardButton("🤖 AUTO OTC TRAILBLAZER", callback_data="auto_setup"))
     mk.add(types.InlineKeyboardButton("📊 MY STATS", callback_data="stats"))
-    txt=f"""🔥 **KEVIN OTC SPECIALIST V7.8** 🔥
+    txt=f"""🔥 **KEVIN OTC SPECIALIST V7.9 50x CUSTOM** 🔥
 
-💎 IQ: {'✅ Connected' if IQ_CONNECTED else '❌'} | 💰 ${STATS['balance']:.2f} W{STATS['wins']} L{STATS['loss']} Day {STATS['daily_trades']}/30
+💎 IQ: {'✅ Connected' if IQ_CONNECTED else '❌'} | 💰 ${STATS['balance']:.2f} W{STATS['wins']} L{STATS['loss']} Day {STATS['daily_trades']}/50
 
-✨ **V7.8 NEW:**
-👑 OTC KING - Best OTC Strategy!
-🛡️ Stop-Loss + Target Profit
+✨ **V7.9 NEW:**
+👑 OTC KING - Best OTC!
+🛡️ Stop-Loss + Target
 📊 Payout Filter 80%+
-📅 Daily Limit 30 trades
+📅 Daily Limit **50 trades**
+✏️ CUSTOM AMOUNT manual & auto!
 ✅ Original Bar V8.2 untouched!
 
 👇 **Choose:**
@@ -320,7 +305,7 @@ def start(m):
 def cb(c):
     if not is_allowed(c.from_user.id): return
     data=c.data; cid=c.message.chat.id
-    if data=="ignore": bot.answer_callback_query(c.id, "KEVIN V7.8"); return
+    if data=="ignore": bot.answer_callback_query(c.id, "KEVIN V7.9"); return
     
     if data=="auto_setup":
         mk=types.InlineKeyboardMarkup(row_width=2)
@@ -376,7 +361,6 @@ def cb(c):
             bot.send_message(cid, f"✏️ **Type target profit** Example: 50\nStrategy: {mode} | Pair: {pair}"); return
         tp=float(parts[2]); bal=parts[-3]; mode=parts[-1]; pair="_".join(parts[3:-3])
         user_states[cid].update({'target':tp,'pair':pair,'bal':bal,'mode':mode})
-        # NEW STEP: STOP LOSS
         mk=types.InlineKeyboardMarkup(row_width=3)
         mk.add(types.InlineKeyboardButton("🛑 SL -$20", callback_data=f"mode_sl_-20_{pair}_{bal}_{mode}_{int(tp)}"),
                types.InlineKeyboardButton("🛑 SL -$30", callback_data=f"mode_sl_-30_{pair}_{bal}_{mode}_{int(tp)}"),
@@ -397,7 +381,13 @@ def cb(c):
         mk.add(types.InlineKeyboardButton("💵 $1", callback_data=f"mode_amt_1_{pair}_{bal}_{mode}_{int(tp)}_{int(sl)}"),
                types.InlineKeyboardButton("💵 $5", callback_data=f"mode_amt_5_{pair}_{bal}_{mode}_{int(tp)}_{int(sl)}"),
                types.InlineKeyboardButton("💵 $10", callback_data=f"mode_amt_10_{pair}_{bal}_{mode}_{int(tp)}_{int(sl)}"))
-        bot.send_message(cid, f"✅ TP +${tp} | SL ${sl:.0f}\n\n**5/6 BASE AMOUNT:**", reply_markup=mk, parse_mode="Markdown"); return
+        mk.add(types.InlineKeyboardButton("✏️ CUSTOM AMOUNT", callback_data=f"mode_amt_custom_{pair}_{bal}_{mode}_{int(tp)}_{int(sl)}"))
+        bot.send_message(cid, f"✅ TP +${tp} | SL ${sl:.0f}\n\n**5/6 BASE AMOUNT (CUSTOM AVAILABLE):**", reply_markup=mk, parse_mode="Markdown"); return
+
+    if data.startswith("mode_amt_") and "custom" in data:
+        parts=data.split("_"); bal=parts[-4]; mode=parts[-3]; tp=parts[-2]; sl=parts[-1]; pair="_".join(parts[3:-4])
+        user_states[cid].update({'pair':pair,'bal':bal,'mode':mode,'target':float(tp),'stoploss':float(sl),'step':'await_auto_amt'})
+        bot.send_message(cid, f"✏️ **Type custom base amount**\nExample: 2.5 or 15\n\nTP +${tp} SL ${sl} | {pair} {mode}"); return
 
     if data.startswith("mode_amt_"):
         parts=data.split("_"); amt=parts[2]; bal=parts[-4]; mode=parts[-3]; tp=parts[-2]; sl=parts[-1]; pair="_".join(parts[3:-4])
@@ -415,7 +405,7 @@ def cb(c):
 🎯 Target Profit: **+${tp}**
 🛑 Stop Loss: **${sl}**
 ⏱️ Expiry: **{expiry}s**
-📊 Daily: **{STATS['daily_trades']}/30**
+📊 Daily: **{STATS['daily_trades']}/50**
 
 🤖 **Bot is now trading...** One trade at a time!
 """
@@ -443,7 +433,7 @@ def cb(c):
 ⏱️ Expiry: **{expiry}s**
 ⚙️ Logic: **{'👑 KING - EMA+RSI+Wick+Momo BEST!' if mode=='KING' else '88%+ Safe' if mode=='SAFE' else '80%+ Aggro' if mode=='AGGRO' else '95%+ Sniper' if mode=='SNIPER' else 'Win Streak $1>$2>$5' if mode=='STREAK' else '30s Scalp'}**
 📊 Payout Filter: **Skip if <80%**
-📅 Daily Limit: **30 trades**
+📅 Daily Limit: **50 trades**
 
 🤖 **Bot is now trading OTC...** Tracking profit live!
 """
@@ -463,24 +453,39 @@ def cb(c):
         mk.add(types.InlineKeyboardButton("🔴 REAL", callback_data=f"bal_REAL_{pair}"))
         bot.send_message(cid, f"✅ {pair}\n\n**2/3 ACCOUNT**", reply_markup=mk, parse_mode="Markdown"); return
     if data.startswith("bal_"):
-        parts=data.split("_"); bal=parts[1]; pair=parts[2]
+        parts=data.split("_"); bal=parts[1]; pair="_".join(parts[2:])
         mk=types.InlineKeyboardMarkup(row_width=3)
         mk.add(types.InlineKeyboardButton("💵 $1", callback_data=f"amt_1_{pair}_{bal}"),
                types.InlineKeyboardButton("💵 $5", callback_data=f"amt_5_{pair}_{bal}"),
                types.InlineKeyboardButton("💵 $10", callback_data=f"amt_10_{pair}_{bal}"))
-        bot.send_message(cid, f"✅ {pair} {bal}\n\n**3/3 AMOUNT**", reply_markup=mk, parse_mode="Markdown"); return
+        mk.add(types.InlineKeyboardButton("✏️ CUSTOM AMOUNT", callback_data=f"amt_custom_{pair}_{bal}"))
+        bot.send_message(cid, f"✅ {pair} {bal}\n\n**3/3 AMOUNT (CUSTOM AVAILABLE)**\nPick or type your own:", reply_markup=mk, parse_mode="Markdown"); return
+
+    if data.startswith("amt_") and "custom" in data:
+        parts=data.split("_"); bal=parts[-1]; pair="_".join(parts[2:-1])
+        user_states[cid]=user_states.get(cid,{}); user_states[cid].update({'pair':pair,'bal':bal,'step':'await_manual_amt'})
+        bot.send_message(cid, f"✏️ **Type custom amount**\nExample: 2.5 or 15\n\nPair: {pair} | {bal}"); return
+
     if data.startswith("amt_"):
-        parts=data.split("_"); amt=float(parts[1]); pair=parts[2]; bal=parts[3]
+        parts=data.split("_")
+        try:
+            amt_str=parts[1]; amt=float(amt_str); pair="_".join(parts[2:-1]); bal=parts[-1]
+        except:
+            amt=float(parts[1]); pair=parts[2]; bal=parts[3]
         mk=types.InlineKeyboardMarkup(row_width=2)
-        mk.add(types.InlineKeyboardButton("⏱️ 30 SEC", callback_data=f"exp_30_{pair}_{bal}_{int(amt)}"),
-               types.InlineKeyboardButton("⏱️ 1 MIN", callback_data=f"exp_60_{pair}_{bal}_{int(amt)}"))
+        mk.add(types.InlineKeyboardButton("⏱️ 30 SEC", callback_data=f"exp_30_{pair}_{bal}_{amt}"),
+               types.InlineKeyboardButton("⏱️ 1 MIN", callback_data=f"exp_60_{pair}_{bal}_{amt}"))
         bot.send_message(cid, f"✅ ${amt} {pair}\n\n**EXPIRY**", reply_markup=mk, parse_mode="Markdown"); return
+
     if data.startswith("exp_"):
-        parts=data.split("_"); expiry=int(parts[1]); bal=parts[-2]; amt=float(parts[-1]); pair="_".join(parts[2:-2])
+        parts=data.split("_"); expiry=int(parts[1]); bal=parts[-2]; amt_str=parts[-1]; 
+        try: amt=float(amt_str)
+        except: amt=float(parts[-1])
+        pair="_".join(parts[2:-2])
         bot.answer_callback_query(c.id, f"Scanning {pair}...")
         scan_msg = bot.send_message(cid, f"🔍 **SCAN {pair}**\n\n0%\n🚀 Starting...")
         legit_live_scan(cid, scan_msg.message_id, pair)
-        d=analyze_momentum(pair, mode="KING") # Use KING logic for manual too!
+        d=analyze_momentum(pair, mode="KING")
         if not d or d.get('rejected'):
             reason = d.get('reason','Failed') if d else 'Failed'
             bot.send_message(cid, f"❌ {reason} {pair}"); return
@@ -504,20 +509,20 @@ def cb(c):
             if pnl>0:
                 STATS['wins']+=1; STATS['balance']+=pnl; STATS['streak']+=1
                 mk=types.InlineKeyboardMarkup(row_width=2)
-                mk.add(types.InlineKeyboardButton("🔁 SAME", callback_data=f"exp_{expiry}_{pair}_{bal}_{int(amt)}"),
+                mk.add(types.InlineKeyboardButton("🔁 SAME", callback_data=f"exp_{expiry}_{pair}_{bal}_{amt}"),
                        types.InlineKeyboardButton("💹 NEW", callback_data="trade"))
                 bot.send_message(cid, f"✅ **KING WIN +${pnl:.2f}** Bal ${STATS['balance']:.2f} 🔥 {STATS['streak']}", reply_markup=mk, parse_mode="Markdown")
             else:
                 STATS['loss']+=1; STATS['balance']-=amt; STATS['streak']=0
                 mk=types.InlineKeyboardMarkup(row_width=2)
-                mk.add(types.InlineKeyboardButton(f"🔁 MARTI ${amt*2.2:.0f}", callback_data=f"exp_{expiry}_{pair}_{bal}_{int(amt*2.2)}"),
+                mk.add(types.InlineKeyboardButton(f"🔁 MARTI ${amt*2.2:.0f}", callback_data=f"exp_{expiry}_{pair}_{bal}_{amt*2.2}"),
                        types.InlineKeyboardButton("💹 NEW", callback_data="trade"))
                 bot.send_message(cid, f"❌ **LOSS -${amt}** Bal ${STATS['balance']:.2f}", reply_markup=mk, parse_mode="Markdown")
         except: bot.send_message(cid, f"⏱️ Expired {oid} Check IQ app")
         return
     if data=="stats":
         total=STATS['wins']+STATS['loss']; wr=(STATS['wins']/total*100) if total else 0
-        bot.send_message(cid, f"📊 **OTC V7.8 STATS**\nW {STATS['wins']} L {STATS['loss']} {wr:.1f}%\nBal ${STATS['balance']:.2f} Streak {STATS['streak']}\nDay {STATS['daily_trades']}/30", parse_mode="Markdown")
+        bot.send_message(cid, f"📊 **OTC V7.9 STATS**\nW {STATS['wins']} L {STATS['loss']} {wr:.1f}%\nBal ${STATS['balance']:.2f} Streak {STATS['streak']}\nDay {STATS['daily_trades']}/50", parse_mode="Markdown")
 
 @bot.message_handler(func=lambda m: user_states.get(m.chat.id, {}).get('step')=='await_tp')
 def handle_custom_tp(m):
@@ -530,6 +535,8 @@ def handle_custom_tp(m):
         mk.add(types.InlineKeyboardButton("🛑 SL -$20", callback_data=f"mode_sl_-20_{pair}_{bal}_{mode}_{int(tp)}"),
                types.InlineKeyboardButton("🛑 SL -$30", callback_data=f"mode_sl_-30_{pair}_{bal}_{mode}_{int(tp)}"),
                types.InlineKeyboardButton("🛑 SL -$50", callback_data=f"mode_sl_-50_{pair}_{bal}_{mode}_{int(tp)}"))
+        mk.add(types.InlineKeyboardButton("🛑 SL -$100", callback_data=f"mode_sl_-100_{pair}_{bal}_{mode}_{int(tp)}"),
+               types.InlineKeyboardButton("✏️ CUSTOM SL", callback_data=f"mode_sl_custom_{pair}_{bal}_{mode}_{int(tp)}"))
         bot.send_message(cid, f"✅ Target: +${tp:.0f} set!\n\n**4/6 SET STOP LOSS:**", reply_markup=mk, parse_mode="Markdown")
     except: bot.send_message(cid, "❌ Send number only e.g. 50")
 
@@ -545,8 +552,35 @@ def handle_custom_sl(m):
         mk.add(types.InlineKeyboardButton("💵 $1", callback_data=f"mode_amt_1_{pair}_{bal}_{mode}_{int(tp)}_{int(sl)}"),
                types.InlineKeyboardButton("💵 $5", callback_data=f"mode_amt_5_{pair}_{bal}_{mode}_{int(tp)}_{int(sl)}"),
                types.InlineKeyboardButton("💵 $10", callback_data=f"mode_amt_10_{pair}_{bal}_{mode}_{int(tp)}_{int(sl)}"))
-        bot.send_message(cid, f"✅ SL ${sl:.0f} set!\n\n**5/6 BASE AMOUNT:**", reply_markup=mk, parse_mode="Markdown")
+        mk.add(types.InlineKeyboardButton("✏️ CUSTOM AMOUNT", callback_data=f"mode_amt_custom_{pair}_{bal}_{mode}_{int(tp)}_{int(sl)}"))
+        bot.send_message(cid, f"✅ SL ${sl:.0f} set!\n\n**5/6 BASE AMOUNT (CUSTOM):**", reply_markup=mk, parse_mode="Markdown")
     except: bot.send_message(cid, "❌ Send negative number e.g. -30")
+
+@bot.message_handler(func=lambda m: user_states.get(m.chat.id, {}).get('step')=='await_manual_amt')
+def handle_manual_custom_amt(m):
+    cid=m.chat.id
+    try:
+        amt=float(m.text.strip()); st=user_states.get(cid,{})
+        pair=st.get('pair'); bal=st.get('bal')
+        user_states[cid]['step']=''
+        mk=types.InlineKeyboardMarkup(row_width=2)
+        mk.add(types.InlineKeyboardButton("⏱️ 30 SEC", callback_data=f"exp_30_{pair}_{bal}_{amt}"),
+               types.InlineKeyboardButton("⏱️ 1 MIN", callback_data=f"exp_60_{pair}_{bal}_{amt}"))
+        bot.send_message(cid, f"✅ Custom ${amt} {pair}\n\n**EXPIRY**", reply_markup=mk, parse_mode="Markdown")
+    except: bot.send_message(cid, "❌ Send number only e.g. 2.5")
+
+@bot.message_handler(func=lambda m: user_states.get(m.chat.id, {}).get('step')=='await_auto_amt')
+def handle_auto_custom_amt(m):
+    cid=m.chat.id
+    try:
+        amt=float(m.text.strip()); st=user_states.get(cid,{})
+        pair=st.get('pair'); bal=st.get('bal'); mode=st.get('mode'); tp=st.get('target'); sl=st.get('stoploss')
+        user_states[cid]['step']=''
+        mk=types.InlineKeyboardMarkup(row_width=2)
+        mk.add(types.InlineKeyboardButton("⏱️ 30 SEC", callback_data=f"mode_exp_30_{pair}_{bal}_{amt}_{mode}_{int(tp)}_{int(sl)}"),
+               types.InlineKeyboardButton("⏱️ 1 MIN", callback_data=f"mode_exp_60_{pair}_{bal}_{amt}_{mode}_{int(tp)}_{int(sl)}"))
+        bot.send_message(cid, f"✅ Custom ${amt} TP +${tp} SL ${sl}\n\n**6/6 EXPIRY:**", reply_markup=mk, parse_mode="Markdown")
+    except: bot.send_message(cid, "❌ Send number only e.g. 2.5")
 
 @app.route(f"/{BOT_TOKEN}", methods=['POST'])
 def wh(): bot.process_new_updates([telebot.types.Update.de_json(request.get_data().decode("utf-8"))]); return "ok"
@@ -556,5 +590,5 @@ def home():
     if u:
         try: requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={u}/{BOT_TOKEN}", timeout=5)
         except: pass
-    return "KEVIN OTC V7.8 KING RUNNING"
+    return "KEVIN OTC V7.9 50x CUSTOM RUNNING"
 app.run(host="0.0.0.0", port=int(os.getenv("PORT",10000)))
