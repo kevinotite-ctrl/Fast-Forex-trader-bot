@@ -110,55 +110,85 @@ def get_candles(pair):
 def analyze_momentum(pair, sniper=False, mode="NORMAL"):
     df = get_candles(pair)
     if df is None:
-        # REAL: show different message
         if "OTC" not in pair:
-            return {"pair":pair,"conf":0,"rejected":True,"reason":f"⏳ IQ server slow for REAL {pair} — Click RETRY! (IQ dey load REAL market)","payout":0.85,"no_candle":True,"is_real":True}
+            return {"pair":pair,"conf":0,"rejected":True,"reason":f"⏳ IQ slow for REAL {pair} — Click RETRY!","payout":0.85,"no_candle":True,"is_real":True}
         else:
             return {"pair":pair,"conf":0,"rejected":True,"reason":f"❌ No candles {pair}","payout":0.85,"no_candle":True}
-    
     try:
         payout = get_payout(pair)
-        # === FIX 1: REAL PAYOUT FILTER DISABLED! ===
-        # REAL allow even 50% payout, OTC need 70%
         if "OTC" in pair:
             if payout < 0.70:
                 return {"pair":pair,"conf":0,"rejected":True,"reason":f"⚠️ OTC Payout low {int(payout*100)}% skip {pair}","payout":payout}
         else:
-            # REAL: allow low payout, don't block!
             if payout < 0.50:
-                print(f"REAL {pair} payout {payout} but allow trading")
-                payout = 0.85  # Force 85% for REAL if low
+                payout = 0.85
         
-        close=df['close']; open_=df['open']; high=df['high']; low=df['low']
-        ema9=close.ewm(9).mean(); ema21=close.ewm(21).mean()
-        rsi=calc_rsi(close,7)
-        rsi_now=float(rsi.iloc[-1]); e9=float(ema9.iloc[-1]); e21=float(ema21.iloc[-1])
-        mom1=(close.iloc[-1]-close.iloc[-2])/close.iloc[-2]*100
-        is_green=float(close.iloc[-1])>float(open_.iloc[-1])
-        body_size = abs(float(close.iloc[-1])-float(open_.iloc[-1]))
-        upper_wick = float(high.iloc[-1]) - max(float(close.iloc[-1]), float(open_.iloc[-1]))
-        lower_wick = min(float(close.iloc[-1]), float(open_.iloc[-1])) - float(low.iloc[-1])
-        sig="CALL" if is_green else "PUT"; score=75; reason="OTC"
-        if mode=="KING":
-            if e9>e21 and is_green and 55<=rsi_now<=72 and upper_wick < body_size*0.5 and mom1>0.02:
-                sig="CALL"; score=95; reason=f"👑 KING Bull {mom1:.3f}% RSI {rsi_now:.0f}"
-            elif e9<e21 and not is_green and 28<=rsi_now<=45 and lower_wick < body_size*0.5 and mom1<-0.02:
-                sig="PUT"; score=95; reason=f"👑 KING Bear {mom1:.3f}% RSI {rsi_now:.0f}"
-            elif e9>e21 and is_green: sig="CALL"; score=86; reason="👑 KING EMA Bull"
-            else: sig="PUT"; score=86; reason="👑 KING EMA Bear"
+        # === FIX: REAL uses max/min, OTC uses high/low ===
+        close = df['close']
+        open_ = df['open']
+        
+        # Handle both high/low and max/min
+        if 'high' in df.columns:
+            high = df['high']
+        elif 'max' in df.columns:
+            high = df['max']
         else:
-            if e9>e21 and is_green and rsi_now>55: sig="CALL"; score=92; reason=f"🚀 Bull {mom1:.3f}%"
-            elif e9<e21 and not is_green and rsi_now<45: sig="PUT"; score=92; reason=f"📉 Bear {mom1:.3f}%"
-            elif e9>e21: sig="CALL"; score=84; reason="📈 EMA Bull"
-            else: sig="PUT"; score=84; reason="📉 EMA Bear"
+            high = close  # fallback
+        
+        if 'low' in df.columns:
+            low = df['low']
+        elif 'min' in df.columns:
+            low = df['min']
+        else:
+            low = close  # fallback
+        
+        ema9 = close.ewm(9).mean()
+        ema21 = close.ewm(21).mean()
+        rsi = calc_rsi(close,7)
+        rsi_now = float(rsi.iloc[-1])
+        e9 = float(ema9.iloc[-1])
+        e21 = float(ema21.iloc[-1])
+        mom1 = (close.iloc[-1]-close.iloc[-2])/close.iloc[-2]*100
+        is_green = float(close.iloc[-1]) > float(open_.iloc[-1])
+        
+        # Wick calc with safe fallback
+        try:
+            body_size = abs(float(close.iloc[-1]) - float(open_.iloc[-1]))
+            upper_wick = float(high.iloc[-1]) - max(float(close.iloc[-1]), float(open_.iloc[-1]))
+            lower_wick = min(float(close.iloc[-1]), float(open_.iloc[-1])) - float(low.iloc[-1])
+        except:
+            body_size = 0.0001
+            upper_wick = 0
+            lower_wick = 0
+        
+        sig = "CALL" if is_green else "PUT"
+        score = 75
+        reason = "OTC"
+        
+        if mode == "KING":
+            if e9 > e21 and is_green and 55 <= rsi_now <= 72 and upper_wick < body_size*0.5 and mom1 > 0.02:
+                sig = "CALL"; score = 95; reason = f"👑 KING Bull {mom1:.3f}% RSI {rsi_now:.0f}"
+            elif e9 < e21 and not is_green and 28 <= rsi_now <= 45 and lower_wick < body_size*0.5 and mom1 < -0.02:
+                sig = "PUT"; score = 95; reason = f"👑 KING Bear {mom1:.3f}% RSI {rsi_now:.0f}"
+            elif e9 > e21 and is_green: sig = "CALL"; score = 86; reason = "👑 KING EMA Bull"
+            else: sig = "PUT"; score = 86; reason = "👑 KING EMA Bear"
+        else:
+            if e9 > e21 and is_green and rsi_now > 55: sig = "CALL"; score = 92; reason = f"🚀 Bull {mom1:.3f}%"
+            elif e9 < e21 and not is_green and rsi_now < 45: sig = "PUT"; score = 92; reason = f"📉 Bear {mom1:.3f}%"
+            elif e9 > e21: sig = "CALL"; score = 84; reason = "📈 EMA Bull"
+            else: sig = "PUT"; score = 84; reason = "📉 EMA Bear"
+        
         if sniper:
             need = 95 if mode=="SNIPER" else 88 if mode in ["KING","SAFE"] else 80 if mode=="AGGRO" else 88
             if score < need:
                 return {"pair":pair,"conf":score,"rejected":True,"payout":payout,"reason":f"{reason} {score}% < {need}%"}
+        
         return {"pair":pair,"dir":sig,"conf":score,"price":float(close.iloc[-1]),"reason":reason,"df":df.tail(30),"rejected":False,"payout":payout}
     except Exception as e:
+        import traceback
         print(f"Analyze err {pair}: {e}")
-        return {"pair":pair,"conf":0,"rejected":True,"reason":f"❌ Analyze Error {e}","payout":0.85}
+        traceback.print_exc()
+        return {"pair":pair,"conf":0,"rejected":True,"reason":f"❌ Analyze Error {str(e)[:100]} for {pair}","payout":0.85}
 
 def calc_rsi(closes, period=7):
     delta=closes.diff(); gain=delta.where(delta>0,0).rolling(period).mean()
