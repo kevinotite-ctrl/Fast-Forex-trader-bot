@@ -10,12 +10,11 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 warnings.filterwarnings("ignore")
-logging.getLogger().setLevel(logging.CRITICAL)
-logging.disable(logging.ERROR)
+logging.getLogger('werkzeug').setLevel(logging.ERROR)
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-OWNER_ID = 8659453018
-bot = telebot.TeleBot(BOT_TOKEN)
+OWNER_ID = int(os.getenv("OWNER_ID", "8659453018"))
+bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 app = Flask(__name__)
 
 REAL_PAIRS = ["EURUSD","GBPUSD","USDJPY","EURGBP","AUDUSD","USDCAD","EURJPY","GBPJPY"]
@@ -42,23 +41,19 @@ try:
     from iqoptionapi.stable_api import IQ_Option
     EMAIL=os.getenv("IQ_EMAIL"); PWD=os.getenv("IQ_PASS")
     if EMAIL and PWD:
-        logging.disable(logging.CRITICAL)
         iq=IQ_Option(EMAIL,PWD); iq.connect()
         IQ_CONNECTED=iq.check_connect()
         if IQ_CONNECTED:
             try: iq.change_balance("PRACTICE")
             except: pass
-        logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
 except: IQ_CONNECTED=False
 
 def iq_reconnect():
     global iq, IQ_CONNECTED
     try:
         from iqoptionapi.stable_api import IQ_Option
-        logging.disable(logging.CRITICAL)
         iq=IQ_Option(os.getenv("IQ_EMAIL"),os.getenv("IQ_PASS")); iq.connect()
         IQ_CONNECTED=iq.check_connect()
-        logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
         return IQ_CONNECTED
     except: IQ_CONNECTED=False; return False
 
@@ -67,8 +62,7 @@ def get_payout(pair):
     if time.time()-PAYOUT_TIME<60 and pair in PAYOUT_CACHE: return PAYOUT_CACHE[pair]
     try:
         with IQ_LOCK:
-            logging.disable(logging.CRITICAL); all_p=iq.get_all_profit()
-            logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
+            all_p=iq.get_all_profit()
             if pair in all_p:
                 for k in ['blitz','turbo','binary']:
                     if k in all_p[pair]:
@@ -81,9 +75,8 @@ def get_candles(pair):
     for _ in range(3):
         try:
             with IQ_LOCK:
-                logging.disable(logging.CRITICAL); c=iq.get_candles(pair,60,50,time.time())
+                c=iq.get_candles(pair,60,50,time.time())
                 if not c and "OTC" not in pair: c=iq.get_candles(pair,300,50,time.time())
-                logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
             if c and len(c)>20:
                 df=pd.DataFrame(sorted(c,key=lambda x:x['from']))
                 if 'max' in df.columns: df['high']=df['max']
@@ -95,7 +88,8 @@ def get_candles(pair):
 def calc_rsi(closes, period=7):
     delta=closes.diff(); gain=delta.where(delta>0,0).rolling(period).mean()
     loss=-delta.where(delta<0,0).rolling(period).mean()
-    return 100-(100/(1+gain/loss))
+    rs = gain / loss.replace(0, 0.001)
+    return 100-(100/(1+rs))
 
 def calc_atr(df, period=14):
     hl=df['high']-df['low']; hc=abs(df['high']-df['close'].shift()); lc=abs(df['low']-df['close'].shift())
@@ -107,17 +101,17 @@ def legit_live_scan(cid, mid, pair):
     SCAN_LOCK[cid]=True
     try:
         steps = [
-            (0, "🚀 Initializing V8...", 0.15),
+            (0, "🚀 Initializing V59...", 0.15),
             (15, f"🔌 IQ Check {pair}...", 0.2),
             (30, "📊 Fetching candles...", 0.2),
-            (50, "📈 EMA9 + EMA21...", 0.2),
-            (70, "💹 RSI + ATR...", 0.2),
+            (50, "📈 EMA9 + EMA21 + EMA5...", 0.2),
+            (70, "💹 RSI 68/32 + ATR...", 0.2),
             (85, "🔍 Final lock...", 0.25),
         ]
         for pct, text, delay in steps:
             filled=int(pct//5); bar="█"*filled+"░"*(20-filled)
             color="🟥" if pct<40 else "🟨" if pct<80 else "🟩"
-            txt=f"""{color} Z-BOT V8 LEGIT SCAN {color}
+            txt=f"""{color} Z-BOT V59 LEGIT SCAN {color}
 
 💱 Pair: {PAIR_EMOJI.get(pair, pair)}
 💎 IQ: {'✅ Connected' if IQ_CONNECTED else '❌ Offline'}
@@ -127,14 +121,12 @@ def legit_live_scan(cid, mid, pair):
 
 🔍 {text}
 
-⏳ Fast scan - V8.9
+⏳ Fast scan - V59
 """
             try: bot.edit_message_text(txt, cid, mid)
             except: pass
             time.sleep(delay)
-        for _ in range(3):
-            try:
-                final_txt=f"""💎 Z-BOT V8 LEGIT SCAN 💎
+        final_txt=f"""💎 Z-BOT V59 LEGIT SCAN 💎
 
 💱 Pair: {PAIR_EMOJI.get(pair, pair)}
 💎 IQ: {'✅ Connected' if IQ_CONNECTED else '❌ Offline'}
@@ -144,10 +136,10 @@ def legit_live_scan(cid, mid, pair):
 
 🔍 🔒 SIGNAL LOCKED! READY TO TRADE!
 
-⏳ Scan complete - V8.9!
+⏳ Scan complete - V59!
 """
-                bot.edit_message_text(final_txt, cid, mid)
-                break
+        for _ in range(3):
+            try: bot.edit_message_text(final_txt, cid, mid); break
             except: time.sleep(0.2)
     finally:
         SCAN_LOCK[cid]=False
@@ -157,9 +149,9 @@ def analyze_otc_improved(pair):
     if df is None: return None
     try:
         close=df['close']; open_=df['open']; high=df['high']; low=df['low']
-        ema9=close.ewm(9).mean(); ema21=close.ewm(21).mean()
+        ema9=close.ewm(9).mean(); ema21=close.ewm(21).mean(); ema5=close.ewm(5).mean()
         rsi=calc_rsi(close,7); rsi_now=float(rsi.iloc[-1])
-        e9=float(ema9.iloc[-1]); e21=float(ema21.iloc[-1])
+        e9=float(ema9.iloc[-1]); e21=float(ema21.iloc[-1]); e5=float(ema5.iloc[-1])
         e9p=float(ema9.iloc[-2]); e21p=float(ema21.iloc[-2])
         mom1=(close.iloc[-1]-close.iloc[-2])/close.iloc[-2]*100
         mom3=(close.iloc[-1]-close.iloc[-4])/close.iloc[-4]*100
@@ -169,15 +161,19 @@ def analyze_otc_improved(pair):
         lower=min(float(close.iloc[-1]),float(open_.iloc[-1]))-float(low.iloc[-1])
         payout=get_payout(pair)
         if payout<0.78: return {"pair":pair,"conf":50,"rejected":True}
+        # V59: Doji filter
+        total_range = max(float(high.iloc[-1])-float(low.iloc[-1]), 0.00001)
+        body_pct = body/total_range
+        if body_pct < 0.15: return {"pair":pair,"conf":60,"rejected":True,"reason":"Doji"}
         sig="CALL" if is_green else "PUT"; score=75; reason="OTC"
-        if e9>e21 and e9p<=e21p and is_green and 55<=rsi_now<=72 and upper<body*0.35 and mom1>0.03 and mom3>0.06:
-            sig="CALL"; score=95; reason=f"🔥 OTC CROSS BULL Wick {upper/body:.1f} RSI {rsi_now:.0f} MOM {mom1:.3f}%"
-        elif e9<e21 and e9p>=e21p and not is_green and 28<=rsi_now<=45 and lower<body*0.35 and mom1<-0.03 and mom3<-0.06:
-            sig="PUT"; score=95; reason=f"🔥 OTC CROSS BEAR Wick {lower/body:.1f} RSI {rsi_now:.0f} MOM {mom1:.3f}%"
-        elif e9>e21 and is_green and rsi_now>58 and mom1>0.02 and upper<body*0.5:
-            sig="CALL"; score=90; reason=f"🚀 OTC Bull MOM {mom1:.3f}%"
-        elif e9<e21 and not is_green and rsi_now<42 and mom1<-0.02 and lower<body*0.5:
-            sig="PUT"; score=90; reason=f"📉 OTC Bear MOM {mom1:.3f}%"
+        if e9>e21 and e9p<=e21p and is_green and 55<=rsi_now<=68 and close.iloc[-1]>e5 and upper<body*0.35 and mom1>0.03 and mom3>0.06:
+            sig="CALL"; score=95; reason=f"🔥 OTC CROSS BULL Wick {upper/body:.1f} RSI {rsi_now:.0f} >EMA5 MOM {mom1:.3f}%"
+        elif e9<e21 and e9p>=e21p and not is_green and 32<=rsi_now<=45 and close.iloc[-1]<e5 and lower<body*0.35 and mom1<-0.03 and mom3<-0.06:
+            sig="PUT"; score=95; reason=f"🔥 OTC CROSS BEAR Wick {lower/body:.1f} RSI {rsi_now:.0f} <EMA5 MOM {mom1:.3f}%"
+        elif e9>e21 and is_green and rsi_now>58 and rsi_now<68 and close.iloc[-1]>e5 and mom1>0.02 and upper<body*0.5:
+            sig="CALL"; score=90; reason=f"🚀 OTC Bull MOM {mom1:.3f}% >EMA5"
+        elif e9<e21 and not is_green and rsi_now<42 and rsi_now>32 and close.iloc[-1]<e5 and mom1<-0.02 and lower<body*0.5:
+            sig="PUT"; score=90; reason=f"📉 OTC Bear MOM {mom1:.3f}% <EMA5"
         elif e9>e21: sig="CALL"; score=82; reason="📈 OTC EMA Bull"
         else: sig="PUT"; score=82; reason="📉 OTC EMA Bear"
         return {"pair":pair,"dir":sig,"conf":score,"price":float(close.iloc[-1]),"rsi":rsi_now,"reason":reason,"payout":payout,"df":df.tail(30),"rejected":False if score>=88 else True}
@@ -188,10 +184,10 @@ def analyze_real_improved(pair):
     if df is None: return None
     try:
         close=df['close']; open_=df['open']; high=df['high']; low=df['low']
-        ema21=close.ewm(21).mean(); ema50=close.ewm(50).mean()
+        ema21=close.ewm(21).mean(); ema50=close.ewm(50).mean(); ema5=close.ewm(5).mean()
         rsi=calc_rsi(close,14); rsi_now=float(rsi.iloc[-1])
         atr=calc_atr(df,14); atr_now=float(atr.iloc[-1]); atr_avg=float(atr.tail(20).mean())
-        e21=float(ema21.iloc[-1]); e50=float(ema50.iloc[-1])
+        e21=float(ema21.iloc[-1]); e50=float(ema50.iloc[-1]); e5=float(ema5.iloc[-1])
         e21p=float(ema21.iloc[-5]); e50p=float(ema50.iloc[-5])
         mom5=(close.iloc[-1]-close.iloc[-6])/close.iloc[-6]*100
         is_green=float(close.iloc[-1])>float(open_.iloc[-1])
@@ -199,13 +195,13 @@ def analyze_real_improved(pair):
         if payout<0.78: return {"pair":pair,"conf":50,"rejected":True}
         sig="CALL" if is_green else "PUT"; score=75; reason="REAL"
         strong=atr_now>atr_avg*0.85
-        if e21>e50 and e21p<=e50p and is_green and 50<=rsi_now<=68 and strong and mom5>0.08:
-            sig="CALL"; score=94; reason=f"💎 REAL CROSS BULL ATR {atr_now:.5f} RSI {rsi_now:.0f}"
-        elif e21<e50 and e21p>=e50p and not is_green and 32<=rsi_now<=50 and strong and mom5<-0.08:
-            sig="PUT"; score=94; reason=f"💎 REAL CROSS BEAR ATR {atr_now:.5f} RSI {rsi_now:.0f}"
-        elif e21>e50 and close.iloc[-1]>e21 and rsi_now>55 and strong and mom5>0.05:
+        if e21>e50 and e21p<=e50p and is_green and 50<=rsi_now<=68 and close.iloc[-1]>e5 and strong and mom5>0.08:
+            sig="CALL"; score=94; reason=f"💎 REAL CROSS BULL ATR {atr_now:.5f} RSI {rsi_now:.0f} >EMA5"
+        elif e21<e50 and e21p>=e50p and not is_green and 32<=rsi_now<=50 and close.iloc[-1]<e5 and strong and mom5<-0.08:
+            sig="PUT"; score=94; reason=f"💎 REAL CROSS BEAR ATR {atr_now:.5f} RSI {rsi_now:.0f} <EMA5"
+        elif e21>e50 and close.iloc[-1]>e21 and close.iloc[-1]>e5 and rsi_now>55 and rsi_now<68 and strong and mom5>0.05:
             sig="CALL"; score=90; reason=f"💵 REAL Trend Bull {mom5:.3f}%"
-        elif e21<e50 and close.iloc[-1]<e21 and rsi_now<45 and strong and mom5<-0.05:
+        elif e21<e50 and close.iloc[-1]<e21 and close.iloc[-1]<e5 and rsi_now<45 and rsi_now>32 and strong and mom5<-0.05:
             sig="PUT"; score=90; reason=f"💷 REAL Trend Bear {mom5:.3f}%"
         elif not strong:
             return {"pair":pair,"conf":65,"rejected":True,"reason":f"⚠️ Low Vol"}
@@ -220,32 +216,24 @@ def analyze_momentum(pair, sniper_mode=False):
     if sniper_mode and d.get('rejected'): return None
     return d
 
-# ===== FIXED NO SUSPEND TRADE =====
 def iq_trade(pair,direction,amount,bal,expiry_sec=30):
     try:
         with IQ_LOCK:
-            logging.disable(logging.CRITICAL)
             try: iq.change_balance(bal)
             except: pass
             try:
                 ot=iq.get_all_open_time()
                 if pair in ot and not ot[pair]['open']:
-                    logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
                     print(f"{pair} CLOSED", flush=True)
                     return False, None, 0
             except: pass
-            logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
             if "OTC" in pair:
                 try:
-                    logging.disable(logging.CRITICAL)
                     _,oid=iq.buy_blitz(pair,amount,direction.lower(),expiry_sec)
-                    logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
                     if oid: return True,oid,expiry_sec
                 except: pass
                 try:
-                    logging.disable(logging.CRITICAL)
                     _,oid=iq.buy(amount,pair,direction.lower(),1)
-                    logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
                     return True,oid,60
                 except: pass
                 return False,None,0
@@ -254,9 +242,7 @@ def iq_trade(pair,direction,amount,bal,expiry_sec=30):
                 if exp_min not in [1,2,5,3,15]: exp_min = 1
                 for mins in [exp_min,1,2,5,3]:
                     try:
-                        logging.disable(logging.CRITICAL)
                         check,oid=iq.buy(amount,pair,direction.lower(),mins)
-                        logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
                         if oid and "suspend" not in str(oid).lower() and check!=False:
                             return True,oid,mins*60
                     except: continue
@@ -265,14 +251,11 @@ def iq_trade(pair,direction,amount,bal,expiry_sec=30):
         print(f"Trade fail {pair}: {e}", flush=True)
         return False,None,0
 
-# ===== BACKGROUND RESULT CHECKER - FAST REPLY FIX =====
 def check_result_thread(cid, oid, pair, expiry_txt, amt, exp, bal):
     time.sleep(exp+3)
     try:
         with IQ_LOCK:
-            logging.disable(logging.CRITICAL)
             pnl=iq.check_win_v4(oid)
-            logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
         if pnl>0:
             STATS['wins']+=1; STATS['balance']+=pnl; STATS['streak']+=1
             mk=types.InlineKeyboardMarkup(row_width=2)
@@ -293,7 +276,7 @@ def check_result_thread(cid, oid, pair, expiry_txt, amt, exp, bal):
 
 def auto_trader_loop(cid):
     consecutive_losses = 0; AUTO_LOCK[cid] = True
-    bot.send_message(cid, f"🔒 AUTO ONE TRADE LOCKED - 88%+ Only + Payout 78%+")
+    bot.send_message(cid, f"🔒 AUTO ONE TRADE LOCKED - 88%+ Only + Payout 78%+ V59")
     while AUTO_STATE.get(cid, {}).get('running', False):
         if AUTO_STATE[cid].get('in_trade', False): time.sleep(5); continue
         try:
@@ -320,7 +303,7 @@ def auto_trader_loop(cid):
             bot.send_message(cid, f"🤖 AUTO #{state['trades']+1} {pair_to_trade} {d['dir']} ${curr_amt:.2f} {d['conf']}% {int(d['payout']*100)}% ID {oid} ⏱️{exp}s")
             time.sleep(exp+3)
             try:
-                with IQ_LOCK: logging.disable(logging.CRITICAL); pnl=iq.check_win_v4(oid); logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
+                with IQ_LOCK: pnl=iq.check_win_v4(oid)
                 if pnl>0:
                     STATS['wins']+=1; STATS['balance']+=pnl; STATS['streak']+=1; AUTO_STATE[cid]['trades']+=1; consecutive_losses=0
                     bot.send_message(cid, f"✅ AUTO WIN +${pnl:.2f} Bal ${STATS['balance']:.2f} ➡️ Next BASE ${state['base_amt']}")
@@ -350,17 +333,16 @@ def start(m):
     mk.add(types.InlineKeyboardButton("💹 MANUAL TRADE (16 PAIRS)", callback_data="trade"))
     mk.add(types.InlineKeyboardButton("🤖 AUTO-TRADER 88%+ MARTINGALE", callback_data="auto_setup"))
     mk.add(types.InlineKeyboardButton("📊 MY STATS", callback_data="stats"))
-    txt=f"""🤖 Z-BOT V8.9 FAST FIX 🤖
+    txt=f"""🤖 Z-BOT V59 DOLLAR KING - NOV 2 🤖
 
 💎 IQ: {'✅' if IQ_CONNECTED else '❌'} | 💰 ${STATS['balance']:.2f}
 🏆 W: {STATS['wins']} L: {STATS['loss']} | 🔥 {STATS['streak']}
 
-🔥 OTC: Wick 0.35 + RSI7 + MOM
-💎 REAL: ATR 0.85x + RSI14
+🔥 V59: RSI 68/32 + EMA5 + Doji Filter
+💎 REAL: ATR 0.85x + EMA21/50 cross + EMA5
 
-✅ No 85% hook - Force 100%
-✅ Fast reply after place - No freeze!
-✅ No suspend - REAL=1,2,5min
+✅ Fast reply + No suspend + Honest win rate
+✅ Auto-pause after 3 wins - discipline
 
 👇 Choose:
 """
@@ -447,7 +429,7 @@ def cb(c):
         bot.send_message(cid, f"✅ ${amt}\n\n⏱️ STEP 4/4 - EXPIRY", reply_markup=mk); return
     if data.startswith("exp_"):
         parts=data.split("_"); expiry=int(parts[1]); pair=parts[2]; bal=parts[3]; amt=float(parts[4])
-        scan_msg = bot.send_message(cid, f"🔍 V8.9 SCAN {PAIR_EMOJI.get(pair,pair)}\n\n0% 🚀 Starting...")
+        scan_msg = bot.send_message(cid, f"🔍 V59 SCAN {PAIR_EMOJI.get(pair,pair)}\n\n0% 🚀 Starting...")
         legit_live_scan(cid, scan_msg.message_id, pair)
         d=analyze_momentum(pair, sniper_mode=False)
         if not d:
@@ -473,21 +455,17 @@ def cb(c):
             mk.add(types.InlineKeyboardButton("💹 NEW TRADE", callback_data="trade"),
                    types.InlineKeyboardButton("🔄 RETRY", callback_data=f"exp_{expiry}_{pair}_{bal}_{int(amt)}"))
             bot.send_message(cid, f"❌ {pair} closed/suspended - Try OTC", reply_markup=mk); iq_reconnect(); return
-        
-        # FAST REPLY - NO FREEZE!
         mk=types.InlineKeyboardMarkup(row_width=2)
         mk.add(types.InlineKeyboardButton("💹 NEW TRADE", callback_data="trade"),
                types.InlineKeyboardButton("📊 STATS", callback_data="stats"))
         bot.send_message(cid, f"✅ Placed {oid} | ⏱️ {expiry_txt} waiting... I go ping you when done!\n👇 You fit trade again now!", reply_markup=mk)
-        
-        # BACKGROUND THREAD FOR RESULT
         threading.Thread(target=check_result_thread, args=(cid, oid, pair, expiry_txt, amt, exp, bal), daemon=True).start()
         return
     if data=="stats":
         total=STATS['wins']+STATS['loss']; wr=(STATS['wins']/total*100) if total else 0
         bot.send_message(cid, f"📊 STATS W{STATS['wins']} L{STATS['loss']} {wr:.1f}% Streak {STATS['streak']} Bal ${STATS['balance']:.2f}")
     if data=="settings":
-        bot.send_message(cid, f"⚙️ SETTINGS V8.9\n🔥 OTC: Wick 0.35 RSI7 MOM\n💎 REAL: ATR 0.85x RSI14\nFast reply + No suspend")
+        bot.send_message(cid, f"⚙️ SETTINGS V59\n🔥 OTC: Wick 0.35 RSI 68/32 + EMA5 MOM\n💎 REAL: ATR 0.85x RSI14 + EMA5\nFast reply + No suspend + Doji filter")
 
 @bot.message_handler(func=lambda m: user_states.get(m.chat.id, {}).get("step")=="await_amt")
 def handle_custom_amt(m):
@@ -514,5 +492,5 @@ def home():
     if u:
         try: requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={u}/{BOT_TOKEN}", timeout=5)
         except: pass
-    return "V8.9 FAST REPLY + NO SUSPEND + NO 85% HOOK - RUNNING"
+    return "V59 DOLLAR KING - FAST REPLY + NO SUSPEND + RSI 68/32 + EMA5 - RUNNING"
 app.run(host="0.0.0.0", port=int(os.getenv("PORT",10000)))
