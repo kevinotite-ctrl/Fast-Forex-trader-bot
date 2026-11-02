@@ -39,6 +39,7 @@ user_states = {}; AUTO_STATE = {}; AUTO_LOCK = {}
 IQ_LOCK = threading.RLock()
 IQ_CONNECTED=False; iq=None
 PAYOUT_CACHE={}; PAYOUT_TIME=0
+LAST_ERROR = "No error yet"
 
 def is_allowed(uid): return uid == OWNER_ID
 
@@ -113,7 +114,6 @@ def calc_rsi(closes, period=7):
     return 100-(100/(1+gain/loss))
 
 def legit_live_scan(cid, mid, pair):
-    # ORIGINAL SCANNING - UNTOUCHED!
     steps = [
         (0, "🚀 Initializing V8...", 0.15),
         (15, f"🔌 IQ Check {pair}...", 0.2),
@@ -194,54 +194,62 @@ def analyze_momentum(pair, sniper_mode=False):
         return {"pair":pair,"dir":"CALL","conf":70,"price":0,"rsi":50,"reason":f"Fallback","payout":payout,"df":None,"rejected":False}
 
 def iq_trade(pair,direction,amount,bal,expiry_sec=30):
-    print(f"TRYING TRADE {pair} {direction} ${amount} {bal} {expiry_sec}s", flush=True)
+    global LAST_ERROR
+    error_log = ""
     try:
         with IQ_LOCK:
             logging.disable(logging.CRITICAL)
-            try: iq.change_balance(bal)
-            except: pass
+            try:
+                iq.change_balance(bal)
+                bal_now = iq.get_balance()
+                error_log += f"Bal {bal} = {bal_now}\n"
+            except Exception as e:
+                error_log += f"Bal fail: {e}\n"
             logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
             is_real = "-OTC" not in pair
+            mins = max(1, int(expiry_sec/60))
             if is_real:
-                # REAL MARKET FIX - NO BLITZ!
                 try:
-                    mins = max(1, int(expiry_sec/60))
                     logging.disable(logging.CRITICAL)
-                    _,oid=iq.buy(amount,pair,direction.lower(),mins)
+                    check, oid = iq.buy(amount, pair, direction.lower(), mins)
                     logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
-                    print(f"SUCCESS REAL {pair} {oid}", flush=True)
-                    return True,oid,expiry_sec
+                    if check:
+                        LAST_ERROR = "SUCCESS"
+                        return True, oid, expiry_sec
+                    else:
+                        error_log += f"REAL {mins}m returned False id:{oid}\n"
                 except Exception as e:
-                    print(f"Real {pair} fail: {e}", flush=True)
-                    try:
-                        logging.disable(logging.CRITICAL)
-                        _,oid=iq.buy(amount,pair,direction.lower(),5)
-                        logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
-                        print(f"SUCCESS REAL 5MIN {pair} {oid}", flush=True)
-                        return True,oid,300
-                    except Exception as e2:
-                        print(f"Real 5min fail: {e2}", flush=True)
-            else:
-                if expiry_sec <= 90:
-                    try:
-                        logging.disable(logging.CRITICAL)
-                        _,oid=iq.buy_blitz(pair,amount,direction.lower(),expiry_sec)
-                        logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
-                        print(f"SUCCESS BLITZ {pair} {oid}", flush=True)
-                        return True,oid,expiry_sec
-                    except Exception as e:
-                        print(f"Blitz {pair} fail: {e}", flush=True)
+                    error_log += f"REAL {mins}m EX: {e}\n"
+                    logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
+            if not is_real and expiry_sec <= 90:
                 try:
-                    mins = max(1, int(expiry_sec/60))
                     logging.disable(logging.CRITICAL)
-                    _,oid=iq.buy(amount,pair,direction.lower(),mins)
+                    check, oid = iq.buy_blitz(pair, amount, direction.lower(), expiry_sec)
                     logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
-                    print(f"SUCCESS OTC {pair} {oid}", flush=True)
-                    return True,oid,expiry_sec
+                    if check:
+                        LAST_ERROR = "SUCCESS"
+                        return True, oid, expiry_sec
+                    else:
+                        error_log += f"Blitz {expiry_sec}s False id:{oid}\n"
                 except Exception as e:
-                    print(f"OTC Binary {pair} fail: {e}", flush=True)
+                    error_log += f"Blitz {expiry_sec}s EX: {e}\n"
+                    logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
+            try:
+                logging.disable(logging.CRITICAL)
+                check, oid = iq.buy(amount, pair, direction.lower(), mins)
+                logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
+                if check:
+                    LAST_ERROR = "SUCCESS"
+                    return True, oid, expiry_sec
+                else:
+                    error_log += f"Binary {mins}m False id:{oid}\n"
+            except Exception as e:
+                error_log += f"Binary {mins}m EX: {e}\n"
+                logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
     except Exception as e:
-        print(f"TOTAL FAIL {pair}: {e}", flush=True)
+        error_log += f"TOTAL CRASH: {e}\n"
+    LAST_ERROR = f"❌ {pair} FAIL\n{error_log}\nTime {datetime.now().strftime('%H:%M:%S')}\nREAL_OPEN={is_real_market_open()}"
+    print(f"FAIL LOG: {LAST_ERROR}", flush=True)
     return False,None,0
 
 def auto_trader_loop(cid):
@@ -264,8 +272,7 @@ def auto_trader_loop(cid):
                 d = best; pair_to_trade = d['pair']
             else:
                 if "-OTC" not in pair_to_trade and not is_real_market_open():
-                    bot.send_message(cid, f"⏳ REAL {pair_to_trade} closed now, waiting 60s...")
-                    time.sleep(60); continue
+                    bot.send_message(cid, f"⏳ REAL {pair_to_trade} closed, waiting 60s..."); time.sleep(60); continue
                 d = analyze_momentum(pair_to_trade, sniper_mode=True)
                 if not d or d.get('rejected'): time.sleep(20); continue
             curr_amt = state['base_amt'] if consecutive_losses==0 else min(state['base_amt'] * (2.2 ** consecutive_losses), state['base_amt'] * 8)
@@ -273,8 +280,7 @@ def auto_trader_loop(cid):
             ok, oid, exp = iq_trade(pair_to_trade, d['dir'], curr_amt, state['bal'], state['expiry'])
             if not ok:
                 AUTO_STATE[cid]['in_trade'] = False
-                bot.send_message(cid, f"⚠️ {pair_to_trade} not available, trying next 10s...")
-                time.sleep(10); continue
+                bot.send_message(cid, f"⚠️ {pair_to_trade} fail\n{LAST_ERROR}\nTrying next 10s..."); time.sleep(10); continue
             bot.send_message(cid, f"🤖 **AUTO #{state['trades']+1}**\n💱 {pair_to_trade} {d['dir']} ${curr_amt:.2f}\n🎯 {d['conf']}% ID {oid}")
             time.sleep(exp+5)
             try:
@@ -288,7 +294,7 @@ def auto_trader_loop(cid):
                     consecutive_losses = 0
                 else:
                     STATS['loss']+=1; STATS['balance']-=curr_amt; STATS['streak']=0; AUTO_STATE[cid]['trades']+=1; consecutive_losses+=1
-                    bot.send_message(cid, f"❌ **LOSS -${curr_amt:.2f}** {pair_to_trade} Next ${state['base_amt'] * (2.2 ** consecutive_losses):.2f}")
+                    bot.send_message(cid, f"❌ **LOSS -${curr_amt:.2f}** {pair_to_trade}")
                     if consecutive_losses >= 3: time.sleep(60); consecutive_losses=0
             except: bot.send_message(cid, f"⏱️ Expired {oid}")
             AUTO_STATE[cid]['in_trade'] = False; time.sleep(10)
@@ -308,14 +314,14 @@ def start(m):
     if m.text.startswith('/debug'):
         try:
             with IQ_LOCK:
-                logging.disable(logging.CRITICAL); ot = iq.get_all_open_time(); prof = iq.get_all_profit()
+                logging.disable(logging.CRITICAL); ot = iq.get_all_open_time(); prof = iq.get_all_profit(); bal = iq.get_balance() if IQ_CONNECTED else 0
                 logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
-            msg = "🔍 **IQ DEBUG**\n"; msg+= f"REAL OPEN: {is_real_market_open()}\n\n"
+            msg = f"🔍 **DEBUG**\nBal {bal}\nREAL OPEN {is_real_market_open()}\nIQ {IQ_CONNECTED}\n\nLast error:\n{LAST_ERROR}\n\n"
             for p in ["EURUSD","GBPUSD","EURUSD-OTC","USDZAR-OTC"]:
                 is_open = ot.get(p, {}).get('open', 'unknown'); payout = prof.get(p, {})
                 msg += f"{p}: open={is_open} {payout}\n"
             bot.send_message(m.chat.id, msg)
-        except Exception as e: bot.send_message(m.chat.id, f"Debug fail: {e}")
+        except Exception as e: bot.send_message(m.chat.id, f"Debug fail: {e}\nLast: {LAST_ERROR}")
         return
     mk=types.InlineKeyboardMarkup(row_width=1)
     mk.add(types.InlineKeyboardButton("💹 MANUAL TRADE (ANY %)", callback_data="trade"))
@@ -323,14 +329,15 @@ def start(m):
     mk.add(types.InlineKeyboardButton("📊 MY STATS", callback_data="stats"), types.InlineKeyboardButton("⚙️ SETTINGS", callback_data="settings"))
     mk.add(types.InlineKeyboardButton("🔍 DEBUG IQ", callback_data="debug_iq"))
     real_status = "🟢 REAL OPEN" if is_real_market_open() else "🔴 REAL CLOSED - Use OTC"
-    txt=f"""🤖 **Z-BOT PRO V9 REAL FIX** 🤖
+    txt=f"""🤖 **Z-BOT V9.1 DEBUG** 🤖
 
 💎 IQ: {'✅' if IQ_CONNECTED else '❌'} | {real_status}
-💰 ${STATS['balance']:.2f} | W: {STATS['wins']} L: {STATS['loss']} 🔥{STATS['streak']}
+💰 ${STATS['balance']:.2f} | W: {STATS['wins']} L: {STATS['loss']}
 
-✅ REAL FIXED: No Blitz for REAL!
-💹 MANUAL: Any signal
-🤖 AUTO: 90%+ One at a time
+✅ REAL FIX + ERROR SHOW
+💹 MANUAL + 🤖 AUTO
+
+Last Error: {LAST_ERROR[:100]}
 
 👇 **Choose:**
 """
@@ -345,12 +352,12 @@ def cb(c):
             with IQ_LOCK:
                 logging.disable(logging.CRITICAL); ot = iq.get_all_open_time(); prof = iq.get_all_profit()
                 logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
-            msg = f"🔍 **IQ DEBUG** REAL OPEN: {is_real_market_open()}\n\n"
-            for p in ["EURUSD","GBPUSD","EURUSD-OTC","GBPUSD-OTC","USDZAR-OTC","USDMXN-OTC"]:
+            msg = f"🔍 **DEBUG** REAL {is_real_market_open()}\nLast:\n{LAST_ERROR}\n\n"
+            for p in ["EURUSD","GBPUSD","EURUSD-OTC","GBPUSD-OTC","USDZAR-OTC"]:
                 is_open = ot.get(p, {}).get('open', 'unknown'); payout = prof.get(p, {})
                 msg += f"{p}: open={is_open} {payout}\n"
             bot.send_message(cid, msg)
-        except Exception as e: bot.send_message(cid, f"Debug fail: {e}")
+        except Exception as e: bot.send_message(cid, f"Debug fail: {e}\n{LAST_ERROR}")
         return
     if data=="trade":
         mk=types.InlineKeyboardMarkup(row_width=2)
@@ -358,8 +365,8 @@ def cb(c):
             label = PAIR_EMOJI.get(p,p)
             if "-OTC" not in p and not is_real_market_open(): label += " ⏳ CLOSED"
             mk.add(types.InlineKeyboardButton(label, callback_data=f"pair_{p}"))
-        status = "🟢 REAL OPEN - REAL will work!" if is_real_market_open() else "🔴 REAL CLOSED (Mon 00-03 UTC) - Use OTC/Exotic"
-        bot.send_message(cid, f"💹 **MANUAL - SELECT**\n{status}", reply_markup=mk, parse_mode="Markdown"); return
+        status = "🟢 REAL OPEN" if is_real_market_open() else "🔴 REAL CLOSED - Use OTC"
+        bot.send_message(cid, f"💹 **MANUAL**\n{status}", reply_markup=mk, parse_mode="Markdown"); return
     if data=="auto_setup":
         mk=types.InlineKeyboardMarkup(row_width=2)
         mk.add(types.InlineKeyboardButton("🤖 AUTO SCAN ALL", callback_data="auto_pair_AUTO"))
@@ -367,13 +374,13 @@ def cb(c):
             label = PAIR_EMOJI.get(p,p)
             if "-OTC" not in p and not is_real_market_open(): continue
             mk.add(types.InlineKeyboardButton(label, callback_data=f"auto_pair_{p}"))
-        bot.send_message(cid, f"🤖 **AUTO SETUP 1/4 - PAIR**\nREAL filtered if closed", reply_markup=mk, parse_mode="Markdown"); return
+        bot.send_message(cid, f"🤖 **AUTO 1/4 PAIR**", reply_markup=mk, parse_mode="Markdown"); return
     if data.startswith("auto_pair_"):
         pair="_".join(data.split("_")[2:])
         mk=types.InlineKeyboardMarkup(row_width=2)
         mk.add(types.InlineKeyboardButton("🟢 DEMO", callback_data=f"auto_bal_PRACTICE_{pair}"))
         mk.add(types.InlineKeyboardButton("🔴 REAL", callback_data=f"auto_bal_REAL_{pair}"))
-        bot.send_message(cid, f"✅ Pair: {pair}\n\n🤖 **SETUP 2/4 - ACCOUNT**", reply_markup=mk, parse_mode="Markdown"); return
+        bot.send_message(cid, f"✅ Pair: {pair}\n\n🤖 **2/4 ACCOUNT**", reply_markup=mk, parse_mode="Markdown"); return
     if data.startswith("auto_bal_"):
         parts=data.split("_"); bal=parts[2]; pair="_".join(parts[3:])
         mk=types.InlineKeyboardMarkup(row_width=3)
@@ -381,24 +388,23 @@ def cb(c):
                types.InlineKeyboardButton("💵 $5", callback_data=f"auto_amt_5_{pair}_{bal}"),
                types.InlineKeyboardButton("💵 $10", callback_data=f"auto_amt_10_{pair}_{bal}"))
         mk.add(types.InlineKeyboardButton("💵 $20", callback_data=f"auto_amt_20_{pair}_{bal}"))
-        bot.send_message(cid, f"✅ {pair} {bal}\n\n🤖 **SETUP 3/4 - BASE**", reply_markup=mk, parse_mode="Markdown"); return
+        bot.send_message(cid, f"✅ {pair} {bal}\n\n🤖 **3/4 BASE**", reply_markup=mk, parse_mode="Markdown"); return
     if data.startswith("auto_amt_"):
         parts=data.split("_"); amt=float(parts[2]); bal=parts[-1]; pair="_".join(parts[3:-1])
         mk=types.InlineKeyboardMarkup(row_width=2)
         mk.add(types.InlineKeyboardButton("⏱️ 1 MIN", callback_data=f"auto_exp_60_{pair}_{bal}_{int(amt)}"),
                types.InlineKeyboardButton("⏱️ 2 MIN", callback_data=f"auto_exp_120_{pair}_{bal}_{int(amt)}"))
-        mk.add(types.InlineKeyboardButton("⏱️ 5 MIN", callback_data=f"auto_exp_300_{pair}_{bal}_{int(amt)}"),
-               types.InlineKeyboardButton("⏱️ 15 MIN", callback_data=f"auto_exp_900_{pair}_{bal}_{int(amt)}"))
-        if "-OTC" in pair:
-            mk.add(types.InlineKeyboardButton("⏱️ 30 SEC (OTC Only)", callback_data=f"auto_exp_30_{pair}_{bal}_{int(amt)}"))
-        bot.send_message(cid, f"✅ Base ${amt} Note: REAL no support 30s, use 1min+\n\n🤖 **SETUP 4/4 - EXPIRY**", reply_markup=mk, parse_mode="Markdown"); return
+        mk.add(types.InlineKeyboardButton("⏱️ 5 MIN", callback_data=f"auto_exp_300_{pair}_{bal}_{int(amt)}"))
+        mk.add(types.InlineKeyboardButton("⏱️ 15 MIN", callback_data=f"auto_exp_900_{pair}_{bal}_{int(amt)}"))
+        if "-OTC" in pair: mk.add(types.InlineKeyboardButton("⏱️ 30 SEC OTC", callback_data=f"auto_exp_30_{pair}_{bal}_{int(amt)}"))
+        bot.send_message(cid, f"✅ Base ${amt}\n\n🤖 **4/4 EXPIRY**", reply_markup=mk, parse_mode="Markdown"); return
     if data.startswith("auto_exp_"):
         if AUTO_LOCK.get(cid, False) or (cid in AUTO_STATE and AUTO_STATE[cid].get('running')):
             bot.send_message(cid, f"⚠️ Auto running! /stop first"); return
         parts=data.split("_"); expiry=int(parts[2]); bal=parts[-2]; amt=float(parts[-1]); pair="_".join(parts[3:-2])
-        AUTO_STATE[cid] = {"running": True,"pair": pair,"bal": bal,"base_amt": amt,"curr_amt": amt,"expiry": expiry,"martingale": True,"sniper": True,"trades": 0,"in_trade": False}
+        AUTO_STATE[cid] = {"running": True,"pair": pair,"bal": bal,"base_amt": amt,"curr_amt": amt,"expiry": expiry,"trades": 0,"in_trade": False}
         AUTO_LOCK[cid] = False; mk=types.InlineKeyboardMarkup(); mk.add(types.InlineKeyboardButton("🛑 STOP AUTO", callback_data="stop_auto"))
-        bot.send_message(cid, f"🚀 **AUTO START!**\n{pair} ${amt} {expiry}s\nREAL FIXED!", reply_markup=mk, parse_mode="Markdown")
+        bot.send_message(cid, f"🚀 **AUTO START!**\n{pair} ${amt} {expiry}s", reply_markup=mk, parse_mode="Markdown")
         threading.Thread(target=auto_trader_loop, args=(cid,), daemon=True).start(); return
     if data=="stop_auto":
         if cid in AUTO_STATE: AUTO_STATE[cid]['running']=False; bot.send_message(cid, "🛑 Stopping..."); return
@@ -407,18 +413,18 @@ def cb(c):
         mk=types.InlineKeyboardMarkup(row_width=2)
         mk.add(types.InlineKeyboardButton("🟢 DEMO", callback_data=f"bal_PRACTICE_{pair}"))
         mk.add(types.InlineKeyboardButton("🔴 REAL", callback_data=f"bal_REAL_{pair}"))
-        bot.send_message(cid, f"✅ **PAIR: {PAIR_EMOJI.get(pair,pair)}**\n\n💳 **STEP 2/4 - ACCOUNT**", reply_markup=mk, parse_mode="Markdown"); return
+        bot.send_message(cid, f"✅ **PAIR: {PAIR_EMOJI.get(pair,pair)}**\n\n💳 **2/4 ACCOUNT**", reply_markup=mk, parse_mode="Markdown"); return
     if data.startswith("bal_"):
         parts=data.split("_"); bal=parts[1]; pair="_".join(parts[2:])
         mk=types.InlineKeyboardMarkup(row_width=3)
         mk.add(types.InlineKeyboardButton("💵 $1", callback_data=f"amt_1_{pair}_{bal}"),
                types.InlineKeyboardButton("💵 $5", callback_data=f"amt_5_{pair}_{bal}"),
                types.InlineKeyboardButton("💵 $10", callback_data=f"amt_10_{pair}_{bal}"))
-        mk.add(types.InlineKeyboardButton("💵 $20", callback_data=f"amt_20_{pair}_{bal}"),
-               types.InlineKeyboardButton("💵 $50", callback_data=f"amt_50_{pair}_{bal}"),
-               types.InlineKeyboardButton("💵 $100", callback_data=f"amt_100_{pair}_{bal}"))
+        mk.add(types.InlineKeyboardButton("💵 $20", callback_data=f"amt_20_{pair}_{bal}"))
+        mk.add(types.InlineKeyboardButton("💵 $50", callback_data=f"amt_50_{pair}_{bal}"))
+        mk.add(types.InlineKeyboardButton("💵 $100", callback_data=f"amt_100_{pair}_{bal}"))
         mk.add(types.InlineKeyboardButton("✏️ CUSTOM", callback_data=f"custom_{pair}_{bal}"))
-        bot.send_message(cid, f"✅ {pair} {bal}\n\n💰 **STEP 3/4 - AMOUNT**", reply_markup=mk, parse_mode="Markdown"); return
+        bot.send_message(cid, f"✅ {pair} {bal}\n\n💰 **3/4 AMOUNT**", reply_markup=mk, parse_mode="Markdown"); return
     if data.startswith("amt_") or data.startswith("custom_"):
         if data.startswith("custom_"):
             parts=data.split("_"); bal=parts[-1]; pair="_".join(parts[1:-1])
@@ -430,26 +436,18 @@ def cb(c):
                types.InlineKeyboardButton("⏱️ 2 MIN", callback_data=f"exp_120_{pair}_{bal}_{int(amt)}"))
         mk.add(types.InlineKeyboardButton("⏱️ 5 MIN", callback_data=f"exp_300_{pair}_{bal}_{int(amt)}"),
                types.InlineKeyboardButton("⏱️ 15 MIN", callback_data=f"exp_900_{pair}_{bal}_{int(amt)}"))
-        if "-OTC" in pair:
-            mk.add(types.InlineKeyboardButton("⏱️ 30 SEC (OTC Only)", callback_data=f"exp_30_{pair}_{bal}_{int(amt)}"))
-        bot.send_message(cid, f"✅ ${amt} Note: REAL = 1min+ only\n\n⏱️ **STEP 4/4 - EXPIRY**", reply_markup=mk, parse_mode="Markdown"); return
+        if "-OTC" in pair: mk.add(types.InlineKeyboardButton("⏱️ 30 SEC OTC", callback_data=f"exp_30_{pair}_{bal}_{int(amt)}"))
+        bot.send_message(cid, f"✅ ${amt}\n\n⏱️ **4/4 EXPIRY**", reply_markup=mk, parse_mode="Markdown"); return
     if data.startswith("exp_"):
         parts=data.split("_"); expiry=int(parts[1]); bal=parts[-2]; amt=float(parts[-1]); pair="_".join(parts[2:-2])
         if "-OTC" not in pair and expiry < 60:
-            bot.send_message(cid, f"⚠️ REAL market no support {expiry}s! Use 1min+ for REAL. Changing to 60s...")
-            expiry = 60
+            bot.send_message(cid, f"⚠️ REAL no 30s! Changing to 60s"); expiry = 60
         if "-OTC" not in pair and not is_real_market_open():
-            bot.send_message(cid, f"⏳ REAL {pair} closed now (Mon 00-03 UTC maintenance). Try OTC or wait till 5am Lagos.")
-            return
+            bot.send_message(cid, f"⏳ REAL {pair} closed (Mon 00-03 UTC). Use OTC"); return
         bot.answer_callback_query(c.id, f"Analyzing...")
-        scan_msg = bot.send_message(cid, f"🔍 **V8 SCAN {PAIR_EMOJI.get(pair,pair)}**\n\n0%\n🚀 Starting...")
+        scan_msg = bot.send_message(cid, f"🔍 **SCAN {PAIR_EMOJI.get(pair,pair)}**\n\n0%\n🚀 Starting...")
         legit_live_scan(cid, scan_msg.message_id, pair)
         d=analyze_momentum(pair, sniper_mode=False)
-        if not d:
-            mk=types.InlineKeyboardMarkup(row_width=2)
-            mk.add(types.InlineKeyboardButton("💹 NEW TRADE", callback_data="trade"),
-                   types.InlineKeyboardButton("🔄 RETRY", callback_data=f"exp_{expiry}_{pair}_{bal}_{int(amt)}"))
-            bot.send_message(cid, f"❌ Failed analyze {pair}", reply_markup=mk); return
         dir_emoji = "🟢 CALL" if d['dir']=="CALL" else "🔴 PUT"
         expiry_txt = f"{expiry}s" if expiry < 60 else f"{expiry//60} min"
         signal_txt=f"""📡 **SIGNAL FOUND!**
@@ -466,8 +464,9 @@ def cb(c):
         if not ok:
             mk=types.InlineKeyboardMarkup(row_width=2)
             mk.add(types.InlineKeyboardButton("💹 NEW TRADE", callback_data="trade"),
-                   types.InlineKeyboardButton("🔄 RETRY", callback_data=f"exp_{expiry}_{pair}_{bal}_{int(amt)}"))
-            bot.send_message(cid, f"❌ {pair} not available, DEBUG for status", reply_markup=mk); iq_reconnect(); return
+                   types.InlineKeyboardButton("🔍 DEBUG", callback_data="debug_iq"))
+            bot.send_message(cid, f"❌ **{pair} FAILED**\n\n{LAST_ERROR}\n\n👇 Try OTC or DEBUG", reply_markup=mk, parse_mode="Markdown")
+            iq_reconnect(); return
         bot.send_message(cid, f"✅ Placed {oid} | Waiting {exp}s...")
         time.sleep(exp+5)
         try:
@@ -477,31 +476,27 @@ def cb(c):
             if pnl>0:
                 STATS['wins']+=1; STATS['balance']+=pnl; STATS['streak']+=1
                 mk=types.InlineKeyboardMarkup(row_width=2)
-                mk.add(types.InlineKeyboardButton("🔁 SAME TRADE", callback_data=f"exp_{expiry}_{pair}_{bal}_{int(amt)}"),
-                       types.InlineKeyboardButton("💹 NEW TRADE", callback_data="trade"))
-                mk.add(types.InlineKeyboardButton("📊 STATS", callback_data="stats"), types.InlineKeyboardButton("🤖 AUTO", callback_data="auto_setup"))
-                bot.send_message(cid, f"✅ **WIN +${pnl:.2f}**\n💱 {pair} {expiry_txt}\n🔥 Streak {STATS['streak']} Bal ${STATS['balance']:.2f}", reply_markup=mk, parse_mode="Markdown")
+                mk.add(types.InlineKeyboardButton("🔁 SAME", callback_data=f"exp_{expiry}_{pair}_{bal}_{int(amt)}"),
+                       types.InlineKeyboardButton("💹 NEW", callback_data="trade"))
+                bot.send_message(cid, f"✅ **WIN +${pnl:.2f}**\n💱 {pair} {expiry_txt}\n🔥 {STATS['streak']} Bal ${STATS['balance']:.2f}", reply_markup=mk, parse_mode="Markdown")
             else:
                 STATS['loss']+=1; STATS['balance']-=amt; STATS['streak']=0
                 mk=types.InlineKeyboardMarkup(row_width=2)
-                mk.add(types.InlineKeyboardButton(f"🔁 MARTINGALE ${amt*2.2:.0f}", callback_data=f"exp_{expiry}_{pair}_{bal}_{int(amt*2.2)}"),
-                       types.InlineKeyboardButton("💹 NEW TRADE", callback_data="trade"))
-                mk.add(types.InlineKeyboardButton("📊 STATS", callback_data="stats"), types.InlineKeyboardButton("🤖 AUTO", callback_data="auto_setup"))
+                mk.add(types.InlineKeyboardButton(f"🔁 MARTI ${amt*2.2:.0f}", callback_data=f"exp_{expiry}_{pair}_{bal}_{int(amt*2.2)}"),
+                       types.InlineKeyboardButton("💹 NEW", callback_data="trade"))
                 bot.send_message(cid, f"❌ **LOSS -${amt}**\n💱 {pair} {expiry_txt}\nBal ${STATS['balance']:.2f}", reply_markup=mk, parse_mode="Markdown")
         except:
             mk=types.InlineKeyboardMarkup(row_width=2)
-            mk.add(types.InlineKeyboardButton("💹 NEW TRADE", callback_data="trade"),
-                   types.InlineKeyboardButton("🔄 RETRY", callback_data=f"exp_{expiry}_{pair}_{bal}_{int(amt)}"))
+            mk.add(types.InlineKeyboardButton("💹 NEW", callback_data="trade"), types.InlineKeyboardButton("🔄 RETRY", callback_data=f"exp_{expiry}_{pair}_{bal}_{int(amt)}"))
             bot.send_message(cid, f"⏱️ Expired {oid}", reply_markup=mk, parse_mode="Markdown")
         return
     if data=="stats":
         total=STATS['wins']+STATS['loss']; wr=(STATS['wins']/total*100) if total else 0
         mk=types.InlineKeyboardMarkup(row_width=2)
-        mk.add(types.InlineKeyboardButton("💹 NEW TRADE", callback_data="trade"),
-               types.InlineKeyboardButton("🤖 AUTO", callback_data="auto_setup"))
-        bot.send_message(cid, f"📊 **STATS**\n🏆 Wins: {STATS['wins']}\n❌ Loss: {STATS['loss']}\n📈 Winrate: {wr:.1f}%\n🔥 Streak: {STATS['streak']}\n💰 Balance: ${STATS['balance']:.2f}\nREAL OPEN: {is_real_market_open()}", reply_markup=mk, parse_mode="Markdown")
+        mk.add(types.InlineKeyboardButton("💹 NEW", callback_data="trade"), types.InlineKeyboardButton("🤖 AUTO", callback_data="auto_setup"))
+        bot.send_message(cid, f"📊 **STATS**\n🏆 Wins {STATS['wins']} Loss {STATS['loss']}\n📈 {wr:.1f}% Streak {STATS['streak']}\n💰 ${STATS['balance']:.2f}\n\nLast err:\n{LAST_ERROR[:500]}", reply_markup=mk, parse_mode="Markdown")
     if data=="settings":
-        bot.send_message(cid, f"⚙️ **SETTINGS V9 REAL FIX**\n\nREAL FIXED: Binary only, no Blitz\nREAL Hours: Mon 3am UTC - Fri 21 UTC\nOTC: 24/7 + Exotic\nScan: ORIGINAL ✅")
+        bot.send_message(cid, f"⚙️ **V9.1 DEBUG**\nREAL FIXED + Error show\nHours Mon 3am UTC - Fri 21 UTC")
 
 @bot.message_handler(func=lambda m: user_states.get(m.chat.id, {}).get("step")=="await_amt")
 def handle_custom_amt(m):
@@ -515,8 +510,8 @@ def handle_custom_amt(m):
                types.InlineKeyboardButton("⏱️ 2 MIN", callback_data=f"exp_120_{pair}_{bal}_{int(amt)}"))
         mk.add(types.InlineKeyboardButton("⏱️ 5 MIN", callback_data=f"exp_300_{pair}_{bal}_{int(amt)}"),
                types.InlineKeyboardButton("⏱️ 15 MIN", callback_data=f"exp_900_{pair}_{bal}_{int(amt)}"))
-        if "-OTC" in pair: mk.add(types.InlineKeyboardButton("⏱️ 30 SEC (OTC)", callback_data=f"exp_30_{pair}_{bal}_{int(amt)}"))
-        bot.send_message(cid, f"✅ Custom ${amt} for {pair}\n\n⏱️ **STEP 4/4 - EXPIRY**", reply_markup=mk, parse_mode="Markdown")
+        if "-OTC" in pair: mk.add(types.InlineKeyboardButton("⏱️ 30 SEC OTC", callback_data=f"exp_30_{pair}_{bal}_{int(amt)}"))
+        bot.send_message(cid, f"✅ Custom ${amt} for {pair}\n\n⏱️ **4/4 EXPIRY**", reply_markup=mk, parse_mode="Markdown")
     except: bot.send_message(cid, "❌ Send number only")
 
 @app.route(f"/{BOT_TOKEN}", methods=['POST'])
@@ -527,5 +522,5 @@ def home():
     if u:
         try: requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={u}/{BOT_TOKEN}", timeout=5)
         except: pass
-    return "V9 REAL FIX - RUNNING"
+    return "V9.1 REAL DEBUG - RUNNING"
 app.run(host="0.0.0.0", port=int(os.getenv("PORT",10000)))
