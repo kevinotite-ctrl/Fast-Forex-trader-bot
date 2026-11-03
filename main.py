@@ -50,23 +50,35 @@ def wh():
 
 def background_iq():
     global iq, IQ_CONNECTED
-    time.sleep(1)
-    try:
-        from iqoptionapi.stable_api import IQ_Option
-        EMAIL=os.getenv("IQ_EMAIL"); PWD=os.getenv("IQ_PASS")
-        if EMAIL and PWD:
+    time.sleep(2)
+    for attempt in range(5):
+        try:
+            from iqoptionapi.stable_api import IQ_Option
+            EMAIL=os.getenv("IQ_EMAIL"); PWD=os.getenv("IQ_PASS")
+            if not EMAIL or not PWD:
+                print("IQ_EMAIL/PASS missing"); return
+            print(f"Trying IQ connect attempt {attempt+1} {EMAIL}")
             logging.disable(logging.CRITICAL)
-            iq=IQ_Option(EMAIL,PWD); iq.connect()
+            iq=IQ_Option(EMAIL,PWD)
+            iq.connect()
             IQ_CONNECTED=iq.check_connect()
             if IQ_CONNECTED:
-                try: iq.change_balance("PRACTICE"); STATS["real_balance"]=iq.get_balance()
-                except: pass
-            logging.disable(logging.NOTSET); logging.getLogger().setLevel(logging.CRITICAL); logging.disable(logging.ERROR)
-            print(f"IQ Connected: {IQ_CONNECTED}")
-    except Exception as e:
-        print(f"IQ Fail {e}"); IQ_CONNECTED=False
-
-threading.Thread(target=background_iq, daemon=True).start()
+                try: 
+                    iq.change_balance("PRACTICE")
+                    time.sleep(1)
+                    STATS["real_balance"]=iq.get_balance()
+                    print(f"IQ BALANCE: {STATS['real_balance']}")
+                except Exception as e: print(f"Bal err {e}")
+                logging.disable(logging.NOTSET); logging.getLogger().setLevel(logging.CRITICAL); logging.disable(logging.ERROR)
+                print(f"IQ Connected: {IQ_CONNECTED} - SUCCESS")
+                return
+            else:
+                print(f"IQ check_connect False attempt {attempt+1}")
+        except Exception as e:
+            print(f"IQ Fail attempt {attempt+1}: {e}")
+        time.sleep(10)
+    IQ_CONNECTED=False
+    print("IQ FAILED AFTER 5 TRIES - Bot will still reply to /start but no trading")
 
 def iq_reconnect():
     global iq, IQ_CONNECTED
@@ -333,21 +345,43 @@ def start(m):
         bot.send_message(m.chat.id,txt,parse_mode="Markdown"); return
     if m.text.startswith('/mode'):
         tz=pytz.timezone("Africa/Lagos"); now=datetime.now(tz)
-        txt=f"""📍 **MODE CHECK V11.3 OTC AUTO 85% MARTINGALE 1-2-4-8**\n\n⏰ Now: {now.strftime('%A %H:%M:%S WAT')}\n📊 Mode: {get_mode_text()}\n☀️ REAL: 7AM-8PM = Auto safe expiry signals\n🌙 OTC: 85%+ = AUTO TRADE 1-2-4-8 + Results /results\n💎 IQ: {'✅' if IQ_CONNECTED else '❌'}\n🛡️ Martingale: 1-2-4-8 return, win reset\n"""
+        txt=f"""📍 **MODE CHECK V11.3**
+
+⏰ Now: {now.strftime('%A %H:%M:%S WAT')}
+📊 Mode: {get_mode_text()}
+💎 IQ: {'✅' if IQ_CONNECTED else '❌ False - Check email/pass or IP blocked'}
+🛡️ Martingale: 1-2-4-8
+"""
         bot.send_message(m.chat.id,txt,parse_mode="Markdown"); return
     if m.text.startswith('/balance'):
         try:
+            if not IQ_CONNECTED:
+                bot.send_message(m.chat.id,f"💰 **BALANCES**\nIQ: ❌ Not connected yet (IP may be blocked)\n📍 {get_mode_text()}\n\nWait 1 min and try /start again")
+                return
             demo=get_real_balance("PRACTICE"); real=get_real_balance("REAL")
             bot.send_message(m.chat.id,f"💰 **BALANCES**\n🟢 DEMO: ${demo:.2f}\n🔴 REAL: ${real:.2f}\n📍 {get_mode_text()}")
         except Exception as e: bot.send_message(m.chat.id,f"Balance error {e}")
         return
-    bal_demo=get_real_balance("PRACTICE")
+    
+    # SAFE BALANCE - won't crash if IQ False
+    try:
+        bal_demo = get_real_balance("PRACTICE") if IQ_CONNECTED else STATS.get("real_balance",0.0)
+    except:
+        bal_demo = 0.0
+
     mk=types.InlineKeyboardMarkup(row_width=1)
     mk.add(types.InlineKeyboardButton(f"💹 SCAN ALL OTC + AUTO 85% 1-2-4-8 - ${bal_demo:.2f}",callback_data="scan_all_otc"))
     mk.add(types.InlineKeyboardButton(f"📈 TRADE REAL (22) AUTO EXPIRY",callback_data="trade_real"))
     mk.add(types.InlineKeyboardButton("🤖 AUTO-TRADER OTC 85%+",callback_data="auto_setup"))
     mk.add(types.InlineKeyboardButton("📊 MY STATS",callback_data="stats"),types.InlineKeyboardButton("⚙️ SETTINGS",callback_data="settings"))
-    txt=f"""🤖 **Z-BOT V11.3 OTC AUTO 85% MARTINGALE** 🤖\n\n💎 IQ: {'✅' if IQ_CONNECTED else '❌'} | 💰 DEMO ${bal_demo:.2f}\n🏆 W:{STATS['wins']} L:{STATS['loss']} | 🔥 {STATS['streak']}\n📍 {get_mode_text()}\n📦 Martingale: {OTC_MARTI['levels']} | Level {OTC_MARTI['loss_streak']+1}\n\n☀️ REAL 22: 65%+ signal\n🌙 OTC 19: 85%+ = AUTO TRADE 1-2-4-8 same as REAL\n🛡️ Results: /results\n\n👇 **Select:**\n"""
+    txt=f"""🤖 **Z-BOT V11.3 OTC AUTO 85% MARTINGALE** 🤖
+
+💎 IQ: {'✅' if IQ_CONNECTED else '❌ False - Retrying...'} | 💰 DEMO ${bal_demo:.2f}
+🏆 W:{STATS['wins']} L:{STATS['loss']} | 🔥 {STATS['streak']}
+📍 {get_mode_text()}
+
+👇 **Select:**
+"""
     bot.send_message(m.chat.id,txt,reply_markup=mk,parse_mode="Markdown")
 
 @bot.callback_query_handler(func=lambda c: True)
