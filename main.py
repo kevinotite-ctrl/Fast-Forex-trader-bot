@@ -1,5 +1,5 @@
 import os, time, threading, warnings, logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta
 from flask import Flask, request
 import telebot
 from telebot import types
@@ -8,6 +8,7 @@ import requests
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+import pytz
 
 warnings.filterwarnings("ignore")
 logging.getLogger().setLevel(logging.CRITICAL)
@@ -19,13 +20,18 @@ OWNER_ID = 8659453018
 bot = telebot.TeleBot(BOT_TOKEN)
 app = Flask(__name__)
 
-# ===== ONLY REAL MARKET - NO OTC AT ALL =====
 REAL_PAIRS = ["EURUSD","GBPUSD","USDJPY","EURGBP","AUDUSD","USDCAD","EURJPY","GBPJPY"]
+OTC_PAIRS = ["EURUSD-OTC","GBPUSD-OTC","EURGBP-OTC","USDJPY-OTC","GBPJPY-OTC","AUDUSD-OTC","USDCHF-OTC","EURJPY-OTC","AUDJPY-OTC","EURAUD-OTC","GBPAUD-OTC","NZDUSD-OTC","GBPCHF-OTC","EURCHF-OTC","USDZAR-OTC"]
 
 PAIR_EMOJI = {
-    "EURUSD":"🇪🇺 EUR/USD REAL", "GBPUSD":"🇬🇧 GBP/USD REAL", "USDJPY":"🇺🇸 USD/JPY REAL",
-    "EURGBP":"🇪🇺 EUR/GBP REAL", "AUDUSD":"🇦🇺 AUD/USD REAL", "USDCAD":"🇺🇸 USD/CAD REAL",
-    "EURJPY":"🇪🇺 EUR/JPY REAL", "GBPJPY":"🇬🇧 GBP/JPY REAL"
+    "EURUSD":"🇪🇺 EUR/USD REAL", "GBPUSD":"🇬🇧 GBP/USD REAL", "USDJPY":"🇺🇸 USD/JPY REAL", "EURGBP":"🇪🇺 EUR/GBP REAL",
+    "AUDUSD":"🇦🇺 AUD/USD REAL", "USDCAD":"🇺🇸 USD/CAD REAL", "EURJPY":"🇪🇺 EUR/JPY REAL", "GBPJPY":"🇬🇧 GBP/JPY REAL",
+    "EURUSD-OTC":"🇪🇺 EUR/USD OTC", "GBPUSD-OTC":"🇬🇧 GBP/USD OTC", "EURGBP-OTC":"🇪🇺 EUR/GBP OTC",
+    "USDJPY-OTC":"🇺🇸 USD/JPY OTC", "GBPJPY-OTC":"🇬🇧 GBP/JPY OTC", "AUDUSD-OTC":"🇦🇺 AUD/USD OTC",
+    "USDCHF-OTC":"🇺🇸 USD/CHF OTC", "EURJPY-OTC":"🇪🇺 EUR/JPY OTC",
+    "AUDJPY-OTC":"🇦🇺 AUD/JPY OTC", "EURAUD-OTC":"🇪🇺 EUR/AUD OTC", "GBPAUD-OTC":"🇬🇧 GBP/AUD OTC",
+    "NZDUSD-OTC":"🇳🇿 NZD/USD OTC", "GBPCHF-OTC":"🇬🇧 GBP/CHF OTC", "EURCHF-OTC":"🇪🇺 EUR/CHF OTC",
+    "USDZAR-OTC":"🇺🇸 USD/ZAR OTC"
 }
 STATS = {"balance":100.0,"wins":0,"loss":0,"streak":0}
 user_states = {}
@@ -36,8 +42,22 @@ PAYOUT_CACHE={}; PAYOUT_TIME=0
 
 def is_allowed(uid): return uid == OWNER_ID
 
+def is_real_hours():
+    try:
+        tz = pytz.timezone("Africa/Lagos")
+        now = datetime.now(tz)
+        if now.weekday() >= 5: return False
+        return 7 <= now.hour < 20
+    except:
+        now = datetime.now(timezone.utc) + timedelta(hours=1)
+        if now.weekday() >= 5: return False
+        return 7 <= now.hour < 20
+
 def get_active_pairs():
-    return REAL_PAIRS
+    return OTC_PAIRS  # Manual always show OTC as requested
+
+def get_mode_text():
+    return "REAL SIGNAL MODE (7AM-8PM)" if is_real_hours() else "OTC MODE (8PM-7AM + Weekend)"
 
 try:
     from iqoptionapi.stable_api import IQ_Option
@@ -166,88 +186,83 @@ def analyze_momentum(pair, sniper_mode=False):
         mom1=(close.iloc[-1]-close.iloc[-2])/close.iloc[-2]*100
         mom3=(close.iloc[-1]-close.iloc[-4])/close.iloc[-4]*100
         is_green=float(close.iloc[-1])>float(open_.iloc[-1])
-        payout=get_payout(pair); sig="CALL" if is_green else "PUT"; score=75; reason=""
+        payout=get_payout(pair); sig="CALL" if is_green else "PUT"; score=75; reason=""; expiry_suggest=60
         if mom1>0.02 and mom3>0.05 and is_green and e9>e21 and rsi_now>50 and rsi_now<78:
-            sig="CALL"; score=90; reason=f"🚀 Bullish {mom1:.3f}%"
+            sig="CALL"; score=90; reason=f"🚀 Bullish {mom1:.3f}%"; expiry_suggest=60
         elif mom1<-0.02 and mom3<-0.05 and not is_green and e9<e21 and rsi_now<50:
-            sig="PUT"; score=90; reason=f"📉 Bearish {mom1:.3f}%"
-        elif e9>e21 and is_green: sig="CALL"; score=82; reason=f"📈 EMA Bull"
-        elif e9<e21 and not is_green: sig="PUT"; score=82; reason=f"📉 EMA Bear"
-        else: score=60; reason="Low momentum"
-        if sniper_mode and score < 90:
-            return {"pair":pair,"dir":sig,"conf":score,"price":float(close.iloc[-1]),"rsi":rsi_now,"reason":reason,"payout":payout,"df":df.tail(30),"rejected":True}
-        return {"pair":pair,"dir":sig,"conf":min(94,score),"price":float(close.iloc[-1]),"rsi":rsi_now,"reason":reason,"payout":payout,"df":df.tail(30),"rejected":False}
+            sig="PUT"; score=90; reason=f"📉 Bearish {mom1:.3f}%"; expiry_suggest=60
+        elif e9>e21 and is_green: sig="CALL"; score=82; reason=f"📈 EMA Bull"; expiry_suggest=120
+        elif e9<e21 and not is_green: sig="PUT"; score=82; reason=f"📉 EMA Bear"; expiry_suggest=120
+        else: score=60; reason="Low momentum"; expiry_suggest=60
+        if sniper_mode and score < 85:
+            return {"pair":pair,"dir":sig,"conf":score,"price":float(close.iloc[-1]),"rsi":rsi_now,"reason":reason,"payout":payout,"expiry":expiry_suggest,"df":df.tail(30),"rejected":True}
+        return {"pair":pair,"dir":sig,"conf":min(94,score),"price":float(close.iloc[-1]),"rsi":rsi_now,"reason":reason,"payout":payout,"expiry":expiry_suggest,"df":df.tail(30),"rejected":False}
     except: return None
 
 def iq_trade(pair,direction,amount,bal,expiry_sec=30):
     try:
         with IQ_LOCK:
-            logging.disable(logging.CRITICAL)
-            iq.change_balance(bal)
-            logging.disable(logging.NOTSET)
-            logging.disable(logging.ERROR)
-            
-            # DEBUG: Check if pair open
-            try:
-                logging.disable(logging.CRITICAL)
-                ot = iq.get_all_open_time()
-                logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
-                print(f"OPEN CHECK {pair}: {ot.get(pair)}")
-                if pair in ot and not ot[pair]['open']:
-                    bot.send_message(OWNER_ID, f"⚠️ {pair} CLOSED in IQ now!")
-                    return False, None, 0
-            except Exception as e:
-                print(f"Open check error {e}")
-
-            # FOR REAL: Use iq.buy DIRECT, NO BLITZ!
-            mins = max(1, int(expiry_sec/60))
-            if expiry_sec <= 60:
-                mins = 1
-            
-            try:
-                logging.disable(logging.CRITICAL)
-                check, oid = iq.buy(amount, pair, direction.lower(), mins)
-                logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
-                print(f"BUY RESULT {pair} {check} {oid}")
-                if check:
-                    return True, oid, expiry_sec
-                else:
-                    # Try alternative - turbo
-                    logging.disable(logging.CRITICAL)
-                    _, oid2 = iq.buy(amount, pair, direction.lower(), 1)
-                    logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
-                    return True, oid2, expiry_sec
-            except Exception as e:
-                print(f"BUY ERROR {pair}: {e}")
-                # Last try: blitz as fallback
+            logging.disable(logging.CRITICAL); iq.change_balance(bal)
+            logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
+            if expiry_sec <= 90:
                 try:
                     logging.disable(logging.CRITICAL)
-                    _, oid = iq.buy_blitz(pair, amount, direction.lower(), expiry_sec)
+                    _,oid=iq.buy_blitz(pair,amount,direction.lower(),expiry_sec)
                     logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
-                    return True, oid, expiry_sec
-                except Exception as e2:
-                    print(f"Blitz also fail {e2}")
-                    return False, None, 0
-                    
-    except Exception as e:
-        print(f"TRADE FATAL {pair}: {e}")
-        return False,None,0
-
-def get_active_pairs():
-    # ONLY SHOW OPEN REAL PAIRS NOW
-    try:
-        with IQ_LOCK:
+                    return True,oid,expiry_sec
+                except: pass
+            mins = max(1, int(expiry_sec/60))
             logging.disable(logging.CRITICAL)
-            ot = iq.get_all_open_time()
+            _,oid=iq.buy(amount,pair,direction.lower(),mins)
             logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
-        open_pairs = []
-        for p in REAL_PAIRS:
-            if p in ot and ot[p].get('open', False):
-                open_pairs.append(p)
-        if open_pairs:
-            return open_pairs
-    except: pass
-    return REAL_PAIRS
+            return True,oid,expiry_sec
+    except: return False,None,0
+
+# ===== REAL SIGNAL ONLY - WITH ENTRY + EXPIRY =====
+def real_signal_scanner():
+    last_signal_time = {}
+    tz = pytz.timezone("Africa/Lagos")
+    while True:
+        try:
+            if is_real_hours() and IQ_CONNECTED:
+                for pair in REAL_PAIRS:
+                    if pair in last_signal_time and time.time() - last_signal_time[pair] < 600:
+                        continue
+                    d = analyze_momentum(pair, sniper_mode=True)
+                    if d and not d.get('rejected') and d['conf'] >= 85:
+                        now = datetime.now(tz)
+                        entry_time = now + timedelta(seconds=30) # enter in 30 sec
+                        expiry = d['expiry']
+                        expiry_txt = f"{expiry}s" if expiry < 60 else f"{expiry//60} min"
+                        
+                        dir_emoji = "🟢 CALL ⬆️" if d['dir']=="CALL" else "🔴 PUT ⬇️"
+                        
+                        msg = f"""📡 **REAL MARKET SIGNAL** 📡
+
+💱 Pair: {PAIR_EMOJI.get(pair,pair)}
+📊 Direction: {dir_emoji}
+🎯 Confidence: {d['conf']:.0f}%
+📈 Strategy: {d['reason']}
+💸 Payout: {int(d['payout']*100)}%
+
+⏰ **ENTRY TIME:** {entry_time.strftime('%H:%M:%S WAT')}
+⏱️ **EXPIRY:** {expiry_txt} ({expiry} sec)
+📅 Date: {now.strftime('%a %d %b')}
+💹 RSI: {d['rsi']:.1f}
+
+⚠️ **PLACE ON IQ OPTION NOW!**
+🔹 Real Market - Mon-Fri 7AM-8PM WAT
+
+👇 Valid for 1-2 mins!
+"""
+                        try:
+                            bot.send_message(OWNER_ID, msg, parse_mode="Markdown")
+                            last_signal_time[pair] = time.time()
+                        except: pass
+                    time.sleep(3)
+            time.sleep(20)
+        except:
+            time.sleep(30)
 
 def auto_trader_loop(cid):
     consecutive_losses = 0
@@ -258,7 +273,7 @@ def auto_trader_loop(cid):
             pair_to_trade = state['pair']
             if pair_to_trade == "AUTO":
                 best = None; best_score = 0
-                for p in get_active_pairs():
+                for p in OTC_PAIRS: # AUTO only OTC as requested
                     d = analyze_momentum(p, sniper_mode=True)
                     if d and not d.get('rejected') and d['conf'] > best_score:
                         best_score = d['conf']; best = d
@@ -275,7 +290,7 @@ def auto_trader_loop(cid):
             ok, oid, exp = iq_trade(pair_to_trade, d['dir'], curr_amt, state['bal'], state['expiry'])
             if not ok:
                 time.sleep(10); continue
-            bot.send_message(cid, f"🤖 Auto {pair_to_trade} {d['dir']} ${curr_amt:.2f} {d['conf']}% - ID {oid}")
+            bot.send_message(cid, f"🤖 Auto OTC {pair_to_trade} {d['dir']} ${curr_amt:.2f} {d['conf']}% - ID {oid}")
             time.sleep(exp+5)
             try:
                 with IQ_LOCK:
@@ -315,36 +330,26 @@ def start(m):
             bot.send_message(m.chat.id, "Auto not running")
         return
     mk=types.InlineKeyboardMarkup(row_width=1)
-    mk.add(types.InlineKeyboardButton("💹 MANUAL TRADE (REAL ONLY)", callback_data="trade"))
-    mk.add(types.InlineKeyboardButton("🤖 AUTO-TRADER 90%+ MARTINGALE", callback_data="auto_setup"))
+    mk.add(types.InlineKeyboardButton(f"💹 MANUAL TRADE OTC (15)", callback_data="trade"))
+    mk.add(types.InlineKeyboardButton("🤖 AUTO-TRADER OTC 90%+ (Untouched)", callback_data="auto_setup"))
     mk.add(types.InlineKeyboardButton("📊 MY STATS", callback_data="stats"), types.InlineKeyboardButton("⚙️ SETTINGS", callback_data="settings"))
-    txt=f"""🤖 **Z-BOT PRO V8.6 REAL KING** 🤖
+    txt=f"""🤖 **Z-BOT PRO V8.6 HYBRID FINAL** 🤖
 
 💎 IQ: {'✅' if IQ_CONNECTED else '❌'} | 💰 ${STATS['balance']:.2f}
 🏆 W: {STATS['wins']} L: {STATS['loss']} | 🔥 {STATS['streak']}
 
-💹 MANUAL: 8 REAL PAIRS ONLY
-🤖 AUTO: 90%+ Sniper + Martingale x2.2
+📍 MODE: {get_mode_text()}
 
-👇 **Choose:**
+☀️ REAL 7AM-8PM Mon-Fri:
+   → Auto signals with ENTRY + EXPIRY
+   → You place on IQ manually
+
+🌙 OTC 8PM-7AM + Weekend:
+   → Manual + Auto trading (untouched)
+
+👇 **OTC Trading:**
 """
     bot.send_message(m.chat.id, txt, reply_markup=mk, parse_mode="Markdown")
-
-@bot.message_handler(commands=['test'])
-def test_real(m):
-    if not is_allowed(m.from_user.id): return
-    try:
-        with IQ_LOCK:
-            logging.disable(logging.CRITICAL)
-            ot = iq.get_all_open_time()
-            logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
-        msg = "🔍 REAL OPEN NOW:\n"
-        for p in REAL_PAIRS:
-            if p in ot:
-                msg += f"{p}: {'✅ OPEN' if ot[p]['open'] else '❌ CLOSED'}\n"
-        bot.send_message(m.chat.id, msg)
-    except Exception as e:
-        bot.send_message(m.chat.id, f"Error {e}")
 
 @bot.callback_query_handler(func=lambda c: True)
 def cb(c):
@@ -353,15 +358,15 @@ def cb(c):
     data=c.data; cid=c.message.chat.id
     if data=="trade":
         mk=types.InlineKeyboardMarkup(row_width=2)
-        for p in get_active_pairs():
+        for p in OTC_PAIRS:
             mk.add(types.InlineKeyboardButton(f"{PAIR_EMOJI.get(p,p)}", callback_data=f"pair_{p}"))
-        bot.send_message(cid, f"💹 **MANUAL - SELECT PAIR (8 REAL)**", reply_markup=mk, parse_mode="Markdown"); return
+        bot.send_message(cid, f"💹 **MANUAL OTC (15 PAIRS) - Untouched**", reply_markup=mk, parse_mode="Markdown"); return
     if data=="auto_setup":
         mk=types.InlineKeyboardMarkup(row_width=2)
-        mk.add(types.InlineKeyboardButton("🤖 AUTO SCAN ALL REAL", callback_data="auto_pair_AUTO"))
-        for p in get_active_pairs():
+        mk.add(types.InlineKeyboardButton("🤖 AUTO SCAN ALL 15 OTC", callback_data="auto_pair_AUTO"))
+        for p in OTC_PAIRS:
             mk.add(types.InlineKeyboardButton(f"{PAIR_EMOJI.get(p,p)}", callback_data=f"auto_pair_{p}"))
-        bot.send_message(cid, f"🤖 **AUTO SETUP 1/4 - PAIR (90%+ Only)**", reply_markup=mk, parse_mode="Markdown"); return
+        bot.send_message(cid, f"🤖 **AUTO SETUP 1/4 - OTC ONLY (Untouched)**", reply_markup=mk, parse_mode="Markdown"); return
     if data.startswith("auto_pair_"):
         pair=data.replace("auto_pair_","")
         mk=types.InlineKeyboardMarkup(row_width=2)
@@ -389,7 +394,7 @@ def cb(c):
         AUTO_STATE[cid] = {"running": True,"pair": pair,"bal": bal,"base_amt": amt,"curr_amt": amt,"expiry": expiry,"martingale": True,"sniper": True,"trades": 0}
         mk=types.InlineKeyboardMarkup()
         mk.add(types.InlineKeyboardButton("🛑 STOP AUTO", callback_data="stop_auto"))
-        bot.send_message(cid, f"🚀 **STARTING AUTO 90%+!** {pair} ${amt} {expiry}s Martingale ON", reply_markup=mk, parse_mode="Markdown")
+        bot.send_message(cid, f"🚀 **STARTING AUTO OTC 90%+!** {pair} ${amt} {expiry}s Martingale ON", reply_markup=mk, parse_mode="Markdown")
         threading.Thread(target=auto_trader_loop, args=(cid,), daemon=True).start()
         return
     if data=="stop_auto":
@@ -489,9 +494,9 @@ def cb(c):
         mk=types.InlineKeyboardMarkup(row_width=2)
         mk.add(types.InlineKeyboardButton("💹 NEW TRADE", callback_data="trade"),
                types.InlineKeyboardButton("🤖 AUTO", callback_data="auto_setup"))
-        bot.send_message(cid, f"📊 **STATS**\n\n🏆 Wins: {STATS['wins']}\n❌ Loss: {STATS['loss']}\n📈 Winrate: {wr:.1f}%\n🔥 Streak: {STATS['streak']}\n💰 Balance: ${STATS['balance']:.2f}", reply_markup=mk, parse_mode="Markdown")
+        bot.send_message(cid, f"📊 **STATS**\n📍 {get_mode_text()}\n🏆 Wins: {STATS['wins']}\n❌ Loss: {STATS['loss']}\n📈 Winrate: {wr:.1f}%\n🔥 Streak: {STATS['streak']}\n💰 Balance: ${STATS['balance']:.2f}", reply_markup=mk, parse_mode="Markdown")
     if data=="settings":
-        bot.send_message(cid, f"⚙️ **SETTINGS**\n\n💹 Manual: REAL Only 8 Pairs\n🤖 Auto: 90%+ Sniper\nScan: Original V8.2\nNo OTC ✅")
+        bot.send_message(cid, f"⚙️ **SETTINGS**\n\n☀️ REAL 7AM-8PM Mon-Fri: Signal only with Entry + Expiry\n🌙 OTC: Manual + Auto untouched\nScan: Original V8.2")
 
 @bot.message_handler(func=lambda m: user_states.get(m.chat.id, {}).get("step")=="await_amt")
 def handle_custom_amt(m):
@@ -518,5 +523,7 @@ def home():
     if u:
         try: requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={u}/{BOT_TOKEN}", timeout=5)
         except: pass
-    return "V8.6 REAL ONLY 8 PAIRS - RUNNING"
+    return "V8.6 HYBRID FINAL - RUNNING"
+
+threading.Thread(target=real_signal_scanner, daemon=True).start()
 app.run(host="0.0.0.0", port=int(os.getenv("PORT",10000)))
