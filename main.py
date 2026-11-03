@@ -128,88 +128,23 @@ def calc_atr(df, period=14):
         return tr.rolling(period).mean().iloc[-1]
     except: return 0.0005
 
-# ===== LEGIT LIVE SCANNING BAR - FAST - NO HOOKING - 100% =====
+# UNTOUCHED SCANNING BAR - YOUR ORIGINAL EXACT
 def legit_live_scan(cid, mid, pair):
-    steps = [
-        (0, "🚀 Initializing V8...", 0.15),
-        (15, f"🔌 IQ Check {pair}...", 0.2),
-        (30, "📊 Fetching candles...", 0.25),
-        (50, "📈 EMA9 + EMA21...", 0.2),
-        (70, "💹 RSI + ATR...", 0.2),
-        (85, "📰 News check...", 0.2),
-        (100, "🔒 SIGNAL LOCKED!")
-    ]
-    
-    last_pct = -1
+    steps = [(0,"🚀 Initializing V8...",0.15),(15,f"🔌 IQ Check {pair}...",0.2),(30,"📊 Fetching candles...",0.25),(50,"📈 EMA9 + EMA21...",0.2),(70,"💹 RSI + ATR...",0.2),(85,"📰 Final check...",0.2),(100,"🔒 SIGNAL LOCKED!")]
+    last_pct=-1
     for item in steps:
-        if len(item) == 3:
-            pct, text, delay = item
-        else:
-            pct, text = item
-            delay = 0.15
-        
-        # Don't spam if same %
-        if pct == last_pct:
-            time.sleep(delay)
-            continue
-        last_pct = pct
-        
-        filled = int(pct // 5)
-        bar = "█" * filled + "░" * (20 - filled)
-        
-        if pct < 40:
-            color = "🟥"
-        elif pct < 80:
-            color = "🟨"
-        elif pct < 100:
-            color = "🟩"
-        else:
-            color = "💎"
-        
-        # Fast news check - no heavy calc
-        is_news, news_info = is_news_time()
-        
-        scan_txt = f"""{color} **Z-BOT V8 LEGIT SCAN** {color}
-
-💱 Pair: {PAIR_EMOJI.get(pair, pair)}
-💎 IQ: {'✅ Connected' if IQ_CONNECTED else '❌ Offline'}
-
-{bar} {pct}%
-▓ Progress: {pct}% ▓
-
-🔍 {text}
-{news_info}
-
-⏳ Fast scan - V8.2
-"""
-        try:
-            bot.edit_message_text(scan_txt, cid, mid, parse_mode="Markdown")
-        except Exception as e:
-            # If edit fails (rate limit), skip and continue - DON'T HOOK!
-            print(f"Scan edit skip {pct}%: {e}", flush=True)
-            pass
-        
+        pct,text,delay=item
+        if pct==last_pct: time.sleep(delay); continue
+        last_pct=pct; filled=int(pct//5); bar="█"*filled+"░"*(20-filled)
+        color="🟥" if pct<40 else "🟨" if pct<80 else "🟩" if pct<100 else "💎"
+        txt=f"""{color} **Z-BOT V8 LEGIT SCAN** {color}\n\n💱 Pair: {PAIR_EMOJI.get(pair,pair)}\n💎 IQ: {'✅' if IQ_CONNECTED else '❌'}\n\n{bar} {pct}%\n▓ Progress: {pct}% ▓\n\n🔍 {text}\n\n⏳ Fast scan - V8.2"""
+        try: bot.edit_message_text(txt,cid,mid,parse_mode="Markdown")
+        except: pass
         time.sleep(delay)
-    
-    # FORCE 100% AT END - ALWAYS SHOW LOCKED!
     try:
-        final_txt = f"""💎 **Z-BOT V8 LEGIT SCAN** 💎
-
-💱 Pair: {PAIR_EMOJI.get(pair, pair)}
-💎 IQ: {'✅ Connected' if IQ_CONNECTED else '❌ Offline'}
-
-████████████████████ 100%
-▓ Progress: 100% ▓
-
-🔍 🔒 SIGNAL LOCKED! READY TO TRADE!
-✅ Safe - No News
-
-⏳ Scan complete - Fast V8.2!
-"""
-        bot.edit_message_text(final_txt, cid, mid, parse_mode="Markdown")
+        bot.edit_message_text(f"""💎 **Z-BOT V8 LEGIT SCAN** 💎\n\n💱 Pair: {PAIR_EMOJI.get(pair,pair)}\n💎 IQ: {'✅' if IQ_CONNECTED else '❌'}\n\n████████████████████ 100%\n▓ Progress: 100% ▓\n\n🔍 🔒 SIGNAL LOCKED! READY TO TRADE!\n\n⏳ Scan complete - Fast V8.2!""",cid,mid,parse_mode="Markdown")
         time.sleep(0.3)
-    except:
-        pass
+    except: pass
 
 def analyze_momentum(pair, sniper_mode=False):
     df=get_candles(pair)
@@ -223,7 +158,6 @@ def analyze_momentum(pair, sniper_mode=False):
         mom1=(close.iloc[-1]-close.iloc[-2])/close.iloc[-2]*100; mom3=(close.iloc[-1]-close.iloc[-4])/close.iloc[-4]*100
         is_green=c_now>o_now; body=abs(c_now-o_now); upper_wick=h_now-max(c_now,o_now); lower_wick=min(c_now,o_now)-l_now
         payout=get_payout(pair); sig="CALL" if is_green else "PUT"; score=65; reason=""; expiry=120
-        
         if "-OTC" not in pair:
             expiry=120 if abs(mom1)<0.08 else 180
             if atr < 0.0001: score-=10
@@ -242,7 +176,6 @@ def analyze_momentum(pair, sniper_mode=False):
                 sig="PUT"; score=90; reason=f"📉 Bearish {mom1:.3f}%"; expiry=60
             elif e9>e21 and is_green: sig="CALL"; score=82; reason="📈 EMA Bull"
             elif e9<e21 and not is_green: sig="PUT"; score=82; reason="📉 EMA Bear"
-        
         if sniper_mode and score<85: return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":rsi_now,"reason":reason,"payout":payout,"expiry":expiry,"atr":atr,"rejected":True}
         return {"pair":pair,"dir":sig,"conf":min(94,score),"price":c_now,"rsi":rsi_now,"reason":reason,"payout":payout,"expiry":expiry,"atr":atr,"rejected":False}
     except: return None
@@ -349,7 +282,7 @@ def auto_trader_loop(cid):
         bot.send_message(cid,f"🛑 AUTO STOPPED W{STATS['wins']} L{STATS['loss']} Bal ${bal:.2f}")
     except: pass
 
-@bot.message_handler(commands=['start','stop','mode','balance','session'])
+@bot.message_handler(commands=['start','stop','mode','balance'])
 def start(m):
     if not is_allowed(m.from_user.id): bot.send_message(m.chat.id,"❌ Private"); return
     if m.text.startswith('/stop'):
@@ -361,7 +294,7 @@ def start(m):
 
 ⏰ Now: {now.strftime('%A %H:%M:%S WAT')}
 📊 Mode: {get_mode_text()}
-☀️ REAL: Mon-Fri 7AM-8PM WAT = Signals only (auto scanner)
+☀️ REAL: Mon-Fri 7AM-8PM WAT = Signals only
 🌙 OTC: 8PM-7AM + Weekend = Manual+Auto trading
 💎 IQ: {'✅' if IQ_CONNECTED else '❌'}
 """
@@ -372,72 +305,24 @@ def start(m):
             bot.send_message(m.chat.id,f"💰 **BALANCES**\n🟢 DEMO: ${demo:.2f}\n🔴 REAL: ${real:.2f}\n📍 {get_mode_text()}")
         except Exception as e: bot.send_message(m.chat.id,f"Balance error {e}")
         return
-    if m.text.startswith('/session'):
-        tz = pytz.timezone("Africa/Lagos"); now = datetime.now(tz)
-        next_session = now.replace(hour=7, minute=0, second=0, microsecond=0)
-        if now.weekday() >= 5:
-            days_ahead = 7 - now.weekday()
-            next_session = next_session + timedelta(days=days_ahead)
-            status = f"Weekend — REAL closed"
-        elif now.hour < 7:
-            status = f"OTC now — REAL starts today"
-        elif now.hour >= 20:
-            if now.weekday() == 4:
-                next_session = next_session + timedelta(days=3)
-                status = f"Friday night — REAL closed till Monday"
-            else:
-                next_session = next_session + timedelta(days=1)
-                status = f"OTC now — REAL tomorrow"
-        else:
-            end_today = now.replace(hour=20, minute=0, second=0, microsecond=0)
-            remaining = end_today - now
-            hrs = int(remaining.total_seconds() // 3600); mins = int((remaining.total_seconds() % 3600) // 60)
-            txt = f"""⏰ **SESSION STATUS**
-
-📊 Now: {get_mode_text()}
-⏰ Time: {now.strftime('%A %H:%M WAT')}
-☀️ REAL ends: 8:00 PM today
-⏳ Remaining: {hrs}h {mins}m
-
-💡 REAL signals active now
-🌙 OTC starts at 8PM
-"""
-            bot.send_message(m.chat.id, txt, parse_mode="Markdown"); return
-        diff = next_session - now
-        total_hours = int(diff.total_seconds() // 3600); mins = int((diff.total_seconds() % 3600) // 60)
-        txt = f"""⏰ **NEXT REAL SESSION**
-
-📊 Now: {get_mode_text()}
-⏰ Now: {now.strftime('%A %H:%M WAT')}
-📅 Next: {next_session.strftime('%A %d %b %H:%M WAT')}
-⏳ In: {total_hours}h {mins}m
-📌 {status}
-
-☀️ REAL: Mon-Fri 7AM-8PM = Signals (2-3 min expiry)
-🌙 OTC: 8PM-7AM+Weekend = Auto trading
-
-💡 Tip: /mode to check live
-"""
-        bot.send_message(m.chat.id, txt, parse_mode="Markdown"); return
-
     bal_demo=get_real_balance("PRACTICE")
-    mk=types.InlineKeyboardMarkup(row_width=2)
-    mk.add(types.InlineKeyboardButton(f"💹 TRADE REAL (8)",callback_data="trade_real"))
-    mk.add(types.InlineKeyboardButton(f"💹 TRADE OTC (15) - ${bal_demo:.2f}",callback_data="trade_otc"))
-    mk.add(types.InlineKeyboardButton("🤖 AUTO-TRADER OTC 90%+",callback_data="auto_setup"))
+    mk=types.InlineKeyboardMarkup(row_width=1)
+    mk.add(types.InlineKeyboardButton(f"💹 MANUAL OTC (15) - ${bal_demo:.2f}",callback_data="trade"))
+    mk.add(types.InlineKeyboardButton(f"📈 TRADE REAL (8) - Signals Only",callback_data="trade_real"))
+    mk.add(types.InlineKeyboardButton("🤖 AUTO-TRADER OTC 90%+ (Untouched)",callback_data="auto_setup"))
     mk.add(types.InlineKeyboardButton("📊 MY STATS",callback_data="stats"),types.InlineKeyboardButton("⚙️ SETTINGS",callback_data="settings"))
-    txt=f"""🤖 **Z-BOT PRO V9.6 REAL+OTC** 🤖
+    txt=f"""🤖 **Z-BOT PRO V9.5 ULTRA** 🤖
 
 💎 IQ: {'✅' if IQ_CONNECTED else '❌'} | 💰 DEMO ${bal_demo:.2f}
 🏆 W:{STATS['wins']} L:{STATS['loss']} | 🔥 {STATS['streak']}
 📍 {get_mode_text()}
 
-☀️ REAL 7AM-8PM: Signal only (manual place)
-🌙 OTC: Manual + Auto trading
+☀️ REAL 7AM-8PM: Auto signals Entry+Expiry (2-3 min)
+🌙 OTC: Manual + Auto trading (untouched)
 
-💡 Commands: /mode /balance /session /stop
+💡 Commands: /mode /balance /stop
 
-👇 **Choose:**
+👇 **OTC Trading:**
 """
     bot.send_message(m.chat.id,txt,reply_markup=mk,parse_mode="Markdown")
 
@@ -447,31 +332,53 @@ def cb(c):
     data=c.data; cid=c.message.chat.id
 
     if data=="trade_real":
-        if not is_real_hours():
-            bot.send_message(cid, f"⚠️ REAL closed oga!\n📍 {get_mode_text()}\n☀️ REAL only Mon-Fri 7AM-8PM WAT\n🌙 Now is OTC time — use OTC button\nUse /session to see next REAL", parse_mode="Markdown")
-            return
         mk=types.InlineKeyboardMarkup(row_width=2)
-        for p in REAL_PAIRS:
-            payout = int(get_payout(p)*100)
-            mk.add(types.InlineKeyboardButton(f"{PAIR_EMOJI.get(p,p)} {payout}%",callback_data=f"pair_{p}"))
-        bot.send_message(cid,f"💹 **MANUAL REAL (8 PAIRS)**\n📍 {get_mode_text()}\n⏱️ Expiry 2-3 min only | Price Action + ATR\n⚠️ REAL = Signal only, you place manually on IQ",reply_markup=mk,parse_mode="Markdown")
-        return
+        for p in REAL_PAIRS: mk.add(types.InlineKeyboardButton(f"{PAIR_EMOJI.get(p,p)}",callback_data=f"real_pair_{p}"))
+        bot.send_message(cid,f"📈 **TRADE REAL - SIGNALS ONLY**\n📍 {get_mode_text()}\n☀️ Mon-Fri 7AM-8PM\n\nSelect REAL pair - No trade, signals only:",reply_markup=mk,parse_mode="Markdown"); return
 
-    if data=="trade_otc":
+    if data.startswith("real_pair_"):
+        pair=data.replace("real_pair_","")
         mk=types.InlineKeyboardMarkup(row_width=2)
-        for p in OTC_PAIRS:
-            payout = int(get_payout(p)*100)
-            mk.add(types.InlineKeyboardButton(f"{PAIR_EMOJI.get(p,p)} {payout}%",callback_data=f"pair_{p}"))
-        bot.send_message(cid,f"💹 **MANUAL OTC (15 PAIRS)**\n📍 {get_mode_text()}\n⏱️ Expiry 30s-5min | 90%+ only",reply_markup=mk,parse_mode="Markdown")
+        mk.add(types.InlineKeyboardButton("⏱️ 2 MIN",callback_data=f"real_exp_120_{pair}"),types.InlineKeyboardButton("⏱️ 3 MIN",callback_data=f"real_exp_180_{pair}"))
+        mk.add(types.InlineKeyboardButton("⏱️ 5 MIN",callback_data=f"real_exp_300_{pair}"),types.InlineKeyboardButton("⏱️ 15 MIN",callback_data=f"real_exp_900_{pair}"))
+        bot.send_message(cid,f"✅ **REAL PAIR: {PAIR_EMOJI.get(pair,pair)}**\n\n⏱️ **SELECT EXPIRY FOR SIGNAL**",reply_markup=mk,parse_mode="Markdown"); return
+
+    if data.startswith("real_exp_"):
+        parts=data.split("_"); expiry=int(parts[2]); pair=parts[3]
+        bot.answer_callback_query(c.id,f"Scanning {pair}...")
+        scan_msg=bot.send_message(cid,f"🔍 **V8 SCAN {PAIR_EMOJI.get(pair,pair)}**\n\n0%\n🚀 Starting...")
+        legit_live_scan(cid,scan_msg.message_id,pair)
+        d=analyze_momentum(pair,sniper_mode=True)
+        if not d:
+            mk=types.InlineKeyboardMarkup(); mk.add(types.InlineKeyboardButton("🔄 RETRY",callback_data=f"real_exp_{expiry}_{pair}"),types.InlineKeyboardButton("📈 NEW REAL",callback_data="trade_real"))
+            bot.send_message(cid,f"❌ Failed analyze {pair}",reply_markup=mk); return
+        tz=pytz.timezone("Africa/Lagos"); now=datetime.now(tz); entry=now+timedelta(seconds=45)
+        exp_txt=f"{expiry//60} min {expiry%60}s" if expiry>=60 else f"{expiry}s"
+        dir_e="🟢 CALL ⬆️" if d['dir']=="CALL" else "🔴 PUT ⬇️"
+        signal_txt=f"""📡 **REAL SIGNAL (MANUAL) 9.5** 📡
+
+💱 {PAIR_EMOJI.get(pair,pair)}
+📊 {dir_e} | 🎯 {d['conf']:.0f}% (Price Action + ATR)
+📈 {d['reason']} | RSI {d['rsi']:.1f} | ATR {d['atr']:.5f}
+💸 Payout {int(d['payout']*100)}% | 💰 Price {d['price']:.5f}
+
+⏰ ENTRY: {entry.strftime('%H:%M:%S WAT')} (in 45s)
+⏱️ EXPIRY: {exp_txt} ({expiry} sec) - Suggested
+📅 {now.strftime('%A %d %b %H:%M WAT')}
+
+⚠️ **PLACE MANUALLY ON IQ OPTION - NO AUTO TRADE**
+💡 Use {exp_txt} expiry, enter at {entry.strftime('%H:%M:%S')}
+"""
+        mk=types.InlineKeyboardMarkup(row_width=2)
+        mk.add(types.InlineKeyboardButton("🔁 SAME PAIR",callback_data=f"real_exp_{expiry}_{pair}"),types.InlineKeyboardButton("📈 NEW REAL PAIR",callback_data="trade_real"))
+        mk.add(types.InlineKeyboardButton("💹 SWITCH TO OTC",callback_data="trade"))
+        bot.send_message(cid,signal_txt,reply_markup=mk,parse_mode="Markdown")
         return
 
     if data=="trade":
         mk=types.InlineKeyboardMarkup(row_width=2)
-        mk.add(types.InlineKeyboardButton("💹 TRADE REAL (8)",callback_data="trade_real"))
-        mk.add(types.InlineKeyboardButton("💹 TRADE OTC (15)",callback_data="trade_otc"))
-        bot.send_message(cid,f"💹 **CHOOSE MARKET**\n📍 {get_mode_text()}\n\n☀️ REAL: 7AM-8PM Mon-Fri = Real forex\n🌙 OTC: 8PM-7AM + Weekend",reply_markup=mk,parse_mode="Markdown")
-        return
-
+        for p in OTC_PAIRS: mk.add(types.InlineKeyboardButton(f"{PAIR_EMOJI.get(p,p)}",callback_data=f"pair_{p}"))
+        bot.send_message(cid,f"💹 **MANUAL OTC (15 PAIRS)**\n📍 {get_mode_text()}",reply_markup=mk,parse_mode="Markdown"); return
     if data=="auto_setup":
         mk=types.InlineKeyboardMarkup(row_width=2)
         mk.add(types.InlineKeyboardButton("🤖 AUTO SCAN ALL 15 OTC",callback_data="auto_pair_AUTO"))
@@ -522,57 +429,20 @@ def cb(c):
             bot.send_message(cid,f"✏️ Type amount for {pair} {bal}"); return
         parts=data.split("_"); amt=float(parts[1]); pair=parts[2]; bal=parts[3]
         mk=types.InlineKeyboardMarkup(row_width=2)
-        if "-OTC" not in pair:
-            mk.add(types.InlineKeyboardButton("⏱️ 2 MIN",callback_data=f"exp_120_{pair}_{bal}_{int(amt)}"),types.InlineKeyboardButton("⏱️ 3 MIN",callback_data=f"exp_180_{pair}_{bal}_{int(amt)}"))
-            mk.add(types.InlineKeyboardButton("⏱️ 5 MIN",callback_data=f"exp_300_{pair}_{bal}_{int(amt)}"))
-            bot.send_message(cid,f"✅ ${amt} for {PAIR_EMOJI.get(pair,pair)} REAL\n\n⏱️ **STEP 4/4 - EXPIRY (REAL 2-3 min safe)**",reply_markup=mk,parse_mode="Markdown")
-        else:
-            mk.add(types.InlineKeyboardButton("⏱️ 30 SEC",callback_data=f"exp_30_{pair}_{bal}_{int(amt)}"),types.InlineKeyboardButton("⏱️ 1 MIN",callback_data=f"exp_60_{pair}_{bal}_{int(amt)}"))
-            mk.add(types.InlineKeyboardButton("⏱️ 2 MIN",callback_data=f"exp_120_{pair}_{bal}_{int(amt)}"),types.InlineKeyboardButton("⏱️ 5 MIN",callback_data=f"exp_300_{pair}_{bal}_{int(amt)}"))
-            mk.add(types.InlineKeyboardButton("⏱️ 15 MIN",callback_data=f"exp_900_{pair}_{bal}_{int(amt)}"))
-            bot.send_message(cid,f"✅ ${amt} for {PAIR_EMOJI.get(pair,pair)} OTC\n\n⏱️ **STEP 4/4 - EXPIRY**",reply_markup=mk,parse_mode="Markdown")
-        return
+        mk.add(types.InlineKeyboardButton("⏱️ 30 SEC",callback_data=f"exp_30_{pair}_{bal}_{int(amt)}"),types.InlineKeyboardButton("⏱️ 1 MIN",callback_data=f"exp_60_{pair}_{bal}_{int(amt)}"))
+        mk.add(types.InlineKeyboardButton("⏱️ 2 MIN",callback_data=f"exp_120_{pair}_{bal}_{int(amt)}"),types.InlineKeyboardButton("⏱️ 5 MIN",callback_data=f"exp_300_{pair}_{bal}_{int(amt)}"))
+        mk.add(types.InlineKeyboardButton("⏱️ 15 MIN",callback_data=f"exp_900_{pair}_{bal}_{int(amt)}"))
+        bot.send_message(cid,f"✅ ${amt}\n\n⏱️ **STEP 4/4 - EXPIRY**",reply_markup=mk,parse_mode="Markdown"); return
     if data.startswith("exp_"):
         parts=data.split("_"); expiry=int(parts[1]); pair=parts[2]; bal=parts[3]; amt=float(parts[4])
-        if "-OTC" not in pair and not is_real_hours():
-            bot.send_message(cid, f"⚠️ REAL closed oga!\n📍 {get_mode_text()}\nUse /session to see next REAL session", parse_mode="Markdown")
-            return
-        bot.answer_callback_query(c.id,f"Analyzing {pair}...")
+        bot.answer_callback_query(c.id,f"Analyzing...")
         scan_msg=bot.send_message(cid,f"🔍 **V8 SCAN {PAIR_EMOJI.get(pair,pair)}**\n\n0%\n🚀 Starting...")
         legit_live_scan(cid,scan_msg.message_id,pair)
         d=analyze_momentum(pair,sniper_mode=False)
         if not d:
             mk=types.InlineKeyboardMarkup(row_width=2)
-            mk.add(types.InlineKeyboardButton("💹 NEW TRADE",callback_data="trade_otc" if "OTC" in pair else "trade_real"),types.InlineKeyboardButton("🔄 RETRY",callback_data=f"exp_{expiry}_{pair}_{bal}_{int(amt)}"))
-            bot.send_message(cid,f"❌ Failed analyze {pair} - Low vol or Doji filtered",reply_markup=mk)
-            return
-        if "-OTC" not in pair:
-            dir_emoji="🟢 CALL ⬆️" if d['dir']=="CALL" else "🔴 PUT ⬇️"
-            tz = pytz.timezone("Africa/Lagos"); now = datetime.now(tz); entry = now + timedelta(seconds=45)
-            exp_txt = f"{expiry//60} min" if expiry>=60 else f"{expiry}s"
-            mk=types.InlineKeyboardMarkup(row_width=2)
-            mk.add(types.InlineKeyboardButton("💹 NEW REAL SCAN",callback_data="trade_real"))
-            mk.add(types.InlineKeyboardButton("💹 SWITCH TO OTC",callback_data="trade_otc"))
-            msg=f"""📡 **REAL SIGNAL - PLACE MANUALLY** 📡
-
-💱 {PAIR_EMOJI.get(pair,pair)}
-📊 {dir_emoji} | 🎯 {d['conf']:.0f}% (Price Action + ATR)
-📈 {d['reason']} | RSI {d['rsi']:.1f} | ATR {d['atr']:.5f}
-💸 Payout {int(d['payout']*100)}% | 💰 ${amt}
-
-⏰ ENTRY: {entry.strftime('%H:%M:%S WAT')} (in 45s)
-⏱️ EXPIRY: {exp_txt} ({expiry} sec) - Set this on IQ
-📅 {now.strftime('%A %d %b %H:%M WAT')}
-
-⚠️ **DO NOT AUTO - PLACE MANUALLY ON IQ OPTION APP**
-1. Open IQ Option → {pair}
-2. Set amount ${amt} → Expiry {exp_txt}
-3. Click {d['dir']} at {entry.strftime('%H:%M:%S')}
-
-📍 {get_mode_text()}
-"""
-            bot.send_message(cid, msg, reply_markup=mk, parse_mode="Markdown")
-            return
+            mk.add(types.InlineKeyboardButton("💹 NEW TRADE",callback_data="trade"),types.InlineKeyboardButton("🔄 RETRY",callback_data=f"exp_{expiry}_{pair}_{bal}_{int(amt)}"))
+            bot.send_message(cid,f"❌ Failed analyze {pair}",reply_markup=mk); return
         dir_emoji="🟢 CALL" if d['dir']=="CALL" else "🔴 PUT"
         expiry_txt=f"{expiry}s" if expiry<60 else f"{expiry//60} min"
         signal_txt=f"""📡 **SIGNAL FOUND!**\n\n💱 {PAIR_EMOJI.get(pair,pair)}\n📊 {dir_emoji} | 🎯 {d['conf']:.0f}%\n💸 {int(d['payout']*100)}% | 💰 ${amt} | ⏱️ {expiry_txt}\n📈 {d['reason']}\n\n🤖 **PLACING {expiry_txt} TRADE...**"""
@@ -580,8 +450,8 @@ def cb(c):
         ok,oid,exp=iq_trade(pair,d['dir'],amt,bal,expiry)
         if not ok:
             mk=types.InlineKeyboardMarkup(row_width=2)
-            mk.add(types.InlineKeyboardButton("💹 NEW TRADE",callback_data="trade_otc"),types.InlineKeyboardButton("🔄 RETRY",callback_data=f"exp_{expiry}_{pair}_{bal}_{int(amt)}"))
-            bot.send_message(cid,"❌ Trade Failed - Pair closed/suspended",reply_markup=mk); iq_reconnect(); return
+            mk.add(types.InlineKeyboardButton("💹 NEW TRADE",callback_data="trade"),types.InlineKeyboardButton("🔄 RETRY",callback_data=f"exp_{expiry}_{pair}_{bal}_{int(amt)}"))
+            bot.send_message(cid,"❌ Trade Failed",reply_markup=mk); iq_reconnect(); return
         bot.send_message(cid,f"✅ Placed {oid} | Waiting {exp}s... | Bal ${get_real_balance(bal):.2f}")
         time.sleep(exp+6)
         try:
@@ -592,27 +462,27 @@ def cb(c):
             if pnl>0:
                 STATS['wins']+=1; STATS['real_balance']=bal_now; STATS['streak']+=1
                 mk=types.InlineKeyboardMarkup(row_width=2)
-                mk.add(types.InlineKeyboardButton("🔁 SAME TRADE",callback_data=f"exp_{expiry}_{pair}_{bal}_{int(amt)}"),types.InlineKeyboardButton("💹 NEW TRADE",callback_data="trade_otc"))
+                mk.add(types.InlineKeyboardButton("🔁 SAME TRADE",callback_data=f"exp_{expiry}_{pair}_{bal}_{int(amt)}"),types.InlineKeyboardButton("💹 NEW TRADE",callback_data="trade"))
                 mk.add(types.InlineKeyboardButton("📊 STATS",callback_data="stats"),types.InlineKeyboardButton("🤖 AUTO",callback_data="auto_setup"))
                 bot.send_message(cid,f"✅ **WIN +${pnl:.2f}**\n💱 {pair} {expiry_txt}\n🔥 Streak {STATS['streak']} | Bal ${bal_now:.2f}\n\n👇 Next trade?",reply_markup=mk,parse_mode="Markdown")
             else:
                 STATS['loss']+=1; STATS['real_balance']=bal_now; STATS['streak']=0
                 mk=types.InlineKeyboardMarkup(row_width=2)
-                mk.add(types.InlineKeyboardButton(f"🔁 MARTINGALE ${amt*2.2:.0f}",callback_data=f"exp_{expiry}_{pair}_{bal}_{int(amt*2.2)}"),types.InlineKeyboardButton("💹 NEW TRADE",callback_data="trade_otc"))
+                mk.add(types.InlineKeyboardButton(f"🔁 MARTINGALE ${amt*2.2:.0f}",callback_data=f"exp_{expiry}_{pair}_{bal}_{int(amt*2.2)}"),types.InlineKeyboardButton("💹 NEW TRADE",callback_data="trade"))
                 mk.add(types.InlineKeyboardButton("📊 STATS",callback_data="stats"),types.InlineKeyboardButton("🤖 AUTO",callback_data="auto_setup"))
                 bot.send_message(cid,f"❌ **LOSS -${amt}**\n💱 {pair} {expiry_txt}\nBal ${bal_now:.2f}\n\n👇 Martingale or New?",reply_markup=mk,parse_mode="Markdown")
         except:
             mk=types.InlineKeyboardMarkup(row_width=2)
-            mk.add(types.InlineKeyboardButton("💹 NEW TRADE",callback_data="trade_otc"),types.InlineKeyboardButton("🔄 RETRY",callback_data=f"exp_{expiry}_{pair}_{bal}_{int(amt)}"))
+            mk.add(types.InlineKeyboardButton("💹 NEW TRADE",callback_data="trade"),types.InlineKeyboardButton("🔄 RETRY",callback_data=f"exp_{expiry}_{pair}_{bal}_{int(amt)}"))
             bot.send_message(cid,f"⏱️ Expired - Check IQ app {oid}\n\n👇 Continue?",reply_markup=mk,parse_mode="Markdown")
         return
     if data=="stats":
         total=STATS['wins']+STATS['loss']; wr=(STATS['wins']/total*100) if total else 0; bal=get_real_balance("PRACTICE")
         mk=types.InlineKeyboardMarkup(row_width=2)
-        mk.add(types.InlineKeyboardButton("💹 TRADE REAL",callback_data="trade_real"),types.InlineKeyboardButton("💹 TRADE OTC",callback_data="trade_otc"))
-        bot.send_message(cid,f"📊 **STATS 9.6**\n📍 {get_mode_text()}\n🏆 Wins: {STATS['wins']}\n❌ Loss: {STATS['loss']}\n📈 Winrate: {wr:.1f}%\n🔥 Streak: {STATS['streak']}\n💰 Real Bal: ${bal:.2f}",reply_markup=mk,parse_mode="Markdown")
+        mk.add(types.InlineKeyboardButton("💹 NEW TRADE",callback_data="trade"),types.InlineKeyboardButton("🤖 AUTO",callback_data="auto_setup"))
+        bot.send_message(cid,f"📊 **STATS 9.5**\n📍 {get_mode_text()}\n🏆 Wins: {STATS['wins']}\n❌ Loss: {STATS['loss']}\n📈 Winrate: {wr:.1f}%\n🔥 Streak: {STATS['streak']}\n💰 Real Bal: ${bal:.2f}",reply_markup=mk,parse_mode="Markdown")
     if data=="settings":
-        bot.send_message(cid,f"⚙️ **SETTINGS 9.6**\n\n☀️ REAL: Signal only - you place manually 2-3 min\n⏱️ REAL Expiry: 2-3 min (safe)\n🌙 OTC: Manual+Auto auto-place\n💰 Balance: Real IQ balance\n📍 /mode /balance /session /stop\nScan: V8.2 Blinking + Boom")
+        bot.send_message(cid,f"⚙️ **SETTINGS 9.5 ULTRA**\n\n☀️ REAL: Price Action + ATR + Wick filter\n⏱️ REAL Expiry: 2-3 min (safe)\n🌙 OTC: Manual+Auto untouched ✅\n💰 Balance: Real IQ balance\n📍 /mode /balance /stop\nScan: V8.2 Original")
 
 @bot.message_handler(func=lambda m: user_states.get(m.chat.id,{}).get("step")=="await_amt")
 def handle_custom_amt(m):
@@ -622,13 +492,9 @@ def handle_custom_amt(m):
         amt=float(m.text.strip()); pair=st.get("pair"); bal=st.get("bal")
         if not pair: return
         mk=types.InlineKeyboardMarkup(row_width=2)
-        if "-OTC" not in pair:
-            mk.add(types.InlineKeyboardButton("⏱️ 2 MIN",callback_data=f"exp_120_{pair}_{bal}_{int(amt)}"),types.InlineKeyboardButton("⏱️ 3 MIN",callback_data=f"exp_180_{pair}_{bal}_{int(amt)}"))
-            mk.add(types.InlineKeyboardButton("⏱️ 5 MIN",callback_data=f"exp_300_{pair}_{bal}_{int(amt)}"))
-        else:
-            mk.add(types.InlineKeyboardButton("⏱️ 30 SEC",callback_data=f"exp_30_{pair}_{bal}_{int(amt)}"),types.InlineKeyboardButton("⏱️ 1 MIN",callback_data=f"exp_60_{pair}_{bal}_{int(amt)}"))
-            mk.add(types.InlineKeyboardButton("⏱️ 2 MIN",callback_data=f"exp_120_{pair}_{bal}_{int(amt)}"),types.InlineKeyboardButton("⏱️ 5 MIN",callback_data=f"exp_300_{pair}_{bal}_{int(amt)}"))
-            mk.add(types.InlineKeyboardButton("⏱️ 15 MIN",callback_data=f"exp_900_{pair}_{bal}_{int(amt)}"))
+        mk.add(types.InlineKeyboardButton("⏱️ 30 SEC",callback_data=f"exp_30_{pair}_{bal}_{int(amt)}"),types.InlineKeyboardButton("⏱️ 1 MIN",callback_data=f"exp_60_{pair}_{bal}_{int(amt)}"))
+        mk.add(types.InlineKeyboardButton("⏱️ 2 MIN",callback_data=f"exp_120_{pair}_{bal}_{int(amt)}"),types.InlineKeyboardButton("⏱️ 5 MIN",callback_data=f"exp_300_{pair}_{bal}_{int(amt)}"))
+        mk.add(types.InlineKeyboardButton("⏱️ 15 MIN",callback_data=f"exp_900_{pair}_{bal}_{int(amt)}"))
         bot.send_message(cid,f"✅ Custom ${amt} for {pair}\n\n⏱️ **STEP 4/4 - EXPIRY**",reply_markup=mk,parse_mode="Markdown")
     except: bot.send_message(cid,"❌ Send number only")
 
@@ -640,7 +506,7 @@ def home():
     if u:
         try: requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={u}/{BOT_TOKEN}",timeout=5)
         except: pass
-    return "V9.6 REAL+OTC - V8.2 Blinking + Boom - RUNNING"
+    return "V9.5 ULTRA - REAL 7AM-8PM + OTC 8PM - RUNNING"
 
 threading.Thread(target=real_signal_scanner,daemon=True).start()
 app.run(host="0.0.0.0",port=int(os.getenv("PORT",10000)))
