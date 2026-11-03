@@ -128,13 +128,14 @@ def calc_atr(df, period=14):
         return tr.rolling(period).mean().iloc[-1]
     except: return 0.0005
 
-# UNTOUCHED SCANNING BAR - YOUR ORIGINAL EXACT
+# YOUR ORIGINAL FIXED - NO 85% HOOK
 def legit_live_scan(cid, mid, pair):
-    steps = [(0,"🚀 Initializing V8...",0.15),(15,f"🔌 IQ Check {pair}...",0.2),(30,"📊 Fetching candles...",0.25),(50,"📈 EMA9 + EMA21...",0.2),(70,"💹 RSI + ATR...",0.2),(85,"📰 Final check...",0.2),(100,"🔒 SIGNAL LOCKED!")]
+    steps = [(0,"🚀 Initializing V8...",0.15),(15,f"🔌 IQ Check {pair}...",0.2),(30,"📊 Fetching candles...",0.25),(50,"📈 EMA9 + EMA21...",0.2),(70,"💹 RSI + ATR...",0.2),(85,"📰 Final check...",0.2),(100,"🔒 SIGNAL LOCKED!",0.3)]
     last_pct=-1
-    for item in steps:
-        pct,text,delay=item
-        if pct==last_pct: time.sleep(delay); continue
+    for pct, text, delay in steps:
+        if pct==last_pct: 
+            time.sleep(delay); 
+            continue
         last_pct=pct; filled=int(pct//5); bar="█"*filled+"░"*(20-filled)
         color="🟥" if pct<40 else "🟨" if pct<80 else "🟩" if pct<100 else "💎"
         txt=f"""{color} **Z-BOT V8 LEGIT SCAN** {color}\n\n💱 Pair: {PAIR_EMOJI.get(pair,pair)}\n💎 IQ: {'✅' if IQ_CONNECTED else '❌'}\n\n{bar} {pct}%\n▓ Progress: {pct}% ▓\n\n🔍 {text}\n\n⏳ Fast scan - V8.2"""
