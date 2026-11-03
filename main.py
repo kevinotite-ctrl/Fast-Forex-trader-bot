@@ -128,7 +128,6 @@ def calc_atr(df, period=14):
         return tr.rolling(period).mean().iloc[-1]
     except: return 0.0005
 
-# FIXED V8 SCAN - NO 85% HOOK
 def legit_live_scan(cid, mid, pair):
     steps = [(0,"🚀 Initializing V8...",0.15),(15,f"🔌 IQ Check {pair}...",0.2),(30,"📊 Fetching candles...",0.25),(50,"📈 EMA9 + EMA21...",0.2),(70,"💹 RSI + ATR...",0.2),(85,"📰 Final check...",0.2),(100,"🔒 SIGNAL LOCKED!",0.3)]
     last_pct=-1
@@ -331,9 +330,43 @@ def cb(c):
     data=c.data; cid=c.message.chat.id
 
     if data=="trade_real":
-        mk=types.InlineKeyboardMarkup(row_width=2)
+        mk=types.InlineKeyboardMarkup(row_width=1)
+        mk.add(types.InlineKeyboardButton("🔍 📊 SCAN ALL REAL NOW (8 PAIRS)",callback_data="scan_all_real"))
         for p in REAL_PAIRS: mk.add(types.InlineKeyboardButton(f"{PAIR_EMOJI.get(p,p)}",callback_data=f"real_pair_{p}"))
-        bot.send_message(cid,f"📈 **TRADE REAL - SIGNALS ONLY**\n📍 {get_mode_text()}\n☀️ Mon-Fri 7AM-8PM\n\nSelect REAL pair - No trade, signals only:",reply_markup=mk,parse_mode="Markdown"); return
+        bot.send_message(cid,f"📈 **TRADE REAL - SIGNALS ONLY**\n📍 {get_mode_text()}\n☀️ Mon-Fri 7AM-8PM\n\n👇 Scan all to know which ready:",reply_markup=mk,parse_mode="Markdown"); return
+
+    if data=="scan_all_real":
+        bot.answer_callback_query(c.id,"Scanning 8 REAL pairs...")
+        scan_msg=bot.send_message(cid,"🔍 **SCANNING ALL 8 REAL PAIRS...**\n\n⏳ This takes ~10 sec")
+        results=[]
+        for pair in REAL_PAIRS:
+            d=analyze_momentum(pair,sniper_mode=False)
+            if not d: 
+                results.append((pair,0,"-","No data","🔴 NO TRADE"))
+                continue
+            conf=d['conf']; dir_=d['dir']; reason=d['reason'] if d['reason'] else "Low momentum"
+            if conf>=85: status="🟢 READY"
+            elif conf>=70: status="🟡 WAIT"
+            else: status="🔴 NO TRADE"
+            results.append((pair,conf,dir_,reason,status))
+            try: bot.edit_message_text(f"🔍 Scanning... {pair} {conf:.0f}%",cid,scan_msg.message_id)
+            except: pass
+            time.sleep(0.8)
+        results.sort(key=lambda x: x[1], reverse=True)
+        txt="📊 **REAL MARKET READINESS 9.5** 📊\n"
+        txt+=f"📍 {get_mode_text()}\n⏰ {datetime.now(pytz.timezone('Africa/Lagos')).strftime('%H:%M:%S WAT')}\n\n"
+        for pair,conf,dir_,reason,status in results:
+            emoji=PAIR_EMOJI.get(pair,pair)
+            if conf>=70: txt+=f"{status} {emoji}: {conf:.0f}% {dir_} - {reason}\n"
+            else: txt+=f"{status} {emoji}: {conf:.0f}% - No trade\n"
+        best = results[0] if results else None
+        if best and best[1]>=70: txt+=f"\n💡 **BEST NOW:** {PAIR_EMOJI.get(best[0],best[0])} {best[1]:.0f}% {best[2]}"
+        else: txt+=f"\n💡 **No strong pair now - Wait 1 min & rescan**"
+        mk=types.InlineKeyboardMarkup(row_width=2)
+        if best and best[1]>=70: mk.add(types.InlineKeyboardButton(f"✅ TRADE BEST {best[0]}",callback_data=f"real_pair_{best[0]}"))
+        mk.add(types.InlineKeyboardButton("🔄 RE-SCAN ALL",callback_data="scan_all_real"),types.InlineKeyboardButton("💹 SWITCH TO OTC",callback_data="trade"))
+        bot.send_message(cid,txt,reply_markup=mk,parse_mode="Markdown")
+        return
 
     if data.startswith("real_pair_"):
         pair=data.replace("real_pair_","")
@@ -483,7 +516,7 @@ def cb(c):
         mk.add(types.InlineKeyboardButton("💹 NEW TRADE",callback_data="trade"),types.InlineKeyboardButton("🤖 AUTO",callback_data="auto_setup"))
         bot.send_message(cid,f"📊 **STATS 9.5**\n📍 {get_mode_text()}\n🏆 Wins: {STATS['wins']}\n❌ Loss: {STATS['loss']}\n📈 Winrate: {wr:.1f}%\n🔥 Streak: {STATS['streak']}\n💰 Real Bal: ${bal:.2f}",reply_markup=mk,parse_mode="Markdown")
     if data=="settings":
-        bot.send_message(cid,f"⚙️ **SETTINGS 9.5 ULTRA**\n\n☀️ REAL: Price Action + ATR + Wick filter\n⏱️ REAL Expiry: 2-3 min (safe)\n🌙 OTC: Manual+Auto untouched ✅\n💰 Balance: Real IQ balance\n📍 /mode /balance /stop\nScan: V8.2 Original")
+        bot.send_message(cid,f"⚙️ **SETTINGS 9.5 ULTRA**\n\n☀️ REAL: Price Action + ATR + Wick filter\n⏱️ REAL Expiry: 2-3 min (safe)\n🌙 OTC: Manual+Auto untouched ✅\n💰 Balance: Real IQ balance\n📍 /mode /balance /stop\nScan: V8.2 Original + SCAN ALL")
 
 @bot.message_handler(func=lambda m: user_states.get(m.chat.id,{}).get("step")=="await_amt")
 def handle_custom_amt(m):
@@ -507,7 +540,7 @@ def home():
     if u:
         try: requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={u}/{BOT_TOKEN}",timeout=5)
         except: pass
-    return "V9.5 ULTRA - REAL 7AM-8PM + OTC 8PM - RUNNING"
+    return "V9.5 ULTRA + SCAN ALL REAL - RUNNING"
 
 threading.Thread(target=real_signal_scanner,daemon=True).start()
 app.run(host="0.0.0.0",port=int(os.getenv("PORT",10000)))
