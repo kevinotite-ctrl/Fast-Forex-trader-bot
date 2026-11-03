@@ -147,7 +147,12 @@ def legit_live_scan(cid, mid, pair):
         time.sleep(0.3)
     except: pass
 
-def analyze_momentum(pair, sniper_mode=False):
+def analyze_momentum(pair,sniper_mode=False):
+if not d or d['conf'] < 70:
+    mk=types.InlineKeyboardMarkup()
+    mk.add(types.InlineKeyboardButton("🔄 RETRY SCAN",callback_data=f"real_exp_{expiry}_{pair}"),types.InlineKeyboardButton("📈 NEW REAL",callback_data="trade_real"))
+    bot.send_message(cid,f"⚠️ **No strong REAL signal now for {pair}**\n\n📊 Conf: {d['conf'] if d else 0}% < 70%\n💡 Market choppy / low ATR\n\n🔄 Try again in 30 sec or switch pair",reply_markup=mk)
+    return
     df=get_candles(pair)
     if df is None: return None
     try:
