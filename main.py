@@ -128,14 +128,12 @@ def calc_atr(df, period=14):
         return tr.rolling(period).mean().iloc[-1]
     except: return 0.0005
 
-# YOUR ORIGINAL FIXED - NO 85% HOOK
+# FIXED V8 SCAN - NO 85% HOOK
 def legit_live_scan(cid, mid, pair):
     steps = [(0,"🚀 Initializing V8...",0.15),(15,f"🔌 IQ Check {pair}...",0.2),(30,"📊 Fetching candles...",0.25),(50,"📈 EMA9 + EMA21...",0.2),(70,"💹 RSI + ATR...",0.2),(85,"📰 Final check...",0.2),(100,"🔒 SIGNAL LOCKED!",0.3)]
     last_pct=-1
     for pct, text, delay in steps:
-        if pct==last_pct: 
-            time.sleep(delay); 
-            continue
+        if pct==last_pct: time.sleep(delay); continue
         last_pct=pct; filled=int(pct//5); bar="█"*filled+"░"*(20-filled)
         color="🟥" if pct<40 else "🟨" if pct<80 else "🟩" if pct<100 else "💎"
         txt=f"""{color} **Z-BOT V8 LEGIT SCAN** {color}\n\n💱 Pair: {PAIR_EMOJI.get(pair,pair)}\n💎 IQ: {'✅' if IQ_CONNECTED else '❌'}\n\n{bar} {pct}%\n▓ Progress: {pct}% ▓\n\n🔍 {text}\n\n⏳ Fast scan - V8.2"""
@@ -147,12 +145,7 @@ def legit_live_scan(cid, mid, pair):
         time.sleep(0.3)
     except: pass
 
-def analyze_momentum(pair,sniper_mode=False):
-if not d or d['conf'] < 70:
-    mk=types.InlineKeyboardMarkup()
-    mk.add(types.InlineKeyboardButton("🔄 RETRY SCAN",callback_data=f"real_exp_{expiry}_{pair}"),types.InlineKeyboardButton("📈 NEW REAL",callback_data="trade_real"))
-    bot.send_message(cid,f"⚠️ **No strong REAL signal now for {pair}**\n\n📊 Conf: {d['conf'] if d else 0}% < 70%\n💡 Market choppy / low ATR\n\n🔄 Try again in 30 sec or switch pair",reply_markup=mk)
-    return
+def analyze_momentum(pair, sniper_mode=False):
     df=get_candles(pair)
     if df is None: return None
     try:
@@ -354,10 +347,12 @@ def cb(c):
         bot.answer_callback_query(c.id,f"Scanning {pair}...")
         scan_msg=bot.send_message(cid,f"🔍 **V8 SCAN {PAIR_EMOJI.get(pair,pair)}**\n\n0%\n🚀 Starting...")
         legit_live_scan(cid,scan_msg.message_id,pair)
-        d=analyze_momentum(pair,sniper_mode=True)
-        if not d:
-            mk=types.InlineKeyboardMarkup(); mk.add(types.InlineKeyboardButton("🔄 RETRY",callback_data=f"real_exp_{expiry}_{pair}"),types.InlineKeyboardButton("📈 NEW REAL",callback_data="trade_real"))
-            bot.send_message(cid,f"❌ Failed analyze {pair}",reply_markup=mk); return
+        d=analyze_momentum(pair,sniper_mode=False)
+        if not d or d['conf'] < 70:
+            mk=types.InlineKeyboardMarkup()
+            mk.add(types.InlineKeyboardButton("🔄 RETRY SCAN",callback_data=f"real_exp_{expiry}_{pair}"),types.InlineKeyboardButton("📈 NEW REAL",callback_data="trade_real"))
+            bot.send_message(cid,f"⚠️ **No strong REAL signal now for {pair}**\n\n📊 Conf: {d['conf'] if d else 0}% < 70%\n💡 Market choppy / low ATR\n\n🔄 Try again in 30 sec or switch pair",reply_markup=mk)
+            return
         tz=pytz.timezone("Africa/Lagos"); now=datetime.now(tz); entry=now+timedelta(seconds=45)
         exp_txt=f"{expiry//60} min {expiry%60}s" if expiry>=60 else f"{expiry}s"
         dir_e="🟢 CALL ⬆️" if d['dir']=="CALL" else "🔴 PUT ⬇️"
