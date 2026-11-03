@@ -182,21 +182,57 @@ def analyze_momentum(pair, sniper_mode=False):
 def iq_trade(pair,direction,amount,bal,expiry_sec=30):
     try:
         with IQ_LOCK:
-            logging.disable(logging.CRITICAL); iq.change_balance(bal)
+            logging.disable(logging.CRITICAL); 
+            iq.change_balance(bal)
+            # CHECK IF REAL ASSET OPEN NOW
+            try:
+                ot = iq.get_all_open_time()
+                if pair in ot:
+                    if not ot[pair]['open']:
+                        print(f"{pair} CLOSED NOW")
+                        logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
+                        return False, None, 0
+                # Also check turbo/binary open
+                if 'turbo' in ot.get(pair, {}):
+                    if not ot[pair]['turbo']['open']:
+                        print(f"{pair} turbo closed")
+            except: pass
             logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
+            
             if expiry_sec <= 90:
                 try:
                     logging.disable(logging.CRITICAL)
                     _,oid=iq.buy_blitz(pair,amount,direction.lower(),expiry_sec)
                     logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
                     return True,oid,expiry_sec
-                except: pass
+                except Exception as e: 
+                    print(f"Blitz fail {pair} {e}")
+                    pass
+                    
             mins = max(1, int(expiry_sec/60))
             logging.disable(logging.CRITICAL)
             _,oid=iq.buy(amount,pair,direction.lower(),mins)
             logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
             return True,oid,expiry_sec
-    except: return False,None,0
+    except Exception as e:
+        print(f"TRADE ERROR {pair} {e}")
+        return False,None,0
+
+def get_active_pairs():
+    # ONLY SHOW OPEN REAL PAIRS NOW
+    try:
+        with IQ_LOCK:
+            logging.disable(logging.CRITICAL)
+            ot = iq.get_all_open_time()
+            logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
+        open_pairs = []
+        for p in REAL_PAIRS:
+            if p in ot and ot[p].get('open', False):
+                open_pairs.append(p)
+        if open_pairs:
+            return open_pairs
+    except: pass
+    return REAL_PAIRS
 
 def auto_trader_loop(cid):
     consecutive_losses = 0
