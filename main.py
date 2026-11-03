@@ -285,14 +285,22 @@ def auto_trader_loop(cid):
         bot.send_message(cid,f"🛑 AUTO STOPPED W{STATS['wins']} L{STATS['loss']} Bal ${bal:.2f}")
     except: pass
 
-@bot.message_handler(commands=['start','stop','mode','balance'])
+@bot.message_handler(commands=['start','stop','mode','balance','session'])
 def start(m):
-    if not is_allowed(m.from_user.id): bot.send_message(m.chat.id,"❌ Private"); return
+    if not is_allowed(m.from_user.id): 
+        bot.send_message(m.chat.id,"❌ Private"); return
+    
     if m.text.startswith('/stop'):
-        if m.chat.id in AUTO_STATE: AUTO_STATE[m.chat.id]['running']=False; bot.send_message(m.chat.id,"🛑 Stopping...")
-        else: bot.send_message(m.chat.id,"Auto not running"); return
+        if m.chat.id in AUTO_STATE: 
+            AUTO_STATE[m.chat.id]['running']=False
+            bot.send_message(m.chat.id,"🛑 Stopping...")
+        else: 
+            bot.send_message(m.chat.id,"Auto not running")
+        return
+    
     if m.text.startswith('/mode'):
-        tz=pytz.timezone("Africa/Lagos"); now=datetime.now(tz)
+        tz=pytz.timezone("Africa/Lagos")
+        now=datetime.now(tz)
         txt=f"""📍 **MODE CHECK**
 
 ⏰ Now: {now.strftime('%A %H:%M:%S WAT')}
@@ -301,13 +309,78 @@ def start(m):
 🌙 OTC: 8PM-7AM + Weekend = Manual+Auto trading
 💎 IQ: {'✅' if IQ_CONNECTED else '❌'}
 """
-        bot.send_message(m.chat.id,txt,parse_mode="Markdown"); return
+        bot.send_message(m.chat.id,txt,parse_mode="Markdown")
+        return
+    
     if m.text.startswith('/balance'):
         try:
-            demo=get_real_balance("PRACTICE"); real=get_real_balance("REAL")
+            demo=get_real_balance("PRACTICE")
+            real=get_real_balance("REAL")
             bot.send_message(m.chat.id,f"💰 **BALANCES**\n🟢 DEMO: ${demo:.2f}\n🔴 REAL: ${real:.2f}\n📍 {get_mode_text()}")
-        except Exception as e: bot.send_message(m.chat.id,f"Balance error {e}")
+        except Exception as e:
+            bot.send_message(m.chat.id,f"Balance error {e}")
         return
+
+    if m.text.startswith('/session'):
+        tz = pytz.timezone("Africa/Lagos")
+        now = datetime.now(tz)
+        # Calculate next REAL session
+        next_session = now.replace(hour=7, minute=0, second=0, microsecond=0)
+        if now.weekday() >= 5: # Weekend
+            days_ahead = 7 - now.weekday() # Monday
+            next_session = next_session + timedelta(days=days_ahead)
+            status = f"Weekend — REAL closed"
+        elif now.hour < 7:
+            # Today 7AM
+            status = f"OTC now — REAL starts today"
+        elif now.hour >= 20:
+            # Tomorrow 7AM, unless Friday night
+            if now.weekday() == 4: # Friday after 8PM
+                next_session = next_session + timedelta(days=3) # Monday
+                status = f"Friday night — REAL closed till Monday"
+            else:
+                next_session = next_session + timedelta(days=1)
+                status = f"OTC now — REAL tomorrow"
+        else:
+            # Currently in REAL hours
+            end_today = now.replace(hour=20, minute=0, second=0, microsecond=0)
+            remaining = end_today - now
+            hrs = int(remaining.total_seconds() // 3600)
+            mins = int((remaining.total_seconds() % 3600) // 60)
+            txt = f"""⏰ **SESSION STATUS**
+
+📊 Now: {get_mode_text()}
+⏰ Time: {now.strftime('%A %H:%M WAT')}
+☀️ REAL ends: 8:00 PM today
+⏳ Remaining: {hrs}h {mins}m
+
+💡 REAL signals active now
+🌙 OTC starts at 8PM
+"""
+            bot.send_message(m.chat.id, txt, parse_mode="Markdown")
+            return
+        
+        diff = next_session - now
+        total_hours = int(diff.total_seconds() // 3600)
+        mins = int((diff.total_seconds() % 3600) // 60)
+        
+        txt = f"""⏰ **NEXT REAL SESSION**
+
+📊 Now: {get_mode_text()}
+⏰ Now: {now.strftime('%A %H:%M WAT')}
+📅 Next: {next_session.strftime('%A %d %b %H:%M WAT')}
+⏳ In: {total_hours}h {mins}m
+📌 {status}
+
+☀️ REAL: Mon-Fri 7AM-8PM = Signals (2-3 min expiry)
+🌙 OTC: 8PM-7AM+Weekend = Auto trading
+
+💡 Tip: /mode to check live
+"""
+        bot.send_message(m.chat.id, txt, parse_mode="Markdown")
+        return
+
+    # /start default
     bal_demo=get_real_balance("PRACTICE")
     mk=types.InlineKeyboardMarkup(row_width=1)
     mk.add(types.InlineKeyboardButton(f"💹 MANUAL OTC (15) - ${bal_demo:.2f}",callback_data="trade"))
@@ -322,7 +395,7 @@ def start(m):
 ☀️ REAL 7AM-8PM: Auto signals Entry+Expiry (2-3 min)
 🌙 OTC: Manual + Auto trading (untouched)
 
-💡 Commands: /mode /balance /stop
+💡 Commands: /mode /balance /session /stop
 
 👇 **OTC Trading:**
 """
