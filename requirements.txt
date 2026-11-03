@@ -1,9 +1,7 @@
-pytz
 pyTelegramBotAPI
 Flask
+iqoptionapi
+pytz
 requests
-pandas
-matplotlib
 pysocks
 websocket-client
-git+https://github.com/Lu-Yi-Hsun/iqoptionapi.git
