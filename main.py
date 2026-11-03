@@ -1,13 +1,8 @@
 import os, time, threading, warnings, logging
 from datetime import datetime, timedelta, timezone
-from flask import Flask, request
 import telebot
 from telebot import types
 import pandas as pd
-import requests
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 import pytz
 
 warnings.filterwarnings("ignore")
@@ -17,8 +12,7 @@ logging.disable(logging.ERROR)
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OWNER_ID = 8659453018
-bot = telebot.TeleBot(BOT_TOKEN)
-app = Flask(__name__)
+bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 
 REAL_PAIRS = ["EURUSD","GBPUSD","USDJPY","EURGBP","AUDUSD","USDCAD","EURJPY","GBPJPY"]
 OTC_PAIRS = ["EURUSD-OTC","GBPUSD-OTC","EURGBP-OTC","USDJPY-OTC","GBPJPY-OTC","AUDUSD-OTC","USDCHF-OTC","EURJPY-OTC","AUDJPY-OTC","EURAUD-OTC","GBPAUD-OTC","NZDUSD-OTC","GBPCHF-OTC","EURCHF-OTC","USDZAR-OTC"]
@@ -137,12 +131,32 @@ def legit_live_scan(cid, mid, pair):
         if pct==last_pct: time.sleep(delay); continue
         last_pct=pct; filled=int(pct//5); bar="█"*filled+"░"*(20-filled)
         color="🟥" if pct<40 else "🟨" if pct<80 else "🟩" if pct<100 else "💎"
-        txt=f"""{color} **Z-BOT V8 LEGIT SCAN** {color}\n\n💱 Pair: {PAIR_EMOJI.get(pair,pair)}\n💎 IQ: {'✅' if IQ_CONNECTED else '❌'}\n\n{bar} {pct}%\n▓ Progress: {pct}% ▓\n\n🔍 {text}\n\n⏳ Fast scan - V8.2"""
+        txt=f"""{color} **Z-BOT V8 LEGIT SCAN** {color}
+
+💱 Pair: {PAIR_EMOJI.get(pair,pair)}
+💎 IQ: {'✅' if IQ_CONNECTED else '❌'}
+
+{bar} {pct}%
+▓ Progress: {pct}% ▓
+
+🔍 {text}
+
+⏳ Fast scan - V8.2"""
         try: bot.edit_message_text(txt,cid,mid,parse_mode="Markdown")
         except: pass
         time.sleep(delay)
     try:
-        bot.edit_message_text(f"""💎 **Z-BOT V8 LEGIT SCAN** 💎\n\n💱 Pair: {PAIR_EMOJI.get(pair,pair)}\n💎 IQ: {'✅' if IQ_CONNECTED else '❌'}\n\n████████████████████ 100%\n▓ Progress: 100% ▓\n\n🔍 🔒 SIGNAL LOCKED! READY TO TRADE!\n\n⏳ Scan complete - Fast V8.2!""",cid,mid,parse_mode="Markdown")
+        bot.edit_message_text(f"""💎 **Z-BOT V8 LEGIT SCAN** 💎
+
+💱 Pair: {PAIR_EMOJI.get(pair,pair)}
+💎 IQ: {'✅' if IQ_CONNECTED else '❌'}
+
+████████████████████ 100%
+▓ Progress: 100% ▓
+
+🔍 🔒 SIGNAL LOCKED! READY TO TRADE!
+
+⏳ Scan complete - Fast V8.2!""",cid,mid,parse_mode="Markdown")
         time.sleep(0.3)
     except: pass
 
@@ -285,8 +299,9 @@ def auto_trader_loop(cid):
     except: pass
 
 @bot.message_handler(commands=['start','stop','mode','balance','stop_signals','start_signals','stop_all'])
-def start(m):
-    if not is_allowed(m.from_user.id): bot.send_message(m.chat.id,"❌ Private"); return
+def start_cmd(m):
+    if not is_allowed(m.from_user.id): 
+        bot.send_message(m.chat.id,"❌ Private"); return
     if m.text.startswith('/stop_all'):
         SCANNER_ENABLED["real"]=False
         if m.chat.id in AUTO_STATE: AUTO_STATE[m.chat.id]['running']=False
@@ -421,7 +436,14 @@ def cb(c):
             bot.send_message(cid,f"❌ Failed analyze {pair}",reply_markup=mk); return
         dir_emoji="🟢 CALL" if d['dir']=="CALL" else "🔴 PUT"
         expiry_txt=f"{expiry}s" if expiry<60 else f"{expiry//60} min"
-        signal_txt=f"""📡 **SIGNAL FOUND!**\n\n💱 {PAIR_EMOJI.get(pair,pair)}\n📊 {dir_emoji} | 🎯 {d['conf']:.0f}%\n💸 {int(d['payout']*100)}% | 💰 ${amt} | ⏱️ {expiry_txt}\n📈 {d['reason']}\n\n🤖 **PLACING {expiry_txt} TRADE...**"""
+        signal_txt=f"""📡 **SIGNAL FOUND!**
+
+💱 {PAIR_EMOJI.get(pair,pair)}
+📊 {dir_emoji} | 🎯 {d['conf']:.0f}%
+💸 {int(d['payout']*100)}% | 💰 ${amt} | ⏱️ {expiry_txt}
+📈 {d['reason']}
+
+🤖 **PLACING {expiry_txt} TRADE...**"""
         bot.send_message(cid,signal_txt,parse_mode="Markdown")
         ok,oid,exp=iq_trade(pair,d['dir'],amt,bal,expiry)
         if not ok:
@@ -474,15 +496,8 @@ def handle_custom_amt(m):
         bot.send_message(cid,f"✅ Custom ${amt} for {pair}\n\n⏱️ **STEP 4/4 - EXPIRY**",reply_markup=mk,parse_mode="Markdown")
     except: bot.send_message(cid,"❌ Send number only")
 
-@app.route(f"/{BOT_TOKEN}",methods=['POST'])
-def wh(): bot.process_new_updates([telebot.types.Update.de_json(request.get_data().decode("utf-8"))]); return "ok"
-@app.route("/")
-def home():
-    u=os.getenv("RENDER_EXTERNAL_URL")
-    if u:
-        try: requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={u}/{BOT_TOKEN}",timeout=5)
-        except: pass
-    return "V9.5 ULTRA - REAL 7AM-8PM + OTC 8PM - RUNNING"
+print("🚀 Z-BOT V9.5 ULTRA FULL POLLING - RESTORED 460+ LINES")
+threading.Thread(target=real_signal_scanner,daemon=True).start()
 
 def startup_notify():
     time.sleep(5)
@@ -510,7 +525,6 @@ Scanner go send signal once e see 86%+!
 """
         bot.send_message(OWNER_ID, txt, parse_mode="Markdown")
     except: pass
-    threading.Thread(target=real_signal_scanner,daemon=True).start()
     while True:
         time.sleep(1800)
         try:
@@ -522,4 +536,4 @@ Scanner go send signal once e see 86%+!
 
 threading.Thread(target=startup_notify,daemon=True).start()
 
-app.run(host="0.0.0.0",port=int(os.getenv("PORT",10000)))
+bot.infinity_polling(timeout=60, long_polling_timeout=60)
