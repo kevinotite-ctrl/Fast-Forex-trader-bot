@@ -50,35 +50,62 @@ def wh():
 
 def background_iq():
     global iq, IQ_CONNECTED
-    time.sleep(2)
+    time.sleep(3)
     for attempt in range(5):
         try:
             from iqoptionapi.stable_api import IQ_Option
             EMAIL=os.getenv("IQ_EMAIL"); PWD=os.getenv("IQ_PASS")
+            PROXY=os.getenv("PROXY_URL") or os.getenv("HTTP_PROXY")
             if not EMAIL or not PWD:
                 print("IQ_EMAIL/PASS missing"); return
-            print(f"Trying IQ connect attempt {attempt+1} {EMAIL}")
+            
+            print(f"[IQ] Attempt {attempt+1}/5 Email:{EMAIL} Proxy:{'YES' if PROXY else 'NO'}")
+            
+            # Set proxy env for websocket
+            if PROXY:
+                os.environ['http_proxy'] = PROXY
+                os.environ['https_proxy'] = PROXY
+                os.environ['HTTP_PROXY'] = PROXY
+                os.environ['HTTPS_PROXY'] = PROXY
+            
             logging.disable(logging.CRITICAL)
             iq=IQ_Option(EMAIL,PWD)
-            iq.connect()
+            # Some versions need active field
+            try:
+                iq.connect()
+            except Exception as ce:
+                print(f"Connect exception {ce}")
+                time.sleep(5)
+                continue
+                
             IQ_CONNECTED=iq.check_connect()
+            print(f"[IQ] check_connect={IQ_CONNECTED}")
+            
             if IQ_CONNECTED:
-                try: 
+                try:
                     iq.change_balance("PRACTICE")
-                    time.sleep(1)
-                    STATS["real_balance"]=iq.get_balance()
-                    print(f"IQ BALANCE: {STATS['real_balance']}")
-                except Exception as e: print(f"Bal err {e}")
-                logging.disable(logging.NOTSET); logging.getLogger().setLevel(logging.CRITICAL); logging.disable(logging.ERROR)
-                print(f"IQ Connected: {IQ_CONNECTED} - SUCCESS")
+                    time.sleep(2)
+                    bal = iq.get_balance()
+                    STATS["real_balance"]=bal
+                    print(f"[IQ] SUCCESS BALANCE ${bal}")
+                except Exception as be:
+                    print(f"[IQ] Balance err {be} but connected")
+                
+                logging.disable(logging.NOTSET)
+                logging.getLogger().setLevel(logging.CRITICAL)
+                logging.disable(logging.ERROR)
+                print(f"[IQ] CONNECTED TRUE")
                 return
             else:
-                print(f"IQ check_connect False attempt {attempt+1}")
+                print(f"[IQ] False, retrying...")
+                time.sleep(8)
         except Exception as e:
-            print(f"IQ Fail attempt {attempt+1}: {e}")
-        time.sleep(10)
+            print(f"[IQ] Fail attempt {attempt+1}: {e}")
+            import traceback; traceback.print_exc()
+            time.sleep(10)
+    
     IQ_CONNECTED=False
-    print("IQ FAILED AFTER 5 TRIES - Bot will still reply to /start but no trading")
+    print("[IQ] FAILED AFTER 5 - Will keep bot replying but no trading")
 
 def iq_reconnect():
     global iq, IQ_CONNECTED
