@@ -20,52 +20,26 @@ OWNER_ID = 8659453018
 bot = telebot.TeleBot(BOT_TOKEN)
 app = Flask(__name__)
 
-REAL_PAIRS = [
-    "EURUSD","GBPUSD","USDJPY","EURGBP","AUDUSD","USDCAD","EURJPY","GBPJPY",
-    "USDCHF","AUDJPY","EURAUD","GBPCHF","EURCHF","NZDUSD","GBPAUD",
-    "EURCAD","AUDCAD","GBPCAD","NZDJPY","AUDNZD","CHFJPY","CADJPY"
-]
-
-OTC_PAIRS = [
-    "EURUSD-OTC","GBPUSD-OTC","USDJPY-OTC","AUDUSD-OTC","USDCAD-OTC",
-    "EURGBP-OTC","EURJPY-OTC","GBPJPY-OTC","AUDJPY-OTC","EURAUD-OTC",
-    "GBPAUD-OTC","NZDUSD-OTC","GBPCHF-OTC","EURCHF-OTC","USDCHF-OTC",
-    "AUDCAD-OTC","EURCAD-OTC","CADJPY-OTC","NZDJPY-OTC"
-]
-
-PAIR_EMOJI = {
-    "EURUSD":"🇪🇺 EUR/USD REAL", "GBPUSD":"🇬🇧 GBP/USD REAL", "USDJPY":"🇺🇸 USD/JPY REAL", "EURGBP":"🇪🇺 EUR/GBP REAL",
-    "AUDUSD":"🇦🇺 AUD/USD REAL", "USDCAD":"🇺🇸 USD/CAD REAL", "EURJPY":"🇪🇺 EUR/JPY REAL", "GBPJPY":"🇬🇧 GBP/JPY REAL",
-    "USDCHF":"🇺🇸 USD/CHF REAL", "AUDJPY":"🇦🇺 AUD/JPY REAL", "EURAUD":"🇪🇺 EUR/AUD REAL", "GBPCHF":"🇬🇧 GBP/CHF REAL",
-    "EURCHF":"🇪🇺 EUR/CHF REAL", "NZDUSD":"🇳🇿 NZD/USD REAL", "GBPAUD":"🇬🇧 GBP/AUD REAL", "EURCAD":"🇪🇺 EUR/CAD REAL",
-    "AUDCAD":"🇦🇺 AUD/CAD REAL", "GBPCAD":"🇬🇧 GBP/CAD REAL", "NZDJPY":"🇳🇿 NZD/JPY REAL", "AUDNZD":"🇦🇺 AUD/NZD REAL",
-    "CHFJPY":"🇨🇭 CHF/JPY REAL", "CADJPY":"🇨🇦 CAD/JPY REAL",
-    "EURUSD-OTC":"🇪🇺 EUR/USD OTC", "GBPUSD-OTC":"🇬🇧 GBP/USD OTC", "EURGBP-OTC":"🇪🇺 EUR/GBP OTC",
-    "USDJPY-OTC":"🇺🇸 USD/JPY OTC", "GBPJPY-OTC":"🇬🇧 GBP/JPY OTC", "AUDUSD-OTC":"🇦🇺 AUD/USD OTC",
-    "USDCHF-OTC":"🇺🇸 USD/CHF OTC", "EURJPY-OTC":"🇪🇺 EUR/JPY OTC", "AUDJPY-OTC":"🇦🇺 AUD/JPY OTC",
-    "EURAUD-OTC":"🇪🇺 EUR/AUD OTC", "GBPAUD-OTC":"🇬🇧 GBP/AUD OTC", "NZDUSD-OTC":"🇳🇿 NZD/USD OTC",
-    "GBPCHF-OTC":"🇬🇧 GBP/CHF OTC", "EURCHF-OTC":"🇪🇺 EUR/CHF OTC", "USDCAD-OTC":"🇺🇸 USD/CAD OTC",
-    "AUDCAD-OTC":"🇦🇺 AUD/CAD OTC", "EURCAD-OTC":"🇪🇺 EUR/CAD OTC", "CADJPY-OTC":"🇨🇦 CAD/JPY OTC",
-    "NZDJPY-OTC":"🇳🇿 NZD/JPY OTC"
-}
+REAL_PAIRS = ["EURUSD","GBPUSD","USDJPY","EURGBP","AUDUSD","USDCAD","EURJPY","GBPJPY","USDCHF","AUDJPY","EURAUD","GBPCHF","EURCHF","NZDUSD","GBPAUD","EURCAD","AUDCAD","GBPCAD","NZDJPY","AUDNZD","CHFJPY","CADJPY"]
+OTC_PAIRS = ["EURUSD-OTC","GBPUSD-OTC","USDJPY-OTC","AUDUSD-OTC","USDCAD-OTC","EURGBP-OTC","EURJPY-OTC","GBPJPY-OTC","AUDJPY-OTC","EURAUD-OTC","GBPAUD-OTC","NZDUSD-OTC","GBPCHF-OTC","EURCHF-OTC","USDCHF-OTC","AUDCAD-OTC","EURCAD-OTC","CADJPY-OTC","NZDJPY-OTC"]
+PAIR_EMOJI = {"EURUSD":"🇪🇺 EUR/USD REAL","GBPUSD":"🇬🇧 GBP/USD REAL","USDJPY":"🇺🇸 USD/JPY REAL","EURGBP":"🇪🇺 EUR/GBP REAL","AUDUSD":"🇦🇺 AUD/USD REAL","USDCAD":"🇺🇸 USD/CAD REAL","EURJPY":"🇪🇺 EUR/JPY REAL","GBPJPY":"🇬🇧 GBP/JPY REAL","USDCHF":"🇺🇸 USD/CHF REAL","AUDJPY":"🇦🇺 AUD/JPY REAL","EURAUD":"🇪🇺 EUR/AUD REAL","GBPCHF":"🇬🇧 GBP/CHF REAL","EURCHF":"🇪🇺 EUR/CHF REAL","NZDUSD":"🇳🇿 NZD/USD REAL","GBPAUD":"🇬🇧 GBP/AUD REAL","EURCAD":"🇪🇺 EUR/CAD REAL","AUDCAD":"🇦🇺 AUD/CAD REAL","GBPCAD":"🇬🇧 GBP/CAD REAL","NZDJPY":"🇳🇿 NZD/JPY REAL","AUDNZD":"🇦🇺 AUD/NZD REAL","CHFJPY":"🇨🇭 CHF/JPY REAL","CADJPY":"🇨🇦 CAD/JPY REAL","EURUSD-OTC":"🇪🇺 EUR/USD OTC","GBPUSD-OTC":"🇬🇧 GBP/USD OTC","EURGBP-OTC":"🇪🇺 EUR/GBP OTC","USDJPY-OTC":"🇺🇸 USD/JPY OTC","GBPJPY-OTC":"🇬🇧 GBP/JPY OTC","AUDUSD-OTC":"🇦🇺 AUD/USD OTC","USDCHF-OTC":"🇺🇸 USD/CHF OTC","EURJPY-OTC":"🇪🇺 EUR/JPY OTC","AUDJPY-OTC":"🇦🇺 AUD/JPY OTC","EURAUD-OTC":"🇪🇺 EUR/AUD OTC","GBPAUD-OTC":"🇬🇧 GBP/AUD OTC","NZDUSD-OTC":"🇳🇿 NZD/USD OTC","GBPCHF-OTC":"🇬🇧 GBP/CHF OTC","EURCHF-OTC":"🇪🇺 EUR/CHF OTC","USDCAD-OTC":"🇺🇸 USD/CAD OTC","AUDCAD-OTC":"🇦🇺 AUD/CAD OTC","EURCAD-OTC":"🇪🇺 EUR/CAD OTC","CADJPY-OTC":"🇨🇦 CAD/JPY OTC","NZDJPY-OTC":"🇳🇿 NZD/JPY OTC"}
 
 STATS = {"balance":0.0,"real_balance":0.0,"wins":0,"loss":0,"streak":0}
 user_states = {}; AUTO_STATE = {}; IQ_LOCK = threading.Lock()
 IQ_CONNECTED=False; iq=None; PAYOUT_CACHE={}; PAYOUT_TIME=0
+OTC_SESSION_RESULTS = []
+OTC_MARTI = {"loss_streak":0, "base":1.0, "bal":"PRACTICE", "levels":[1,2,4,8]}
 
 def is_allowed(uid): return uid == OWNER_ID
-
 def is_real_hours():
     try:
-        tz = pytz.timezone("Africa/Lagos")
-        now = datetime.now(tz)
+        tz = pytz.timezone("Africa/Lagos"); now = datetime.now(tz)
         if now.weekday() >= 5: return False
         return 7 <= now.hour < 20
     except:
         now = datetime.now(timezone.utc) + timedelta(hours=1)
         if now.weekday() >= 5: return False
         return 7 <= now.hour < 20
-
 def get_mode_text(): return "REAL SIGNAL (7AM-8PM)" if is_real_hours() else "OTC TRADING (8PM-7AM+Weekend)"
 
 try:
@@ -179,8 +153,7 @@ def analyze_momentum(pair, sniper_mode=False):
         is_green=c_now>o_now
         payout=get_payout(pair)
         sig="CALL" if is_green else "PUT"
-        score=0
-        reason_list=[]
+        score=0; reason_list=[]
         min_atr = 0.00025 if pair in ["EURUSD","GBPUSD","USDJPY"] else 0.00035
         if atr < min_atr:
             return {"pair":pair,"dir":sig,"conf":45,"price":c_now,"rsi":rsi7,"reason":"Low ATR - Choppy","payout":payout,"expiry":120,"atr":atr,"rejected":False}
@@ -189,23 +162,17 @@ def analyze_momentum(pair, sniper_mode=False):
         if upper_wick > body*2.5 and lower_wick > body*2.5:
             return {"pair":pair,"dir":sig,"conf":48,"price":c_now,"rsi":rsi7,"reason":"High indecision","payout":payout,"expiry":120,"atr":atr,"rejected":False}
         if is_green:
-            if e9 > e21 and e21 > e50: 
-                score+=20; reason_list.append("EMA Bull Align")
-                if e21 > e21_prev: score+=10; reason_list.append("Slope Up")
+            if e9 > e21 and e21 > e50: score+=20; reason_list.append("EMA Bull Align")
             elif e9 > e21: score+=12
         else:
-            if e9 < e21 and e21 < e50: 
-                score+=20; reason_list.append("EMA Bear Align")
-                if e21 < e21_prev: score+=10; reason_list.append("Slope Down")
+            if e9 < e21 and e21 < e50: score+=20; reason_list.append("EMA Bear Align")
             elif e9 < e21: score+=12
         if is_green:
-            if 55 <= rsi7 <= 68 and 50 <= rsi14 <= 65:
-                score+=25; reason_list.append(f"RSI Safe {rsi7:.0f}")
+            if 55 <= rsi7 <= 68 and 50 <= rsi14 <= 65: score+=25; reason_list.append(f"RSI Safe {rsi7:.0f}")
             elif 50 <= rsi7 <= 72: score+=15
             elif rsi7 > 75: score-=15
         else:
-            if 32 <= rsi7 <= 45 and 35 <= rsi14 <= 50:
-                score+=25; reason_list.append(f"RSI Safe {rsi7:.0f}")
+            if 32 <= rsi7 <= 45 and 35 <= rsi14 <= 50: score+=25; reason_list.append(f"RSI Safe {rsi7:.0f}")
             elif 28 <= rsi7 <= 50: score+=15
             elif rsi7 < 25: score-=15
         if is_green:
@@ -230,10 +197,8 @@ def analyze_momentum(pair, sniper_mode=False):
             elif upper_wick > lower_wick: score+=8
         score = max(45, min(94, score + 30))
         reason = " + ".join(reason_list) if reason_list else "Weak PA"
-        if "-OTC" not in pair:
-            expiry = 180 if abs(mom1) > 0.06 else 120
-        else:
-            expiry = 60 if abs(mom1) > 0.05 else 120
+        expiry = 180 if abs(mom1) > 0.06 else 120
+        if "-OTC" in pair: expiry = 60 if abs(mom1) > 0.05 else 120
         if sniper_mode and score < 85:
             return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":rsi7,"reason":reason,"payout":payout,"expiry":expiry,"atr":atr,"rejected":True}
         return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":rsi7,"reason":reason,"payout":payout,"expiry":expiry,"atr":atr,"rejected":False}
@@ -260,6 +225,60 @@ def iq_trade(pair,direction,amount,bal,expiry_sec=30):
                 except: pass
             return False,None,0
     except: iq_reconnect(); return False,None,0
+
+def try_auto_otc_trade(d, cid):
+    global OTC_SESSION_RESULTS, OTC_MARTI
+    try:
+        if cid in AUTO_STATE and AUTO_STATE[cid].get('running'):
+            base = AUTO_STATE[cid].get('base_amt',1.0)
+            bal_type = AUTO_STATE[cid].get('bal','PRACTICE')
+            OTC_MARTI["base"]=base
+            OTC_MARTI["bal"]=bal_type
+        else:
+            base = OTC_MARTI["base"]
+            bal_type = OTC_MARTI["bal"]
+
+        levels = OTC_MARTI["levels"]  # [1,2,4,8]
+        idx = OTC_MARTI["loss_streak"] % len(levels)
+        mult = levels[idx]
+        curr_amt = base * mult
+        curr_amt = round(curr_amt,2)
+
+        ok,oid,exp = iq_trade(d['pair'], d['dir'], curr_amt, bal_type, d['expiry'])
+        if not ok:
+            bot.send_message(cid,f"⚠️ Auto OTC 85% trade failed {d['pair']} {d['dir']}")
+            return
+        
+        bal_now=get_real_balance(bal_type)
+        bot.send_message(cid,f"🤖 **AUTO OTC 85% PLACED! Level {idx+1}/4 ({mult}x)**\n\n💱 {d['pair']} {d['dir']} ${curr_amt} (base ${base}) {d['conf']}% Safe {exp}s\n🆔 {oid} | Bal ${bal_now:.2f}\n⏳ Waiting...")
+
+        time.sleep(exp+6)
+        with IQ_LOCK:
+            logging.disable(logging.CRITICAL); pnl=iq.check_win_v4(oid)
+            logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
+        
+        bal_now=get_real_balance(bal_type)
+        win = pnl>0
+
+        if win:
+            STATS['wins']+=1; STATS['streak']+=1; STATS['real_balance']=bal_now
+            OTC_MARTI["loss_streak"]=0
+            OTC_SESSION_RESULTS.append({"pair":d['pair'],"dir":d['dir'],"conf":d['conf'],"pnl":pnl,"win":True,"amt":curr_amt,"level":mult,"time":datetime.now(pytz.timezone("Africa/Lagos")).strftime('%H:%M:%S')})
+            bot.send_message(cid,f"✅ **AUTO OTC WIN** +${pnl:.2f}\n💱 {d['pair']} {d['dir']} ${curr_amt} L{mult} {d['conf']}%\n💰 Bal ${bal_now:.2f} | 🔥 {STATS['streak']}\n♻️ Reset to ${base} (Level 1)")
+        else:
+            STATS['loss']+=1; STATS['streak']=0; STATS['real_balance']=bal_now
+            OTC_MARTI["loss_streak"]+=1
+            if OTC_MARTI["loss_streak"] >= len(levels):
+                bot.send_message(cid,f"❌ **LOSS -${curr_amt:.2f}** | Level {mult} finished (1-2-4-8 done)\n💱 {d['pair']}\n♻️ Resetting to Level 1 ${base}")
+                OTC_MARTI["loss_streak"]=0
+            else:
+                next_mult = levels[OTC_MARTI["loss_streak"]]
+                next_amt = base * next_mult
+                bot.send_message(cid,f"❌ **LOSS -${curr_amt:.2f}** | {d['pair']} Level {mult}\n💰 Bal ${bal_now:.2f}\n👉 Next 85% signal → **${next_amt:.2f} Level {OTC_MARTI['loss_streak']+1} ({next_mult}x)**")
+            OTC_SESSION_RESULTS.append({"pair":d['pair'],"dir":d['dir'],"conf":d['conf'],"pnl":-curr_amt,"win":False,"amt":curr_amt,"level":mult,"time":datetime.now(pytz.timezone("Africa/Lagos")).strftime('%H:%M:%S')})
+
+    except Exception as e:
+        bot.send_message(cid,f"Auto OTC martingale error {e}")
 
 def real_signal_scanner():
     last_signal={}; tz=pytz.timezone("Africa/Lagos")
@@ -291,6 +310,37 @@ def real_signal_scanner():
             time.sleep(25)
         except: time.sleep(30)
 
+def otc_auto_85_scanner():
+    last_signal={}
+    while True:
+        try:
+            if not is_real_hours() and IQ_CONNECTED:
+                for pair in OTC_PAIRS:
+                    if pair in last_signal and time.time()-last_signal[pair]<180: continue
+                    d=analyze_momentum(pair,sniper_mode=True)
+                    if d and not d.get('rejected') and d['conf']>=85:
+                        tz=pytz.timezone("Africa/Lagos"); now=datetime.now(tz); entry=now+timedelta(seconds=45)
+                        exp=d['expiry']; exp_txt=f"{exp//60} min" if exp>=60 else f"{exp}s"
+                        dir_e="🟢 CALL ⬆️" if d['dir']=="CALL" else "🔴 PUT ⬇️"
+                        levels = OTC_MARTI["levels"]; idx = OTC_MARTI["loss_streak"] % len(levels)
+                        mult = levels[idx]; base = OTC_MARTI["base"]; curr = base*mult
+                        msg=f"""📡 **OTC AUTO SIGNAL 85% - AUTO TRADE** 📡
+
+💱 {PAIR_EMOJI.get(pair,pair)}
+📊 {dir_e} | 🎯 {d['conf']:.0f}% SAFE
+📈 {d['reason']} | RSI {d['rsi']:.1f}
+💸 {int(d['payout']*100)}% | Auto {exp_txt}
+
+⏰ ENTRY: {entry.strftime('%H:%M:%S WAT')}
+🤖 Auto placing ${curr:.2f} Level {idx+1} ({mult}x) now...
+"""
+                        try: bot.send_message(OWNER_ID,msg,parse_mode="Markdown"); last_signal[pair]=time.time()
+                        except: pass
+                        threading.Thread(target=try_auto_otc_trade,args=(d,OWNER_ID),daemon=True).start()
+                    time.sleep(2)
+            time.sleep(12)
+        except: time.sleep(15)
+
 def auto_trader_loop(cid):
     consecutive_losses=0
     while AUTO_STATE.get(cid,{}).get('running',False):
@@ -309,12 +359,14 @@ def auto_trader_loop(cid):
             else:
                 d=analyze_momentum(pair_to_trade,sniper_mode=True)
                 if not d or d.get('rejected'): time.sleep(20); continue
-            curr_amt=state['base_amt']*(2.2**consecutive_losses) if state['martingale'] else state['base_amt']
+            levels=[1,2,4,8]
+            idx=consecutive_losses % len(levels)
+            curr_amt=state['base_amt']*levels[idx]
             curr_amt=min(curr_amt,state['base_amt']*8)
             ok,oid,exp=iq_trade(pair_to_trade,d['dir'],curr_amt,state['bal'],state['expiry'])
             if not ok: iq_reconnect(); time.sleep(8); continue
             bal_now=get_real_balance(state['bal'])
-            bot.send_message(cid,f"🤖 Auto OTC {pair_to_trade} {d['dir']} ${curr_amt:.2f} {d['conf']}% Safe {exp}s - ID {oid}\n💰 Bal ${bal_now:.2f}")
+            bot.send_message(cid,f"🤖 Auto OTC {pair_to_trade} {d['dir']} ${curr_amt:.2f} L{levels[idx]} {d['conf']}% Safe {exp}s - ID {oid}\n💰 Bal ${bal_now:.2f}")
             time.sleep(exp+6)
             try:
                 with IQ_LOCK:
@@ -325,12 +377,12 @@ def auto_trader_loop(cid):
                     STATS['wins']+=1; STATS['real_balance']=bal_now; STATS['streak']+=1; AUTO_STATE[cid]['trades']+=1
                     mk=types.InlineKeyboardMarkup(row_width=2)
                     mk.add(types.InlineKeyboardButton("📊 STATS",callback_data="stats"),types.InlineKeyboardButton("🛑 STOP AUTO",callback_data="stop_auto"))
-                    bot.send_message(cid,f"✅ WIN +${pnl:.2f} | {pair_to_trade}\n💰 Bal ${bal_now:.2f} | Streak {STATS['streak']}",reply_markup=mk)
+                    bot.send_message(cid,f"✅ WIN +${pnl:.2f} | {pair_to_trade} L{levels[idx]} Reset to $1\n💰 Bal ${bal_now:.2f} | Streak {STATS['streak']}",reply_markup=mk)
                     consecutive_losses=0
                 else:
                     STATS['loss']+=1; STATS['real_balance']=bal_now; STATS['streak']=0; AUTO_STATE[cid]['trades']+=1; consecutive_losses+=1
-                    bot.send_message(cid,f"❌ LOSS -${curr_amt:.2f} | Bal ${bal_now:.2f} | Next ${state['base_amt']*(2.2**consecutive_losses):.2f}")
-                    if consecutive_losses>=3: consecutive_losses=0; time.sleep(60)
+                    if consecutive_losses>=4: consecutive_losses=0; bot.send_message(cid,f"❌ LOSS -${curr_amt:.2f} | 1-2-4-8 done → Reset | Bal ${bal_now:.2f}")
+                    else: bot.send_message(cid,f"❌ LOSS -${curr_amt:.2f} | Bal ${bal_now:.2f} | Next L{levels[consecutive_losses]} ${state['base_amt']*levels[consecutive_losses]:.2f}")
             except:
                 bot.send_message(cid,f"⏱️ Expired {oid} - Check IQ")
             time.sleep(8)
@@ -340,22 +392,34 @@ def auto_trader_loop(cid):
         bot.send_message(cid,f"🛑 AUTO STOPPED W{STATS['wins']} L{STATS['loss']} Bal ${bal:.2f}")
     except: pass
 
-@bot.message_handler(commands=['start','stop','mode','balance'])
+@bot.message_handler(commands=['start','stop','mode','balance','results'])
 def start(m):
     if not is_allowed(m.from_user.id): bot.send_message(m.chat.id,"❌ Private"); return
     if m.text.startswith('/stop'):
         if m.chat.id in AUTO_STATE: AUTO_STATE[m.chat.id]['running']=False; bot.send_message(m.chat.id,"🛑 Stopping...")
         else: bot.send_message(m.chat.id,"Auto not running"); return
+    if m.text.startswith('/results'):
+        if not OTC_SESSION_RESULTS:
+            bot.send_message(m.chat.id,"📭 No OTC 85% auto trades yet this session")
+            return
+        wins=sum(1 for x in OTC_SESSION_RESULTS if x['win']); losses=len(OTC_SESSION_RESULTS)-wins
+        pnl_total=sum(x['pnl'] for x in OTC_SESSION_RESULTS)
+        levels = OTC_MARTI["levels"]
+        idx = OTC_MARTI["loss_streak"] % len(levels)
+        txt=f"📊 **OTC 85% AUTO MARTINGALE RESULTS (1-2-4-8)**\n\nTotal: {len(OTC_SESSION_RESULTS)} | W:{wins} L:{losses} | PnL: ${pnl_total:.2f}\nCurrent Level: {idx+1} ({levels[idx]}x) | Base: ${OTC_MARTI['base']}\n\n"
+        for r in OTC_SESSION_RESULTS[-25:]:
+            txt+=f"{'✅' if r['win'] else '❌'} {r['time']} {r['pair']} {r['dir']} ${r['amt']} L{r['level']} {r['conf']}% {r['pnl']:+.2f}\n"
+        bot.send_message(m.chat.id,txt,parse_mode="Markdown"); return
     if m.text.startswith('/mode'):
         tz=pytz.timezone("Africa/Lagos"); now=datetime.now(tz)
-        txt=f"""📍 **MODE CHECK V11 SAFE AUTO**
+        txt=f"""📍 **MODE CHECK V11.3 OTC AUTO 85% MARTINGALE 1-2-4-8**
 
 ⏰ Now: {now.strftime('%A %H:%M:%S WAT')}
 📊 Mode: {get_mode_text()}
 ☀️ REAL: 7AM-8PM = Auto safe expiry signals
-🌙 OTC: 8PM-7AM+Weekend = Manual+Auto
+🌙 OTC: 85%+ = AUTO TRADE 1-2-4-8 + Results /results
 💎 IQ: {'✅' if IQ_CONNECTED else '❌'}
-🛡️ V11: No expiry choose - bot picks safe
+🛡️ Martingale: 1-2-4-8 return, win reset
 """
         bot.send_message(m.chat.id,txt,parse_mode="Markdown"); return
     if m.text.startswith('/balance'):
@@ -366,19 +430,20 @@ def start(m):
         return
     bal_demo=get_real_balance("PRACTICE")
     mk=types.InlineKeyboardMarkup(row_width=1)
-    mk.add(types.InlineKeyboardButton(f"💹 MANUAL OTC (19) - ${bal_demo:.2f}",callback_data="trade"))
+    mk.add(types.InlineKeyboardButton(f"💹 SCAN ALL OTC + AUTO 85% 1-2-4-8 - ${bal_demo:.2f}",callback_data="scan_all_otc"))
     mk.add(types.InlineKeyboardButton(f"📈 TRADE REAL (22) AUTO EXPIRY",callback_data="trade_real"))
-    mk.add(types.InlineKeyboardButton("🤖 AUTO-TRADER OTC 90%+ (Untouched)",callback_data="auto_setup"))
+    mk.add(types.InlineKeyboardButton("🤖 AUTO-TRADER OTC 85%+",callback_data="auto_setup"))
     mk.add(types.InlineKeyboardButton("📊 MY STATS",callback_data="stats"),types.InlineKeyboardButton("⚙️ SETTINGS",callback_data="settings"))
-    txt=f"""🤖 **Z-BOT V11 SAFE AUTO EXPIRY** 🤖
+    txt=f"""🤖 **Z-BOT V11.3 OTC AUTO 85% MARTINGALE** 🤖
 
 💎 IQ: {'✅' if IQ_CONNECTED else '❌'} | 💰 DEMO ${bal_demo:.2f}
 🏆 W:{STATS['wins']} L:{STATS['loss']} | 🔥 {STATS['streak']}
 📍 {get_mode_text()}
+📦 Martingale: {OTC_MARTI['levels']} | Level {OTC_MARTI['loss_streak']+1}
 
-☀️ REAL 22: Click pair = Auto safe expiry 65%+ 
-🌙 OTC 19: Click pair = Auto safe expiry + trade
-🛡️ V11 SAFE: ATR + Body + Engulf + Pin Bar
+☀️ REAL 22: 65%+ signal
+🌙 OTC 19: 85%+ = AUTO TRADE 1-2-4-8 same as REAL
+🛡️ Results: /results
 
 👇 **Select:**
 """
@@ -393,12 +458,12 @@ def cb(c):
         mk=types.InlineKeyboardMarkup(row_width=1)
         mk.add(types.InlineKeyboardButton("🔍 📊 SCAN ALL REAL NOW (22 PAIRS)",callback_data="scan_all_real"))
         for p in REAL_PAIRS: mk.add(types.InlineKeyboardButton(f"{PAIR_EMOJI.get(p,p)}",callback_data=f"real_pair_{p}"))
-        bot.send_message(cid,f"📈 **TRADE REAL V11 AUTO EXPIRY - NO CHOOSE**\n📍 {get_mode_text()}\n☀️ Mon-Fri 7AM-8PM\n\n👇 Click any pair - bot auto picks safe expiry:",reply_markup=mk,parse_mode="Markdown"); return
+        bot.send_message(cid,f"📈 **TRADE REAL V11 AUTO EXPIRY**\n📍 {get_mode_text()}",reply_markup=mk,parse_mode="Markdown"); return
 
     if data=="scan_all_real":
         bot.answer_callback_query(c.id,"Scanning 22 REAL pairs SAFE...")
         scan_msg=bot.send_message(cid,"🔍 **SCANNING ALL 22 REAL PAIRS V11 SAFE...**\n\n⏳ ~12 sec")
-        results=[]
+        results=[]; datas={}
         for pair in REAL_PAIRS:
             d=analyze_momentum(pair,sniper_mode=False)
             if not d: 
@@ -409,11 +474,12 @@ def cb(c):
             elif conf>=65: status="🟡 READY"
             else: status="🔴 NO TRADE"
             results.append((pair,conf,dir_,reason,status,exp))
+            datas[pair]=d
             try: bot.edit_message_text(f"🔍 Scanning V11... {pair} {conf:.0f}%",cid,scan_msg.message_id)
             except: pass
-            time.sleep(0.5)
+            time.sleep(0.3)
         results.sort(key=lambda x: x[1], reverse=True)
-        txt="📊 **REAL V11 SAFE READINESS AUTO EXPIRY** 📊\n"
+        txt="📊 **REAL V11 SAFE READINESS** 📊\n"
         txt+=f"📍 {get_mode_text()}\n⏰ {datetime.now(pytz.timezone('Africa/Lagos')).strftime('%H:%M:%S WAT')}\n\n"
         for pair,conf,dir_,reason,status,exp in results:
             emoji=PAIR_EMOJI.get(pair,pair)
@@ -421,11 +487,27 @@ def cb(c):
             else: txt+=f"{status} {emoji}: {conf:.0f}% - {reason}\n"
         best = results[0] if results else None
         if best and best[1]>=65: txt+=f"\n💡 **BEST NOW:** {PAIR_EMOJI.get(best[0],best[0])} {best[1]:.0f}% Safe {best[5]}s"
-        else: txt+=f"\n💡 **No safe trade now - Rescan in 1 min**"
         mk=types.InlineKeyboardMarkup(row_width=2)
         if best and best[1]>=65: mk.add(types.InlineKeyboardButton(f"✅ TRADE BEST {best[0]}",callback_data=f"real_pair_{best[0]}"))
-        mk.add(types.InlineKeyboardButton("🔄 RE-SCAN ALL",callback_data="scan_all_real"),types.InlineKeyboardButton("💹 SWITCH TO OTC",callback_data="trade"))
+        mk.add(types.InlineKeyboardButton("🔄 RE-SCAN ALL",callback_data="scan_all_real"),types.InlineKeyboardButton("💹 SWITCH TO OTC",callback_data="scan_all_otc"))
         bot.send_message(cid,txt,reply_markup=mk,parse_mode="Markdown")
+        if best and best[1]>=65 and best[0] in datas:
+            time.sleep(0.5)
+            best_data=datas[best[0]]
+            tz=pytz.timezone("Africa/Lagos"); now=datetime.now(tz); entry=now+timedelta(seconds=45)
+            exp=best_data['expiry']; exp_txt=f"{exp//60} min" if exp>=60 else f"{exp}s"
+            dir_e="🟢 CALL ⬆️" if best_data['dir']=="CALL" else "🔴 PUT ⬇️"
+            signal_txt=f"""📡 **REAL TOP SIGNAL V11.3 AUTO** 📡
+
+💱 {PAIR_EMOJI.get(best_data['pair'],best_data['pair'])}
+📊 {dir_e} | 🎯 {best_data['conf']:.0f}% SAFE
+📈 {best_data['reason']} | RSI {best_data['rsi']:.1f}
+💸 {int(best_data['payout']*100)}% | 💰 {best_data['price']:.5f}
+
+⏰ ENTRY: {entry.strftime('%H:%M:%S WAT')} (in 45s)
+⏱️ AUTO SAFE: {exp_txt}
+"""
+            bot.send_message(cid,signal_txt,parse_mode="Markdown")
         return
 
     if data.startswith("real_pair_"):
@@ -437,7 +519,7 @@ def cb(c):
         if not d or d['conf'] < 65:
             mk=types.InlineKeyboardMarkup()
             mk.add(types.InlineKeyboardButton("🔄 RETRY",callback_data=f"real_pair_{pair}"),types.InlineKeyboardButton("📈 SCAN ALL",callback_data="scan_all_real"))
-            bot.send_message(cid,f"⚠️ **No safe trade now for {pair}**\n\n📊 Conf: {d['conf'] if d else 0}% < 65%\n🛡️ {d['reason'] if d else 'No data'}\n💡 Wait 30 sec - market choppy",reply_markup=mk)
+            bot.send_message(cid,f"⚠️ **No safe trade now for {pair}**\n\n📊 Conf: {d['conf'] if d else 0}% < 65%\n🛡️ {d['reason'] if d else 'No data'}",reply_markup=mk)
             return
         tz=pytz.timezone("Africa/Lagos"); now=datetime.now(tz); entry=now+timedelta(seconds=45)
         exp=d['expiry']; exp_txt=f"{exp//60} min" if exp>=60 else f"{exp}s"
@@ -450,27 +532,78 @@ def cb(c):
 💸 {int(d['payout']*100)}% | 💰 {d['price']:.5f}
 
 ⏰ ENTRY: {entry.strftime('%H:%M:%S WAT')} (in 45s)
-⏱️ AUTO SAFE EXPIRY: {exp_txt} ({exp}s) - Bot picked
-📅 {now.strftime('%A %d %b %H:%M WAT')}
+⏱️ AUTO SAFE EXPIRY: {exp_txt} ({exp}s)
 
-⚠️ **MANUAL PLACE - Expiry already safe**
+⚠️ **MANUAL PLACE**
 """
         mk=types.InlineKeyboardMarkup(row_width=2)
         mk.add(types.InlineKeyboardButton("🔁 SAME PAIR",callback_data=f"real_pair_{pair}"),types.InlineKeyboardButton("📈 SCAN ALL",callback_data="scan_all_real"))
-        mk.add(types.InlineKeyboardButton("💹 SWITCH TO OTC",callback_data="trade"))
         bot.send_message(cid,signal_txt,reply_markup=mk,parse_mode="Markdown")
         return
 
-    if data=="trade":
+    if data=="trade" or data=="scan_all_otc":
+        bot.answer_callback_query(c.id,"Scanning 19 OTC SAFE...")
+        scan_msg=bot.send_message(cid,"🔍 **SCANNING ALL 19 OTC V11.3 SAME STRATEGY AS REAL...**\n\n⏳ ~10 sec")
+        results=[]; datas={}
+        for pair in OTC_PAIRS:
+            d=analyze_momentum(pair,sniper_mode=False)
+            if not d: 
+                results.append((pair,0,"-","No data","🔴 NO TRADE",120))
+                continue
+            conf=d['conf']; dir_=d['dir']; reason=d['reason']; exp=d['expiry']
+            if conf>=85: status="🟢 READY"
+            elif conf>=65: status="🟡 READY"
+            else: status="🔴 NO TRADE"
+            results.append((pair,conf,dir_,reason,status,exp))
+            datas[pair]=d
+            try: bot.edit_message_text(f"🔍 Scanning OTC V11... {pair} {conf:.0f}%",cid,scan_msg.message_id)
+            except: pass
+            time.sleep(0.3)
+        results.sort(key=lambda x: x[1], reverse=True)
+        txt="📊 **OTC V11.3 SAME AS REAL + AUTO 85%** 📊\n"
+        txt+=f"📍 {get_mode_text()} | 85%+ = AUTO TRADE 1-2-4-8\n⏰ {datetime.now(pytz.timezone('Africa/Lagos')).strftime('%H:%M:%S WAT')}\n\n"
+        for pair,conf,dir_,reason,status,exp in results:
+            emoji=PAIR_EMOJI.get(pair,pair)
+            if conf>=65: txt+=f"{status} {emoji}: {conf:.0f}% {dir_} Safe {exp}s - {reason}\n"
+            else: txt+=f"{status} {emoji}: {conf:.0f}% - {reason}\n"
+        best = results[0] if results else None
+        levels = OTC_MARTI["levels"]
+        idx = OTC_MARTI["loss_streak"] % len(levels)
+        if best and best[1]>=65: txt+=f"\n💡 **BEST:** {PAIR_EMOJI.get(best[0],best[0])} {best[1]:.0f}% | Martingale Level {idx+1} ({levels[idx]}x)"
+        if best and best[1]>=85: txt+=f"\n🤖 **85%+ → Auto trading ${OTC_MARTI['base']*levels[idx]:.0f} now!**"
         mk=types.InlineKeyboardMarkup(row_width=2)
-        for p in OTC_PAIRS: mk.add(types.InlineKeyboardButton(f"{PAIR_EMOJI.get(p,p)}",callback_data=f"pair_{p}"))
-        bot.send_message(cid,f"💹 **MANUAL OTC (19) AUTO SAFE EXPIRY**\n📍 {get_mode_text()}\n\n👇 Click pair - bot auto picks safe expiry",reply_markup=mk,parse_mode="Markdown"); return
+        if best and best[1]>=65: mk.add(types.InlineKeyboardButton(f"✅ TRADE BEST {best[0]}",callback_data=f"pair_{best[0]}"))
+        mk.add(types.InlineKeyboardButton("🔄 RE-SCAN OTC",callback_data="scan_all_otc"),types.InlineKeyboardButton("📈 REAL",callback_data="trade_real"))
+        bot.send_message(cid,txt,reply_markup=mk,parse_mode="Markdown")
+        if best and best[0] in datas:
+            best_data=datas[best[0]]
+            if best_data['conf']>=65:
+                time.sleep(0.5)
+                tz=pytz.timezone("Africa/Lagos"); now=datetime.now(tz); entry=now+timedelta(seconds=45)
+                exp=best_data['expiry']; exp_txt=f"{exp//60} min" if exp>=60 else f"{exp}s"
+                dir_e="🟢 CALL ⬆️" if best_data['dir']=="CALL" else "🔴 PUT ⬇️"
+                signal_txt=f"""📡 **OTC SIGNAL V11.3 SAME AS REAL** 📡
+
+💱 {PAIR_EMOJI.get(best_data['pair'],best_data['pair'])}
+📊 {dir_e} | 🎯 {best_data['conf']:.0f}% SAFE
+📈 {best_data['reason']} | RSI {best_data['rsi']:.1f}
+💸 {int(best_data['payout']*100)}%
+
+⏰ ENTRY: {entry.strftime('%H:%M:%S WAT')} (in 45s)
+⏱️ AUTO SAFE: {exp_txt}
+"""
+                if best_data['conf']>=85:
+                    signal_txt+=f"\n🤖 **85%+ AUTO TRADE Level {idx+1} ({levels[idx]}x) - Placing ${OTC_MARTI['base']*levels[idx]:.0f} now...**"
+                bot.send_message(cid,signal_txt,parse_mode="Markdown")
+                if best_data['conf']>=85:
+                    threading.Thread(target=try_auto_otc_trade,args=(best_data,cid),daemon=True).start()
+        return
 
     if data=="auto_setup":
         mk=types.InlineKeyboardMarkup(row_width=2)
-        mk.add(types.InlineKeyboardButton("🤖 AUTO SCAN ALL 19 OTC",callback_data="auto_pair_AUTO"))
+        mk.add(types.InlineKeyboardButton("🤖 AUTO SCAN ALL 19 OTC 85%+",callback_data="auto_pair_AUTO"))
         for p in OTC_PAIRS: mk.add(types.InlineKeyboardButton(f"{PAIR_EMOJI.get(p,p)}",callback_data=f"auto_pair_{p}"))
-        bot.send_message(cid,f"🤖 **AUTO SETUP 1/4 - OTC ONLY**",reply_markup=mk,parse_mode="Markdown"); return
+        bot.send_message(cid,f"🤖 **AUTO SETUP 1/4 - OTC 85%+ MARTINGALE 1-2-4-8**",reply_markup=mk,parse_mode="Markdown"); return
     if data.startswith("auto_pair_"):
         pair=data.replace("auto_pair_","")
         mk=types.InlineKeyboardMarkup(row_width=2)
@@ -480,16 +613,16 @@ def cb(c):
     if data.startswith("auto_bal_"):
         parts=data.split("_"); bal=parts[2]; pair=parts[3]
         mk=types.InlineKeyboardMarkup(row_width=3)
-        mk.add(types.InlineKeyboardButton("💵 $1",callback_data=f"auto_amt_1_{pair}_{bal}"),types.InlineKeyboardButton("💵 $5",callback_data=f"auto_amt_5_{pair}_{bal}"),types.InlineKeyboardButton("💵 $10",callback_data=f"auto_amt_10_{pair}_{bal}"))
-        mk.add(types.InlineKeyboardButton("💵 $20",callback_data=f"auto_amt_20_{pair}_{bal}"))
-        bot.send_message(cid,f"✅ {pair} {bal}\n\n🤖 **SETUP 3/4 - BASE AMOUNT**",reply_markup=mk,parse_mode="Markdown"); return
+        mk.add(types.InlineKeyboardButton("💵 $1",callback_data=f"auto_amt_1_{pair}_{bal}"),types.InlineKeyboardButton("💵 $2",callback_data=f"auto_amt_2_{pair}_{bal}"),types.InlineKeyboardButton("💵 $5",callback_data=f"auto_amt_5_{pair}_{bal}"))
+        bot.send_message(cid,f"✅ {pair} {bal}\n\n🤖 **SETUP 3/4 - BASE AMOUNT (Base for 1-2-4-8)**",reply_markup=mk,parse_mode="Markdown"); return
     if data.startswith("auto_amt_"):
         parts=data.split("_"); amt=float(parts[2]); pair=parts[3]; bal=parts[4]
         d=analyze_momentum(pair,sniper_mode=False) if pair!="AUTO" else {"expiry":60}
         exp_auto=d['expiry'] if d else 60
         AUTO_STATE[cid]={"running":True,"pair":pair,"bal":bal,"base_amt":amt,"curr_amt":amt,"expiry":exp_auto,"martingale":True,"sniper":True,"trades":0}
+        OTC_MARTI["base"]=amt; OTC_MARTI["bal"]=bal; OTC_MARTI["loss_streak"]=0
         mk=types.InlineKeyboardMarkup(); mk.add(types.InlineKeyboardButton("🛑 STOP AUTO",callback_data="stop_auto"))
-        bot.send_message(cid,f"🚀 **STARTING AUTO OTC V11 SAFE!** {pair} ${amt} Auto {exp_auto}s\n💰 Bal ${get_real_balance(bal):.2f}",reply_markup=mk,parse_mode="Markdown")
+        bot.send_message(cid,f"🚀 **STARTING AUTO OTC V11.3 85%+ MARTINGALE 1-2-4-8!**\n{pair} Base ${amt} → $1,$2,$4,$8\nBal ${get_real_balance(bal):.2f}\n🤖 Win = reset to ${amt}",reply_markup=mk,parse_mode="Markdown")
         threading.Thread(target=auto_trader_loop,args=(cid,),daemon=True).start(); return
     if data=="stop_auto":
         if cid in AUTO_STATE: AUTO_STATE[cid]['running']=False; bot.send_message(cid,"🛑 Stopping..."); return
@@ -504,13 +637,13 @@ def cb(c):
             bot.send_message(cid,f"❌ Failed analyze {pair}"); return
         mk=types.InlineKeyboardMarkup(row_width=2)
         mk.add(types.InlineKeyboardButton("🟢 DEMO",callback_data=f"bal_PRACTICE_{pair}_{d['expiry']}"),types.InlineKeyboardButton("🔴 REAL",callback_data=f"bal_REAL_{pair}_{d['expiry']}"))
-        bot.send_message(cid,f"✅ **{PAIR_EMOJI.get(pair,pair)} READY V11**\n\n📊 {d['dir']} {d['conf']:.0f}% | {d['reason']}\n⏱️ Safe Expiry Auto: {d['expiry']}s | ATR {d['atr']:.5f}\n\n💳 **CHOOSE ACCOUNT - Bot will place {d['expiry']}s**",reply_markup=mk,parse_mode="Markdown")
+        bot.send_message(cid,f"✅ **{PAIR_EMOJI.get(pair,pair)} READY V11**\n\n📊 {d['dir']} {d['conf']:.0f}% | {d['reason']}\n⏱️ Safe Expiry Auto: {d['expiry']}s\n\n💳 **CHOOSE ACCOUNT**",reply_markup=mk,parse_mode="Markdown")
         return
 
     if data.startswith("bal_"):
         parts=data.split("_"); bal=parts[1]; pair=parts[2]; expiry=int(parts[3])
         mk=types.InlineKeyboardMarkup(row_width=3)
-        mk.add(types.InlineKeyboardButton("💵 $1",callback_data=f"amt_1_{pair}_{bal}_{expiry}"),types.InlineKeyboardButton("💵 $5",callback_data=f"amt_5_{pair}_{bal}_{expiry}"),types.InlineKeyboardButton("💵 $10",callback_data=f"amt_10_{pair}_{bal}_{expiry}"))
+        mk.add(types.InlineKeyboardButton("💵 $1",callback_data=f"amt_1_{pair}_{bal}_{expiry}"),types.InlineKeyboardButton("💵 $2",callback_data=f"amt_2_{pair}_{bal}_{expiry}"),types.InlineKeyboardButton("💵 $4",callback_data=f"amt_4_{pair}_{bal}_{expiry}"))
         mk.add(types.InlineKeyboardButton("✏️ CUSTOM",callback_data=f"custom_{pair}_{bal}_{expiry}"))
         bot.send_message(cid,f"✅ {pair} Safe {expiry}s | {bal}\n\n💰 **AMOUNT**",reply_markup=mk,parse_mode="Markdown"); return
 
@@ -543,13 +676,12 @@ def cb(c):
                 mk=types.InlineKeyboardMarkup(row_width=2)
                 mk.add(types.InlineKeyboardButton("🔁 SAME SAFE TRADE",callback_data=f"amt_{int(amt)}_{pair}_{bal}_{expiry}"),types.InlineKeyboardButton("💹 NEW TRADE",callback_data="trade"))
                 mk.add(types.InlineKeyboardButton("📊 STATS",callback_data="stats"),types.InlineKeyboardButton("🤖 AUTO",callback_data="auto_setup"))
-                bot.send_message(cid,f"✅ **WIN +${pnl:.2f}**\n💱 {pair} Safe {exp_txt}\n🔥 Streak {STATS['streak']} | Bal ${bal_now:.2f}\n\n👇 Next?",reply_markup=mk,parse_mode="Markdown")
+                bot.send_message(cid,f"✅ **WIN +${pnl:.2f}**\n💱 {pair} Safe {exp_txt}\n🔥 Streak {STATS['streak']} | Bal ${bal_now:.2f}",reply_markup=mk,parse_mode="Markdown")
             else:
                 STATS['loss']+=1; STATS['real_balance']=bal_now; STATS['streak']=0
                 mk=types.InlineKeyboardMarkup(row_width=2)
-                mk.add(types.InlineKeyboardButton(f"🔁 MARTINGALE ${amt*2.2:.0f}",callback_data=f"amt_{int(amt*2.2)}_{pair}_{bal}_{expiry}"),types.InlineKeyboardButton("💹 NEW TRADE",callback_data="trade"))
-                mk.add(types.InlineKeyboardButton("📊 STATS",callback_data="stats"),types.InlineKeyboardButton("🤖 AUTO",callback_data="auto_setup"))
-                bot.send_message(cid,f"❌ **LOSS -${amt}**\n💱 {pair} Safe {exp_txt}\nBal ${bal_now:.2f}\n\n👇 Martingale?",reply_markup=mk,parse_mode="Markdown")
+                mk.add(types.InlineKeyboardButton(f"🔁 MARTINGALE 1-2-4-8",callback_data=f"amt_{int(amt*2)}_{pair}_{bal}_{expiry}"),types.InlineKeyboardButton("💹 NEW TRADE",callback_data="trade"))
+                bot.send_message(cid,f"❌ **LOSS -${amt}**\n💱 {pair} Safe {exp_txt}\nBal ${bal_now:.2f}",reply_markup=mk,parse_mode="Markdown")
         except:
             mk=types.InlineKeyboardMarkup(row_width=2)
             mk.add(types.InlineKeyboardButton("💹 NEW TRADE",callback_data="trade"),types.InlineKeyboardButton("🔄 RETRY",callback_data=f"amt_{int(amt)}_{pair}_{bal}_{expiry}"))
@@ -560,9 +692,9 @@ def cb(c):
         total=STATS['wins']+STATS['loss']; wr=(STATS['wins']/total*100) if total else 0; bal=get_real_balance("PRACTICE")
         mk=types.InlineKeyboardMarkup(row_width=2)
         mk.add(types.InlineKeyboardButton("💹 NEW TRADE",callback_data="trade"),types.InlineKeyboardButton("🤖 AUTO",callback_data="auto_setup"))
-        bot.send_message(cid,f"📊 **STATS V11 SAFE AUTO**\n📍 {get_mode_text()}\n🏆 Wins: {STATS['wins']}\n❌ Loss: {STATS['loss']}\n📈 Winrate: {wr:.1f}%\n🔥 Streak: {STATS['streak']}\n💰 Bal: ${bal:.2f}",reply_markup=mk,parse_mode="Markdown")
+        bot.send_message(cid,f"📊 **STATS V11.3**\n📍 {get_mode_text()}\n🏆 Wins: {STATS['wins']}\n❌ Loss: {STATS['loss']}\n📈 Winrate: {wr:.1f}%\n🔥 Streak: {STATS['streak']}\n💰 Bal: ${bal:.2f}\n📦 OTC 85% Auto: {len(OTC_SESSION_RESULTS)} trades | Level {OTC_MARTI['loss_streak']+1}",reply_markup=mk,parse_mode="Markdown")
     if data=="settings":
-        bot.send_message(cid,f"⚙️ **SETTINGS V11 SAFE AUTO**\n\n🛡️ SAFE V11: ATR filter + Body filter + EMA 3 Align + RSI Safe Zone + Wick + Engulf + Pin Bar\n⏱️ Auto Expiry: Bot picks 60s/120s/180s based on momentum\n📊 65%+ = Safe trade, 85%+ = Premium sniper\n🌙 OTC 19 valid IQ pairs 24/7 daytime\n☀️ REAL 22 pairs 7AM-8PM\nNo expiry choose - all automatic!")
+        bot.send_message(cid,f"⚙️ **SETTINGS V11.3 OTC AUTO 85%**\n\n🛡️ Same as REAL: ATR+Body+EMA3+RSI+Engulf+Pin\n⏱️ Auto Expiry: 60s/120s/180s\n📊 OTC: 85%+ = Auto trade 1-2-4-8 return, win reset\n/results = session summary")
 
 @bot.message_handler(func=lambda m: user_states.get(m.chat.id,{}).get("step")=="await_amt")
 def handle_custom_amt(m):
@@ -594,7 +726,8 @@ def home():
     if u:
         try: requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={u}/{BOT_TOKEN}",timeout=5)
         except: pass
-    return "V11 SAFE AUTO EXPIRY - RUNNING"
+    return "V11.3 OTC AUTO 85% MARTINGALE 1-2-4-8 - RUNNING"
 
 threading.Thread(target=real_signal_scanner,daemon=True).start()
+threading.Thread(target=otc_auto_85_scanner,daemon=True).start()
 app.run(host="0.0.0.0",port=int(os.getenv("PORT",10000)))
