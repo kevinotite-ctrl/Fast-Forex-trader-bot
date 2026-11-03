@@ -27,34 +27,26 @@ REAL_PAIRS = [
 ]
 
 OTC_PAIRS = [
-    "EURUSD-OTC","GBPUSD-OTC","EURGBP-OTC","USDJPY-OTC","GBPJPY-OTC",
-    "AUDUSD-OTC","USDCHF-OTC","EURJPY-OTC","AUDJPY-OTC","EURAUD-OTC",
-    "GBPAUD-OTC","NZDUSD-OTC","GBPCHF-OTC","EURCHF-OTC","USDZAR-OTC",
-    "EURCAD-OTC","GBPCHF-OTC","AUDCAD-OTC","EURCHF-OTC","USDJPY-OTC",
-    "USDCAD-OTC","AUDNZD-OTC","EURNZD-OTC","GBPNZD-OTC","NZDJPY-OTC",
-    "EURSGD-OTC","GBPSGD-OTC","USDHKD-OTC","USDINR-OTC","USDTRY-OTC",
-    "USDBRL-OTC","USDARS-OTC","USDCOP-OTC"
+    "EURUSD-OTC","GBPUSD-OTC","USDJPY-OTC","AUDUSD-OTC","USDCAD-OTC",
+    "EURGBP-OTC","EURJPY-OTC","GBPJPY-OTC","AUDJPY-OTC","EURAUD-OTC",
+    "GBPAUD-OTC","NZDUSD-OTC","GBPCHF-OTC","EURCHF-OTC","USDCHF-OTC",
+    "AUDCAD-OTC","EURCAD-OTC","CADJPY-OTC","NZDJPY-OTC"
 ]
 
 PAIR_EMOJI = {
-    # REAL 22 PAIRS
     "EURUSD":"🇪🇺 EUR/USD REAL", "GBPUSD":"🇬🇧 GBP/USD REAL", "USDJPY":"🇺🇸 USD/JPY REAL", "EURGBP":"🇪🇺 EUR/GBP REAL",
     "AUDUSD":"🇦🇺 AUD/USD REAL", "USDCAD":"🇺🇸 USD/CAD REAL", "EURJPY":"🇪🇺 EUR/JPY REAL", "GBPJPY":"🇬🇧 GBP/JPY REAL",
     "USDCHF":"🇺🇸 USD/CHF REAL", "AUDJPY":"🇦🇺 AUD/JPY REAL", "EURAUD":"🇪🇺 EUR/AUD REAL", "GBPCHF":"🇬🇧 GBP/CHF REAL",
     "EURCHF":"🇪🇺 EUR/CHF REAL", "NZDUSD":"🇳🇿 NZD/USD REAL", "GBPAUD":"🇬🇧 GBP/AUD REAL", "EURCAD":"🇪🇺 EUR/CAD REAL",
     "AUDCAD":"🇦🇺 AUD/CAD REAL", "GBPCAD":"🇬🇧 GBP/CAD REAL", "NZDJPY":"🇳🇿 NZD/JPY REAL", "AUDNZD":"🇦🇺 AUD/NZD REAL",
     "CHFJPY":"🇨🇭 CHF/JPY REAL", "CADJPY":"🇨🇦 CAD/JPY REAL",
-    # OTC 30+ PAIRS - ALL DAY OPEN
     "EURUSD-OTC":"🇪🇺 EUR/USD OTC", "GBPUSD-OTC":"🇬🇧 GBP/USD OTC", "EURGBP-OTC":"🇪🇺 EUR/GBP OTC",
     "USDJPY-OTC":"🇺🇸 USD/JPY OTC", "GBPJPY-OTC":"🇬🇧 GBP/JPY OTC", "AUDUSD-OTC":"🇦🇺 AUD/USD OTC",
     "USDCHF-OTC":"🇺🇸 USD/CHF OTC", "EURJPY-OTC":"🇪🇺 EUR/JPY OTC", "AUDJPY-OTC":"🇦🇺 AUD/JPY OTC",
     "EURAUD-OTC":"🇪🇺 EUR/AUD OTC", "GBPAUD-OTC":"🇬🇧 GBP/AUD OTC", "NZDUSD-OTC":"🇳🇿 NZD/USD OTC",
-    "GBPCHF-OTC":"🇬🇧 GBP/CHF OTC", "EURCHF-OTC":"🇪🇺 EUR/CHF OTC", "USDZAR-OTC":"🇺🇸 USD/ZAR OTC",
-    "EURCAD-OTC":"🇪🇺 EUR/CAD OTC", "AUDCAD-OTC":"🇦🇺 AUD/CAD OTC", "USDCAD-OTC":"🇺🇸 USD/CAD OTC",
-    "AUDNZD-OTC":"🇦🇺 AUD/NZD OTC", "EURNZD-OTC":"🇪🇺 EUR/NZD OTC", "GBPNZD-OTC":"🇬🇧 GBP/NZD OTC",
-    "NZDJPY-OTC":"🇳🇿 NZD/JPY OTC", "EURSGD-OTC":"🇪🇺 EUR/SGD OTC", "GBPSGD-OTC":"🇬🇧 GBP/SGD OTC",
-    "USDHKD-OTC":"🇺🇸 USD/HKD OTC", "USDINR-OTC":"🇺🇸 USD/INR OTC", "USDTRY-OTC":"🇺🇸 USD/TRY OTC",
-    "USDBRL-OTC":"🇺🇸 USD/BRL OTC", "USDARS-OTC":"🇺🇸 USD/ARS OTC", "USDCOP-OTC":"🇺🇸 USD/COP OTC"
+    "GBPCHF-OTC":"🇬🇧 GBP/CHF OTC", "EURCHF-OTC":"🇪🇺 EUR/CHF OTC", "USDCAD-OTC":"🇺🇸 USD/CAD OTC",
+    "AUDCAD-OTC":"🇦🇺 AUD/CAD OTC", "EURCAD-OTC":"🇪🇺 EUR/CAD OTC", "CADJPY-OTC":"🇨🇦 CAD/JPY OTC",
+    "NZDJPY-OTC":"🇳🇿 NZD/JPY OTC"
 }
 
 STATS = {"balance":0.0,"real_balance":0.0,"wins":0,"loss":0,"streak":0}
@@ -127,14 +119,16 @@ def get_payout(pair):
 
 def get_candles(pair):
     if not IQ_CONNECTED and not iq_reconnect(): return None
-    for _ in range(3):
+    if pair not in REAL_PAIRS and pair not in OTC_PAIRS:
+        return None
+    for _ in range(2):
         try:
             with IQ_LOCK:
                 logging.disable(logging.CRITICAL); c=iq.get_candles(pair,60,50,time.time())
                 logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
             if c and len(c)>25: return pd.DataFrame(sorted(c,key=lambda x:x['from']))
-            time.sleep(0.6)
-        except: time.sleep(0.6)
+            time.sleep(0.4)
+        except: time.sleep(0.4)
     return None
 
 def calc_rsi(closes, period=7):
@@ -208,17 +202,20 @@ def iq_trade(pair,direction,amount,bal,expiry_sec=30):
         with IQ_LOCK:
             logging.disable(logging.CRITICAL); iq.change_balance(bal)
             logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
-            if "-OTC" in pair and expiry_sec<=90:
+            mins=max(1,int(expiry_sec/60))
+            if expiry_sec<=60: mins=1
+            try:
+                logging.disable(logging.CRITICAL); check,oid=iq.buy(amount,pair,direction.lower(),mins)
+                logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
+                if check: return True,oid,expiry_sec
+            except: pass
+            if expiry_sec<=90:
                 try:
                     logging.disable(logging.CRITICAL); _,oid=iq.buy_blitz(pair,amount,direction.lower(),expiry_sec)
                     logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
                     return True,oid,expiry_sec
                 except: pass
-            mins=max(1,int(expiry_sec/60))
-            if expiry_sec<=60: mins=1
-            logging.disable(logging.CRITICAL); check,oid=iq.buy(amount,pair,direction.lower(),mins)
-            logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
-            return (True,oid,expiry_sec) if check else (False,None,0)
+            return False,None,0
     except: iq_reconnect(); return False,None,0
 
 def real_signal_scanner():
@@ -329,8 +326,8 @@ def start(m):
         return
     bal_demo=get_real_balance("PRACTICE")
     mk=types.InlineKeyboardMarkup(row_width=1)
-    mk.add(types.InlineKeyboardButton(f"💹 MANUAL OTC (15) - ${bal_demo:.2f}",callback_data="trade"))
-    mk.add(types.InlineKeyboardButton(f"📈 TRADE REAL (8) - Signals Only",callback_data="trade_real"))
+    mk.add(types.InlineKeyboardButton(f"💹 MANUAL OTC (19) - ${bal_demo:.2f}",callback_data="trade"))
+    mk.add(types.InlineKeyboardButton(f"📈 TRADE REAL (22) - 65%+",callback_data="trade_real"))
     mk.add(types.InlineKeyboardButton("🤖 AUTO-TRADER OTC 90%+ (Untouched)",callback_data="auto_setup"))
     mk.add(types.InlineKeyboardButton("📊 MY STATS",callback_data="stats"),types.InlineKeyboardButton("⚙️ SETTINGS",callback_data="settings"))
     txt=f"""🤖 **Z-BOT PRO V9.5 ULTRA** 🤖
@@ -339,12 +336,12 @@ def start(m):
 🏆 W:{STATS['wins']} L:{STATS['loss']} | 🔥 {STATS['streak']}
 📍 {get_mode_text()}
 
-☀️ REAL 7AM-8PM: Auto signals Entry+Expiry (2-3 min)
-🌙 OTC: Manual + Auto trading (untouched)
+☀️ REAL 22 pairs 7AM-8PM: Auto signals 65%+ (2-3 min)
+🌙 OTC 19 pairs: Manual + Auto - OPEN 24/7 DAYTIME
 
 💡 Commands: /mode /balance /stop
 
-👇 **OTC Trading:**
+👇 **Select:**
 """
     bot.send_message(m.chat.id,txt,reply_markup=mk,parse_mode="Markdown")
 
@@ -355,13 +352,13 @@ def cb(c):
 
     if data=="trade_real":
         mk=types.InlineKeyboardMarkup(row_width=1)
-        mk.add(types.InlineKeyboardButton("🔍 📊 SCAN ALL REAL NOW (8 PAIRS)",callback_data="scan_all_real"))
+        mk.add(types.InlineKeyboardButton("🔍 📊 SCAN ALL REAL NOW (22 PAIRS)",callback_data="scan_all_real"))
         for p in REAL_PAIRS: mk.add(types.InlineKeyboardButton(f"{PAIR_EMOJI.get(p,p)}",callback_data=f"real_pair_{p}"))
-        bot.send_message(cid,f"📈 **TRADE REAL - SIGNALS ONLY**\n📍 {get_mode_text()}\n☀️ Mon-Fri 7AM-8PM\n\n👇 Scan all to know which ready:",reply_markup=mk,parse_mode="Markdown"); return
+        bot.send_message(cid,f"📈 **TRADE REAL - 65%+ SIGNALS**\n📍 {get_mode_text()}\n☀️ Mon-Fri 7AM-8PM\n\n👇 Scan all to know which ready:",reply_markup=mk,parse_mode="Markdown"); return
 
     if data=="scan_all_real":
-        bot.answer_callback_query(c.id,"Scanning 8 REAL pairs...")
-        scan_msg=bot.send_message(cid,"🔍 **SCANNING ALL 8 REAL PAIRS...**\n\n⏳ This takes ~10 sec")
+        bot.answer_callback_query(c.id,"Scanning 22 REAL pairs...")
+        scan_msg=bot.send_message(cid,"🔍 **SCANNING ALL 22 REAL PAIRS...**\n\n⏳ ~15 sec")
         results=[]
         for pair in REAL_PAIRS:
             d=analyze_momentum(pair,sniper_mode=False)
@@ -370,24 +367,24 @@ def cb(c):
                 continue
             conf=d['conf']; dir_=d['dir']; reason=d['reason'] if d['reason'] else "Low momentum"
             if conf>=85: status="🟢 READY"
-            elif conf>=70: status="🟡 WAIT"
+            elif conf>=65: status="🟡 READY 65%+"
             else: status="🔴 NO TRADE"
             results.append((pair,conf,dir_,reason,status))
             try: bot.edit_message_text(f"🔍 Scanning... {pair} {conf:.0f}%",cid,scan_msg.message_id)
             except: pass
-            time.sleep(0.8)
+            time.sleep(0.6)
         results.sort(key=lambda x: x[1], reverse=True)
-        txt="📊 **REAL MARKET READINESS 9.5** 📊\n"
+        txt="📊 **REAL MARKET READINESS 65%+** 📊\n"
         txt+=f"📍 {get_mode_text()}\n⏰ {datetime.now(pytz.timezone('Africa/Lagos')).strftime('%H:%M:%S WAT')}\n\n"
         for pair,conf,dir_,reason,status in results:
             emoji=PAIR_EMOJI.get(pair,pair)
-            if conf>=70: txt+=f"{status} {emoji}: {conf:.0f}% {dir_} - {reason}\n"
+            if conf>=65: txt+=f"{status} {emoji}: {conf:.0f}% {dir_} - {reason}\n"
             else: txt+=f"{status} {emoji}: {conf:.0f}% - No trade\n"
         best = results[0] if results else None
-        if best and best[1]>=70: txt+=f"\n💡 **BEST NOW:** {PAIR_EMOJI.get(best[0],best[0])} {best[1]:.0f}% {best[2]}"
+        if best and best[1]>=65: txt+=f"\n💡 **BEST NOW:** {PAIR_EMOJI.get(best[0],best[0])} {best[1]:.0f}% {best[2]}"
         else: txt+=f"\n💡 **No strong pair now - Wait 1 min & rescan**"
         mk=types.InlineKeyboardMarkup(row_width=2)
-        if best and best[1]>=70: mk.add(types.InlineKeyboardButton(f"✅ TRADE BEST {best[0]}",callback_data=f"real_pair_{best[0]}"))
+        if best and best[1]>=65: mk.add(types.InlineKeyboardButton(f"✅ TRADE BEST {best[0]}",callback_data=f"real_pair_{best[0]}"))
         mk.add(types.InlineKeyboardButton("🔄 RE-SCAN ALL",callback_data="scan_all_real"),types.InlineKeyboardButton("💹 SWITCH TO OTC",callback_data="trade"))
         bot.send_message(cid,txt,reply_markup=mk,parse_mode="Markdown")
         return
@@ -397,7 +394,7 @@ def cb(c):
         mk=types.InlineKeyboardMarkup(row_width=2)
         mk.add(types.InlineKeyboardButton("⏱️ 2 MIN",callback_data=f"real_exp_120_{pair}"),types.InlineKeyboardButton("⏱️ 3 MIN",callback_data=f"real_exp_180_{pair}"))
         mk.add(types.InlineKeyboardButton("⏱️ 5 MIN",callback_data=f"real_exp_300_{pair}"),types.InlineKeyboardButton("⏱️ 15 MIN",callback_data=f"real_exp_900_{pair}"))
-        bot.send_message(cid,f"✅ **REAL PAIR: {PAIR_EMOJI.get(pair,pair)}**\n\n⏱️ **SELECT EXPIRY FOR SIGNAL**",reply_markup=mk,parse_mode="Markdown"); return
+        bot.send_message(cid,f"✅ **REAL PAIR: {PAIR_EMOJI.get(pair,pair)}**\n\n⏱️ **SELECT EXPIRY FOR SIGNAL (65%+)**",reply_markup=mk,parse_mode="Markdown"); return
 
     if data.startswith("real_exp_"):
         parts=data.split("_"); expiry=int(parts[2]); pair=parts[3]
@@ -405,15 +402,16 @@ def cb(c):
         scan_msg=bot.send_message(cid,f"🔍 **V8 SCAN {PAIR_EMOJI.get(pair,pair)}**\n\n0%\n🚀 Starting...")
         legit_live_scan(cid,scan_msg.message_id,pair)
         d=analyze_momentum(pair,sniper_mode=False)
-        if not d or d['conf'] < 70:
+        # CORRECTED TO 65%
+        if not d or d['conf'] < 65:
             mk=types.InlineKeyboardMarkup()
             mk.add(types.InlineKeyboardButton("🔄 RETRY SCAN",callback_data=f"real_exp_{expiry}_{pair}"),types.InlineKeyboardButton("📈 NEW REAL",callback_data="trade_real"))
-            bot.send_message(cid,f"⚠️ **No strong REAL signal now for {pair}**\n\n📊 Conf: {d['conf'] if d else 0}% < 70%\n💡 Market choppy / low ATR\n\n🔄 Try again in 30 sec or switch pair",reply_markup=mk)
+            bot.send_message(cid,f"⚠️ **No strong REAL signal now for {pair}**\n\n📊 Conf: {d['conf'] if d else 0}% < 65%\n💡 Market choppy / low ATR\n\n🔄 Try again in 30 sec or switch pair",reply_markup=mk)
             return
         tz=pytz.timezone("Africa/Lagos"); now=datetime.now(tz); entry=now+timedelta(seconds=45)
         exp_txt=f"{expiry//60} min {expiry%60}s" if expiry>=60 else f"{expiry}s"
         dir_e="🟢 CALL ⬆️" if d['dir']=="CALL" else "🔴 PUT ⬇️"
-        signal_txt=f"""📡 **REAL SIGNAL (MANUAL) 9.5** 📡
+        signal_txt=f"""📡 **REAL SIGNAL (MANUAL) 65%+** 📡
 
 💱 {PAIR_EMOJI.get(pair,pair)}
 📊 {dir_e} | 🎯 {d['conf']:.0f}% (Price Action + ATR)
@@ -436,12 +434,12 @@ def cb(c):
     if data=="trade":
         mk=types.InlineKeyboardMarkup(row_width=2)
         for p in OTC_PAIRS: mk.add(types.InlineKeyboardButton(f"{PAIR_EMOJI.get(p,p)}",callback_data=f"pair_{p}"))
-        bot.send_message(cid,f"💹 **MANUAL OTC (15 PAIRS)**\n📍 {get_mode_text()}",reply_markup=mk,parse_mode="Markdown"); return
+        bot.send_message(cid,f"💹 **MANUAL OTC (19 PAIRS) - DAYTIME OPEN 24/7**\n📍 {get_mode_text()}",reply_markup=mk,parse_mode="Markdown"); return
     if data=="auto_setup":
         mk=types.InlineKeyboardMarkup(row_width=2)
-        mk.add(types.InlineKeyboardButton("🤖 AUTO SCAN ALL 15 OTC",callback_data="auto_pair_AUTO"))
+        mk.add(types.InlineKeyboardButton("🤖 AUTO SCAN ALL 19 OTC",callback_data="auto_pair_AUTO"))
         for p in OTC_PAIRS: mk.add(types.InlineKeyboardButton(f"{PAIR_EMOJI.get(p,p)}",callback_data=f"auto_pair_{p}"))
-        bot.send_message(cid,f"🤖 **AUTO SETUP 1/4 - OTC ONLY**",reply_markup=mk,parse_mode="Markdown"); return
+        bot.send_message(cid,f"🤖 **AUTO SETUP 1/4 - OTC ONLY (19 VALID)**",reply_markup=mk,parse_mode="Markdown"); return
     if data.startswith("auto_pair_"):
         pair=data.replace("auto_pair_","")
         mk=types.InlineKeyboardMarkup(row_width=2)
@@ -540,7 +538,7 @@ def cb(c):
         mk.add(types.InlineKeyboardButton("💹 NEW TRADE",callback_data="trade"),types.InlineKeyboardButton("🤖 AUTO",callback_data="auto_setup"))
         bot.send_message(cid,f"📊 **STATS 9.5**\n📍 {get_mode_text()}\n🏆 Wins: {STATS['wins']}\n❌ Loss: {STATS['loss']}\n📈 Winrate: {wr:.1f}%\n🔥 Streak: {STATS['streak']}\n💰 Real Bal: ${bal:.2f}",reply_markup=mk,parse_mode="Markdown")
     if data=="settings":
-        bot.send_message(cid,f"⚙️ **SETTINGS 9.5 ULTRA**\n\n☀️ REAL: Price Action + ATR + Wick filter\n⏱️ REAL Expiry: 2-3 min (safe)\n🌙 OTC: Manual+Auto untouched ✅\n💰 Balance: Real IQ balance\n📍 /mode /balance /stop\nScan: V8.2 Original + SCAN ALL")
+        bot.send_message(cid,f"⚙️ **SETTINGS 9.5 ULTRA 65%+**\n\n☀️ REAL 22 pairs: Price Action + ATR\n⏱️ REAL Expiry: 2-3 min | Signal 65%+\n🌙 OTC 19 pairs: Valid IQ only, 24/7 DAYTIME\n💰 Balance: Real IQ balance\n📍 /mode /balance /stop\nScan: V8.2 + SCAN ALL + Fast No Hook")
 
 @bot.message_handler(func=lambda m: user_states.get(m.chat.id,{}).get("step")=="await_amt")
 def handle_custom_amt(m):
@@ -564,7 +562,7 @@ def home():
     if u:
         try: requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={u}/{BOT_TOKEN}",timeout=5)
         except: pass
-    return "V9.5 ULTRA + SCAN ALL REAL - RUNNING"
+    return "V9.5 ULTRA 65%+ FINAL - RUNNING"
 
 threading.Thread(target=real_signal_scanner,daemon=True).start()
 app.run(host="0.0.0.0",port=int(os.getenv("PORT",10000)))
