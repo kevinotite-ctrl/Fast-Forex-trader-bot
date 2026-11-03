@@ -182,40 +182,55 @@ def analyze_momentum(pair, sniper_mode=False):
 def iq_trade(pair,direction,amount,bal,expiry_sec=30):
     try:
         with IQ_LOCK:
-            logging.disable(logging.CRITICAL); 
+            logging.disable(logging.CRITICAL)
             iq.change_balance(bal)
-            # CHECK IF REAL ASSET OPEN NOW
-            try:
-                ot = iq.get_all_open_time()
-                if pair in ot:
-                    if not ot[pair]['open']:
-                        print(f"{pair} CLOSED NOW")
-                        logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
-                        return False, None, 0
-                # Also check turbo/binary open
-                if 'turbo' in ot.get(pair, {}):
-                    if not ot[pair]['turbo']['open']:
-                        print(f"{pair} turbo closed")
-            except: pass
-            logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
+            logging.disable(logging.NOTSET)
+            logging.disable(logging.ERROR)
             
-            if expiry_sec <= 90:
+            # DEBUG: Check if pair open
+            try:
+                logging.disable(logging.CRITICAL)
+                ot = iq.get_all_open_time()
+                logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
+                print(f"OPEN CHECK {pair}: {ot.get(pair)}")
+                if pair in ot and not ot[pair]['open']:
+                    bot.send_message(OWNER_ID, f"⚠️ {pair} CLOSED in IQ now!")
+                    return False, None, 0
+            except Exception as e:
+                print(f"Open check error {e}")
+
+            # FOR REAL: Use iq.buy DIRECT, NO BLITZ!
+            mins = max(1, int(expiry_sec/60))
+            if expiry_sec <= 60:
+                mins = 1
+            
+            try:
+                logging.disable(logging.CRITICAL)
+                check, oid = iq.buy(amount, pair, direction.lower(), mins)
+                logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
+                print(f"BUY RESULT {pair} {check} {oid}")
+                if check:
+                    return True, oid, expiry_sec
+                else:
+                    # Try alternative - turbo
+                    logging.disable(logging.CRITICAL)
+                    _, oid2 = iq.buy(amount, pair, direction.lower(), 1)
+                    logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
+                    return True, oid2, expiry_sec
+            except Exception as e:
+                print(f"BUY ERROR {pair}: {e}")
+                # Last try: blitz as fallback
                 try:
                     logging.disable(logging.CRITICAL)
-                    _,oid=iq.buy_blitz(pair,amount,direction.lower(),expiry_sec)
+                    _, oid = iq.buy_blitz(pair, amount, direction.lower(), expiry_sec)
                     logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
-                    return True,oid,expiry_sec
-                except Exception as e: 
-                    print(f"Blitz fail {pair} {e}")
-                    pass
+                    return True, oid, expiry_sec
+                except Exception as e2:
+                    print(f"Blitz also fail {e2}")
+                    return False, None, 0
                     
-            mins = max(1, int(expiry_sec/60))
-            logging.disable(logging.CRITICAL)
-            _,oid=iq.buy(amount,pair,direction.lower(),mins)
-            logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
-            return True,oid,expiry_sec
     except Exception as e:
-        print(f"TRADE ERROR {pair} {e}")
+        print(f"TRADE FATAL {pair}: {e}")
         return False,None,0
 
 def get_active_pairs():
@@ -314,6 +329,22 @@ def start(m):
 👇 **Choose:**
 """
     bot.send_message(m.chat.id, txt, reply_markup=mk, parse_mode="Markdown")
+
+@bot.message_handler(commands=['test'])
+def test_real(m):
+    if not is_allowed(m.from_user.id): return
+    try:
+        with IQ_LOCK:
+            logging.disable(logging.CRITICAL)
+            ot = iq.get_all_open_time()
+            logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
+        msg = "🔍 REAL OPEN NOW:\n"
+        for p in REAL_PAIRS:
+            if p in ot:
+                msg += f"{p}: {'✅ OPEN' if ot[p]['open'] else '❌ CLOSED'}\n"
+        bot.send_message(m.chat.id, msg)
+    except Exception as e:
+        bot.send_message(m.chat.id, f"Error {e}")
 
 @bot.callback_query_handler(func=lambda c: True)
 def cb(c):
