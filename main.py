@@ -128,81 +128,50 @@ def calc_atr(df, period=14):
         return tr.rolling(period).mean().iloc[-1]
     except: return 0.0005
 
-# ================== NEW V8.2 BLINKING + BOOM SCAN BAR ==================
 def legit_live_scan(cid, mid, pair):
     steps = [
-        (0,"🚀 Initializing V8...",0.15),
-        (15,f"🔌 IQ Check {pair}...",0.2),
-        (30,"📊 Fetching candles...",0.25),
-        (50,"📈 EMA9 + EMA21...",0.2),
-        (70,"💹 RSI + ATR...",0.2),
-        (85,"📰 Final check...",0.2),
+        (0,"🚀 Initializing V8...",0.3),
+        (15,f"🔌 IQ Check {pair}...",0.35),
+        (30,"📊 Fetching candles...",0.4),
+        (50,"📈 EMA9 + EMA21...",0.35),
+        (70,"💹 RSI + ATR...",0.35),
+        (85,"📰 Final check...",0.4),
         (100,"🔒 SIGNAL LOCKED!")
     ]
     last_pct=-1
     for pct,text,delay in steps:
-        if pct==last_pct: time.sleep(delay); continue
+        if pct==last_pct: 
+            time.sleep(delay)
+            continue
         last_pct=pct
         filled=int(pct//5)
         bar="█"*filled+"░"*(20-filled)
         color="🟥" if pct<40 else "🟨" if pct<80 else "🟩" if pct<100 else "💎"
-        txt=f"""{color} **Z-BOT V8 LEGIT SCAN** {color}
-
-💱 Pair: {PAIR_EMOJI.get(pair,pair)}
-💎 IQ: {'✅' if IQ_CONNECTED else '❌'}
-
-{bar} {pct}%
-▓ Progress: {pct}% ▓
-
-🔍 {text}
-
-⏳ Fast scan - V8.2"""
-        try: bot.edit_message_text(txt,cid,mid,parse_mode="Markdown")
-        except: pass
+        
+        txt=f"{color} Z-BOT V8 LEGIT SCAN {color}\n\n💱 Pair: {PAIR_EMOJI.get(pair,pair)}\n💎 IQ: {'✅' if IQ_CONNECTED else '❌'}\n\n{bar} {pct}%\n▓ Progress: {pct}% ▓\n\n🔍 {text}\n\n⏳ Fast scan - V8.2"
+        try:
+            bot.edit_message_text(txt,cid,mid) # REMOVED Markdown to stop crash
+        except Exception as e:
+            print(f"Scan edit fail {pct}%: {e}")
+            try:
+                # Try again without formatting
+                bot.edit_message_text(txt,cid,mid)
+            except:
+                pass
         time.sleep(delay)
 
-    # BLINKING EFFECT
+    # BLINK + BOOM - Must run even if 85% failed
     pair_emoji = PAIR_EMOJI.get(pair,pair)
     iq_status = '✅' if IQ_CONNECTED else '❌'
-    blink_frames = [
-        "████████████████████",
-        "▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓",
-        "████████████████████",
-        "✨✨✨✨✨✨✨✨✨✨✨✨✨✨✨✨✨✨✨✨"
-    ]
-    for frame in blink_frames:
-        try:
-            bot.edit_message_text(f"""💎 **Z-BOT V8 LEGIT SCAN** 💎
-
-💱 Pair: {pair_emoji}
-💎 IQ: {iq_status}
-
-{frame} 100%
-▓ Progress: 100% ▓
-
-🔍 🔒 SIGNAL LOCKED! READY TO TRADE!
-
-⏳ Scan complete - Fast V8.2!""",cid,mid,parse_mode="Markdown")
-        except: pass
-        time.sleep(0.25)
-
-    # FINAL BOOM SOUND EFFECT
+    
     try:
-        bot.edit_message_text(f"""💥💥💥 **SIGNAL FOUND!!!** 💥💥💥
-
-💎 **Z-BOT V8 LEGIT SCAN** 💎
-
-💱 Pair: {pair_emoji}
-💎 IQ: {iq_status}
-
-💎💎💎💎💎💎💎💎💎💎💎💎💎💎💎💎💎💎💎💎 100%
-▓ Progress: 100% ▓
-
-🔒 **SIGNAL LOCKED! READY TO TRADE!**
-
-🔔🔔🔔 *DING DING DING* 🔔🔔🔔""",cid,mid,parse_mode="Markdown")
-        time.sleep(0.3)
-    except: pass
+        for frame in ["████████████████████", "▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓", "████████████████████", "✨✨✨✨✨✨✨✨✨✨✨✨✨✨✨✨✨✨✨✨"]:
+            bot.edit_message_text(f"💎 Z-BOT V8 LEGIT SCAN 💎\n\n💱 Pair: {pair_emoji}\n💎 IQ: {iq_status}\n\n{frame} 100%\n▓ Progress: 100% ▓\n\n🔍 🔒 SIGNAL LOCKED! READY TO TRADE!",cid,mid)
+            time.sleep(0.35)
+        
+        bot.edit_message_text(f"💥💥💥 SIGNAL FOUND!!! 💥💥💥\n\n💎 Z-BOT V8 LEGIT SCAN 💎\n\n💱 Pair: {pair_emoji}\n💎 IQ: {iq_status}\n\n💎💎💎💎💎💎💎💎💎💎💎💎💎💎💎💎💎💎💎💎 100%\n▓ Progress: 100% ▓\n\n🔒 SIGNAL LOCKED! READY TO TRADE!\n\n🔔 DING DING DING",cid,mid)
+    except Exception as e:
+        print(f"Final boom fail: {e}")
 
 def analyze_momentum(pair, sniper_mode=False):
     df=get_candles(pair)
