@@ -4,5 +4,6 @@ Flask
 requests
 pandas
 matplotlib
-pytz
+pysocks
+websocket-client
 git+https://github.com/Lu-Yi-Hsun/iqoptionapi.git
