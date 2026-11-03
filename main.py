@@ -19,17 +19,13 @@ OWNER_ID = 8659453018
 bot = telebot.TeleBot(BOT_TOKEN)
 app = Flask(__name__)
 
-# ===== ONLY OTC - REAL REMOVED + 7 MORE ADDED =====
-REAL_PAIRS = []
-OTC_PAIRS = ["EURUSD-OTC","GBPUSD-OTC","EURGBP-OTC","USDJPY-OTC","GBPJPY-OTC","AUDUSD-OTC","USDCHF-OTC","EURJPY-OTC","AUDJPY-OTC","EURAUD-OTC","GBPAUD-OTC","NZDUSD-OTC","GBPCHF-OTC","EURCHF-OTC","USDZAR-OTC"]
+# ===== ONLY REAL MARKET - NO OTC AT ALL =====
+REAL_PAIRS = ["EURUSD","GBPUSD","USDJPY","EURGBP","AUDUSD","USDCAD","EURJPY","GBPJPY"]
 
 PAIR_EMOJI = {
-    "EURUSD-OTC":"🇪🇺 EUR/USD", "GBPUSD-OTC":"🇬🇧 GBP/USD", "EURGBP-OTC":"🇪🇺 EUR/GBP",
-    "USDJPY-OTC":"🇺🇸 USD/JPY", "GBPJPY-OTC":"🇬🇧 GBP/JPY", "AUDUSD-OTC":"🇦🇺 AUD/USD",
-    "USDCHF-OTC":"🇺🇸 USD/CHF", "EURJPY-OTC":"🇪🇺 EUR/JPY",
-    "AUDJPY-OTC":"🇦🇺 AUD/JPY", "EURAUD-OTC":"🇪🇺 EUR/AUD", "GBPAUD-OTC":"🇬🇧 GBP/AUD",
-    "NZDUSD-OTC":"🇳🇿 NZD/USD", "GBPCHF-OTC":"🇬🇧 GBP/CHF", "EURCHF-OTC":"🇪🇺 EUR/CHF",
-    "USDZAR-OTC":"🇺🇸 USD/ZAR"
+    "EURUSD":"🇪🇺 EUR/USD REAL", "GBPUSD":"🇬🇧 GBP/USD REAL", "USDJPY":"🇺🇸 USD/JPY REAL",
+    "EURGBP":"🇪🇺 EUR/GBP REAL", "AUDUSD":"🇦🇺 AUD/USD REAL", "USDCAD":"🇺🇸 USD/CAD REAL",
+    "EURJPY":"🇪🇺 EUR/JPY REAL", "GBPJPY":"🇬🇧 GBP/JPY REAL"
 }
 STATS = {"balance":100.0,"wins":0,"loss":0,"streak":0}
 user_states = {}
@@ -41,7 +37,7 @@ PAYOUT_CACHE={}; PAYOUT_TIME=0
 def is_allowed(uid): return uid == OWNER_ID
 
 def get_active_pairs():
-    return OTC_PAIRS
+    return REAL_PAIRS
 
 try:
     from iqoptionapi.stable_api import IQ_Option
@@ -268,15 +264,15 @@ def start(m):
             bot.send_message(m.chat.id, "Auto not running")
         return
     mk=types.InlineKeyboardMarkup(row_width=1)
-    mk.add(types.InlineKeyboardButton("💹 MANUAL TRADE (15 OTC)", callback_data="trade"))
+    mk.add(types.InlineKeyboardButton("💹 MANUAL TRADE (REAL ONLY)", callback_data="trade"))
     mk.add(types.InlineKeyboardButton("🤖 AUTO-TRADER 90%+ MARTINGALE", callback_data="auto_setup"))
     mk.add(types.InlineKeyboardButton("📊 MY STATS", callback_data="stats"), types.InlineKeyboardButton("⚙️ SETTINGS", callback_data="settings"))
-    txt=f"""🤖 **Z-BOT PRO V8.6 FINAL OTC 15** 🤖
+    txt=f"""🤖 **Z-BOT PRO V8.6 REAL KING** 🤖
 
 💎 IQ: {'✅' if IQ_CONNECTED else '❌'} | 💰 ${STATS['balance']:.2f}
 🏆 W: {STATS['wins']} L: {STATS['loss']} | 🔥 {STATS['streak']}
 
-💹 MANUAL: 15 OTC ONLY
+💹 MANUAL: 8 REAL PAIRS ONLY
 🤖 AUTO: 90%+ Sniper + Martingale x2.2
 
 👇 **Choose:**
@@ -292,10 +288,10 @@ def cb(c):
         mk=types.InlineKeyboardMarkup(row_width=2)
         for p in get_active_pairs():
             mk.add(types.InlineKeyboardButton(f"{PAIR_EMOJI.get(p,p)}", callback_data=f"pair_{p}"))
-        bot.send_message(cid, f"💹 **MANUAL - SELECT PAIR (15 OTC)**", reply_markup=mk, parse_mode="Markdown"); return
+        bot.send_message(cid, f"💹 **MANUAL - SELECT PAIR (8 REAL)**", reply_markup=mk, parse_mode="Markdown"); return
     if data=="auto_setup":
         mk=types.InlineKeyboardMarkup(row_width=2)
-        mk.add(types.InlineKeyboardButton("🤖 AUTO SCAN ALL 15 OTC", callback_data="auto_pair_AUTO"))
+        mk.add(types.InlineKeyboardButton("🤖 AUTO SCAN ALL REAL", callback_data="auto_pair_AUTO"))
         for p in get_active_pairs():
             mk.add(types.InlineKeyboardButton(f"{PAIR_EMOJI.get(p,p)}", callback_data=f"auto_pair_{p}"))
         bot.send_message(cid, f"🤖 **AUTO SETUP 1/4 - PAIR (90%+ Only)**", reply_markup=mk, parse_mode="Markdown"); return
@@ -428,7 +424,7 @@ def cb(c):
                types.InlineKeyboardButton("🤖 AUTO", callback_data="auto_setup"))
         bot.send_message(cid, f"📊 **STATS**\n\n🏆 Wins: {STATS['wins']}\n❌ Loss: {STATS['loss']}\n📈 Winrate: {wr:.1f}%\n🔥 Streak: {STATS['streak']}\n💰 Balance: ${STATS['balance']:.2f}", reply_markup=mk, parse_mode="Markdown")
     if data=="settings":
-        bot.send_message(cid, f"⚙️ **SETTINGS FINAL**\n\n💹 Manual: Any %\n🤖 Auto: 90%+ Sniper\nScan: Original No News\nNew Trade Button: Added ✅")
+        bot.send_message(cid, f"⚙️ **SETTINGS**\n\n💹 Manual: REAL Only 8 Pairs\n🤖 Auto: 90%+ Sniper\nScan: Original V8.2\nNo OTC ✅")
 
 @bot.message_handler(func=lambda m: user_states.get(m.chat.id, {}).get("step")=="await_amt")
 def handle_custom_amt(m):
@@ -455,5 +451,5 @@ def home():
     if u:
         try: requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={u}/{BOT_TOKEN}", timeout=5)
         except: pass
-    return "V8.6 FINAL - 15 OTC - RUNNING"
+    return "V8.6 REAL ONLY 8 PAIRS - RUNNING"
 app.run(host="0.0.0.0", port=int(os.getenv("PORT",10000)))
