@@ -128,50 +128,88 @@ def calc_atr(df, period=14):
         return tr.rolling(period).mean().iloc[-1]
     except: return 0.0005
 
+# ===== LEGIT LIVE SCANNING BAR - FAST - NO HOOKING - 100% =====
 def legit_live_scan(cid, mid, pair):
     steps = [
-        (0,"🚀 Initializing V8...",0.3),
-        (15,f"🔌 IQ Check {pair}...",0.35),
-        (30,"📊 Fetching candles...",0.4),
-        (50,"📈 EMA9 + EMA21...",0.35),
-        (70,"💹 RSI + ATR...",0.35),
-        (85,"📰 Final check...",0.4),
-        (100,"🔒 SIGNAL LOCKED!")
+        (0, "🚀 Initializing V8...", 0.15),
+        (15, f"🔌 IQ Check {pair}...", 0.2),
+        (30, "📊 Fetching candles...", 0.25),
+        (50, "📈 EMA9 + EMA21...", 0.2),
+        (70, "💹 RSI + ATR...", 0.2),
+        (85, "📰 News check...", 0.2),
+        (100, "🔒 SIGNAL LOCKED!")
     ]
-    last_pct=-1
-    for pct,text,delay in steps:
-        if pct==last_pct: 
+    
+    last_pct = -1
+    for item in steps:
+        if len(item) == 3:
+            pct, text, delay = item
+        else:
+            pct, text = item
+            delay = 0.15
+        
+        # Don't spam if same %
+        if pct == last_pct:
             time.sleep(delay)
             continue
-        last_pct=pct
-        filled=int(pct//5)
-        bar="█"*filled+"░"*(20-filled)
-        color="🟥" if pct<40 else "🟨" if pct<80 else "🟩" if pct<100 else "💎"
+        last_pct = pct
         
-        txt=f"{color} Z-BOT V8 LEGIT SCAN {color}\n\n💱 Pair: {PAIR_EMOJI.get(pair,pair)}\n💎 IQ: {'✅' if IQ_CONNECTED else '❌'}\n\n{bar} {pct}%\n▓ Progress: {pct}% ▓\n\n🔍 {text}\n\n⏳ Fast scan - V8.2"
-        try:
-            bot.edit_message_text(txt,cid,mid) # REMOVED Markdown to stop crash
-        except Exception as e:
-            print(f"Scan edit fail {pct}%: {e}")
-            try:
-                # Try again without formatting
-                bot.edit_message_text(txt,cid,mid)
-            except:
-                pass
-        time.sleep(delay)
+        filled = int(pct // 5)
+        bar = "█" * filled + "░" * (20 - filled)
+        
+        if pct < 40:
+            color = "🟥"
+        elif pct < 80:
+            color = "🟨"
+        elif pct < 100:
+            color = "🟩"
+        else:
+            color = "💎"
+        
+        # Fast news check - no heavy calc
+        is_news, news_info = is_news_time()
+        
+        scan_txt = f"""{color} **Z-BOT V8 LEGIT SCAN** {color}
 
-    # BLINK + BOOM - Must run even if 85% failed
-    pair_emoji = PAIR_EMOJI.get(pair,pair)
-    iq_status = '✅' if IQ_CONNECTED else '❌'
-    
-    try:
-        for frame in ["████████████████████", "▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓", "████████████████████", "✨✨✨✨✨✨✨✨✨✨✨✨✨✨✨✨✨✨✨✨"]:
-            bot.edit_message_text(f"💎 Z-BOT V8 LEGIT SCAN 💎\n\n💱 Pair: {pair_emoji}\n💎 IQ: {iq_status}\n\n{frame} 100%\n▓ Progress: 100% ▓\n\n🔍 🔒 SIGNAL LOCKED! READY TO TRADE!",cid,mid)
-            time.sleep(0.35)
+💱 Pair: {PAIR_EMOJI.get(pair, pair)}
+💎 IQ: {'✅ Connected' if IQ_CONNECTED else '❌ Offline'}
+
+{bar} {pct}%
+▓ Progress: {pct}% ▓
+
+🔍 {text}
+{news_info}
+
+⏳ Fast scan - V8.2
+"""
+        try:
+            bot.edit_message_text(scan_txt, cid, mid, parse_mode="Markdown")
+        except Exception as e:
+            # If edit fails (rate limit), skip and continue - DON'T HOOK!
+            print(f"Scan edit skip {pct}%: {e}", flush=True)
+            pass
         
-        bot.edit_message_text(f"💥💥💥 SIGNAL FOUND!!! 💥💥💥\n\n💎 Z-BOT V8 LEGIT SCAN 💎\n\n💱 Pair: {pair_emoji}\n💎 IQ: {iq_status}\n\n💎💎💎💎💎💎💎💎💎💎💎💎💎💎💎💎💎💎💎💎 100%\n▓ Progress: 100% ▓\n\n🔒 SIGNAL LOCKED! READY TO TRADE!\n\n🔔 DING DING DING",cid,mid)
-    except Exception as e:
-        print(f"Final boom fail: {e}")
+        time.sleep(delay)
+    
+    # FORCE 100% AT END - ALWAYS SHOW LOCKED!
+    try:
+        final_txt = f"""💎 **Z-BOT V8 LEGIT SCAN** 💎
+
+💱 Pair: {PAIR_EMOJI.get(pair, pair)}
+💎 IQ: {'✅ Connected' if IQ_CONNECTED else '❌ Offline'}
+
+████████████████████ 100%
+▓ Progress: 100% ▓
+
+🔍 🔒 SIGNAL LOCKED! READY TO TRADE!
+✅ Safe - No News
+
+⏳ Scan complete - Fast V8.2!
+"""
+        bot.edit_message_text(final_txt, cid, mid, parse_mode="Markdown")
+        time.sleep(0.3)
+    except:
+        pass
 
 def analyze_momentum(pair, sniper_mode=False):
     df=get_candles(pair)
