@@ -64,7 +64,7 @@ def background_iq():
             PROXY=os.getenv("PROXY_URL")
             if not EMAIL or not PWD:
                 print("IQ_EMAIL/PASS missing"); return
-            print(f"[IQ] Attempt {attempt+1}/10 Email:{EMAIL} Proxy:{'YES' if PROXY else 'NO'}", flush=True)
+            print(f"[IQ] Attempt {attempt+1}/10 Proxy:{'YES' if PROXY else 'NO'}", flush=True)
             iq=IQ_Option(EMAIL,PWD)
             if PROXY:
                 try:
@@ -75,8 +75,13 @@ def background_iq():
                         ph, pt = hp.split(":")
                         print(f"[IQ] Setting proxy {ph}:{pt}", flush=True)
                         iq.set_proxy(proxy_type="http", host=ph, port=int(pt), user=pu, password=pp)
+                    else:
+                        # Proxy without auth - host:port only
+                        ph, pt = pc.split(":")
+                        print(f"[IQ] Setting proxy no-auth {ph}:{pt}", flush=True)
+                        iq.set_proxy(proxy_type="http", host=ph, port=int(pt))
                 except Exception as pe:
-                    print(f"[IQ] Proxy parse error {pe}", flush=True)
+                    print(f"[IQ] Proxy parse error {pe} - continuing without proxy", flush=True)
             logging.disable(logging.CRITICAL)
             iq.connect()
             IQ_CONNECTED=iq.check_connect()
@@ -117,6 +122,9 @@ def iq_reconnect():
                     pu, pp = up.split(":")
                     ph, pt = hp.split(":")
                     iq.set_proxy(proxy_type="http", host=ph, port=int(pt), user=pu, password=pp)
+                else:
+                    ph, pt = pc.split(":")
+                    iq.set_proxy(proxy_type="http", host=ph, port=int(pt))
             except: pass
         iq.connect()
         IQ_CONNECTED=iq.check_connect()
@@ -160,12 +168,16 @@ def get_candles(pair):
             result['e'] = e
     t = threading.Thread(target=_fetch, daemon=True)
     t.start()
-    t.join(timeout=6)
+    t.join(timeout=15)
     if t.is_alive():
         print(f"[SCAN] TIMEOUT {pair} - skipping, not blocking", flush=True)
         return None
     c = result.get('c')
-    if c and len(c)>25: return pd.DataFrame(sorted(c,key=lambda x:x['from']))
+    if result.get('e'):
+        print(f"[SCAN] {pair} error {result.get('e')}", flush=True)
+    if c and len(c)>25:
+        return pd.DataFrame(sorted(c,key=lambda x:x['from']))
+    print(f"[SCAN] {pair} no candles len={len(c) if c else 0}", flush=True)
     return None
 
 def calc_rsi(closes, period=7):
