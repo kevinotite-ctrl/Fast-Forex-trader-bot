@@ -5,3 +5,5 @@ websocket-client
 PySocks
 pytelegrambotapi
 iqoptionapi
+pandas
+numpy
