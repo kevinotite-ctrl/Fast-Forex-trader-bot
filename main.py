@@ -12,9 +12,11 @@ logging.getLogger().setLevel(logging.CRITICAL)
 logging.getLogger("iqoptionapi").setLevel(logging.CRITICAL)
 logging.disable(logging.ERROR)
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
+BOT_TOKEN = os.getenv("BOT_TOKEN") or os.getenv("TELE_TOKEN")
 OWNER_ID = 8659453018
-bot = telebot.TeleBot(BOT_TOKEN)
+if not BOT_TOKEN:
+    print("ERROR BOT_TOKEN missing")
+bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 app = Flask(__name__)
 
 REAL_PAIRS = ["EURUSD","GBPUSD","USDJPY","EURGBP","AUDUSD","USDCAD","EURJPY","GBPJPY","USDCHF","AUDJPY","EURAUD","GBPCHF","EURCHF","NZDUSD","GBPAUD","EURCAD","AUDCAD","GBPCAD","NZDJPY","AUDNZD","CHFJPY","CADJPY"]
@@ -51,49 +53,39 @@ def wh():
 def background_iq():
     global iq, IQ_CONNECTED
     time.sleep(3)
-    for attempt in range(5):
+    for attempt in range(10):
         try:
             from iqoptionapi.stable_api import IQ_Option
             EMAIL=os.getenv("IQ_EMAIL"); PWD=os.getenv("IQ_PASS")
-            PROXY=os.getenv("PROXY_URL") or os.getenv("HTTP_PROXY")
+            PROXY=os.getenv("PROXY_URL")
             if not EMAIL or not PWD:
                 print("IQ_EMAIL/PASS missing"); return
-            
-            print(f"[IQ] Attempt {attempt+1}/5 Email:{EMAIL} Proxy:{'YES' if PROXY else 'NO'}")
-            
-            # Set proxy env for websocket
-            if PROXY:
-                os.environ['http_proxy'] = PROXY
-                os.environ['https_proxy'] = PROXY
-                os.environ['HTTP_PROXY'] = PROXY
-                os.environ['HTTPS_PROXY'] = PROXY
-            
-            logging.disable(logging.CRITICAL)
+            print(f"[IQ] Attempt {attempt+1}/10 Email:{EMAIL} Proxy:{'YES' if PROXY else 'NO'}")
             iq=IQ_Option(EMAIL,PWD)
-            # Some versions need active field
-            try:
-                iq.connect()
-            except Exception as ce:
-                print(f"Connect exception {ce}")
-                time.sleep(5)
-                continue
-                
+            if PROXY:
+                try:
+                    pc = PROXY.replace("http://","").replace("https://","")
+                    if "@" in pc:
+                        up, hp = pc.split("@")
+                        pu, pp = up.split(":")
+                        ph, pt = hp.split(":")
+                        print(f"[IQ] Setting proxy {ph}:{pt}")
+                        iq.set_proxy(proxy_type="http", host=ph, port=int(pt), user=pu, password=pp)
+                except Exception as pe:
+                    print(f"[IQ] Proxy parse error {pe}")
+            logging.disable(logging.CRITICAL)
+            iq.connect()
             IQ_CONNECTED=iq.check_connect()
             print(f"[IQ] check_connect={IQ_CONNECTED}")
-            
             if IQ_CONNECTED:
                 try:
                     iq.change_balance("PRACTICE")
-                    time.sleep(2)
+                    time.sleep(1)
                     bal = iq.get_balance()
                     STATS["real_balance"]=bal
                     print(f"[IQ] SUCCESS BALANCE ${bal}")
                 except Exception as be:
                     print(f"[IQ] Balance err {be} but connected")
-                
-                logging.disable(logging.NOTSET)
-                logging.getLogger().setLevel(logging.CRITICAL)
-                logging.disable(logging.ERROR)
                 print(f"[IQ] CONNECTED TRUE")
                 return
             else:
@@ -103,21 +95,30 @@ def background_iq():
             print(f"[IQ] Fail attempt {attempt+1}: {e}")
             import traceback; traceback.print_exc()
             time.sleep(10)
-    
     IQ_CONNECTED=False
-    print("[IQ] FAILED AFTER 5 - Will keep bot replying but no trading")
+    print("[IQ] FAILED AFTER 10")
 
 def iq_reconnect():
     global iq, IQ_CONNECTED
     try:
         from iqoptionapi.stable_api import IQ_Option
         logging.disable(logging.CRITICAL)
-        iq=IQ_Option(os.getenv("IQ_EMAIL"),os.getenv("IQ_PASS")); iq.connect()
+        iq=IQ_Option(os.getenv("IQ_EMAIL"),os.getenv("IQ_PASS"))
+        PROXY=os.getenv("PROXY_URL")
+        if PROXY:
+            try:
+                pc = PROXY.replace("http://","").replace("https://","")
+                if "@" in pc:
+                    up, hp = pc.split("@")
+                    pu, pp = up.split(":")
+                    ph, pt = hp.split(":")
+                    iq.set_proxy(proxy_type="http", host=ph, port=int(pt), user=pu, password=pp)
+            except: pass
+        iq.connect()
         IQ_CONNECTED=iq.check_connect()
         if IQ_CONNECTED: 
             try: STATS["real_balance"]=iq.get_balance()
             except: pass
-        logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
         return IQ_CONNECTED
     except: IQ_CONNECTED=False; return False
 
@@ -125,7 +126,6 @@ def get_real_balance(bal_type="PRACTICE"):
     try:
         with IQ_LOCK:
             logging.disable(logging.CRITICAL); iq.change_balance(bal_type); bal=iq.get_balance()
-            logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
             return bal
     except: return 0.0
 
@@ -135,7 +135,6 @@ def get_payout(pair):
     try:
         with IQ_LOCK:
             logging.disable(logging.CRITICAL); all_p=iq.get_all_profit()
-            logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
             if pair in all_p:
                 for k in ['blitz','turbo','binary']:
                     if k in all_p[pair]:
@@ -150,7 +149,6 @@ def get_candles(pair):
         try:
             with IQ_LOCK:
                 logging.disable(logging.CRITICAL); c=iq.get_candles(pair,60,50,time.time())
-                logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
             if c and len(c)>25: return pd.DataFrame(sorted(c,key=lambda x:x['from']))
             time.sleep(0.4)
         except: time.sleep(0.4)
@@ -229,18 +227,16 @@ def iq_trade(pair,direction,amount,bal,expiry_sec=30):
     if not IQ_CONNECTED and not iq_reconnect(): return False,None,0
     try:
         with IQ_LOCK:
-            logging.disable(logging.CRITICAL); iq.change_balance(bal); logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
+            logging.disable(logging.CRITICAL); iq.change_balance(bal)
             mins=max(1,int(expiry_sec/60))
             if expiry_sec<=60: mins=1
             try:
-                logging.disable(logging.CRITICAL); check,oid=iq.buy(amount,pair,direction.lower(),mins)
-                logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
+                check,oid=iq.buy(amount,pair,direction.lower(),mins)
                 if check: return True,oid,expiry_sec
             except: pass
             if expiry_sec<=90:
                 try:
-                    logging.disable(logging.CRITICAL); _,oid=iq.buy_blitz(pair,amount,direction.lower(),expiry_sec)
-                    logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
+                    _,oid=iq.buy_blitz(pair,amount,direction.lower(),expiry_sec)
                     return True,oid,expiry_sec
                 except: pass
             return False,None,0
@@ -262,7 +258,6 @@ def try_auto_otc_trade(d, cid):
         time.sleep(exp+6)
         with IQ_LOCK:
             logging.disable(logging.CRITICAL); pnl=iq.check_win_v4(oid)
-            logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
         bal_now=get_real_balance(bal_type); win = pnl>0
         if win:
             STATS['wins']+=1; STATS['streak']+=1; STATS['real_balance']=bal_now; OTC_MARTI["loss_streak"]=0
@@ -341,7 +336,6 @@ def auto_trader_loop(cid):
             try:
                 with IQ_LOCK:
                     logging.disable(logging.CRITICAL); pnl=iq.check_win_v4(oid)
-                    logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
                 bal_now=get_real_balance(state['bal'])
                 if pnl>0:
                     STATS['wins']+=1; STATS['real_balance']=bal_now; STATS['streak']+=1; AUTO_STATE[cid]['trades']+=1
@@ -389,13 +383,10 @@ def start(m):
             bot.send_message(m.chat.id,f"💰 **BALANCES**\n🟢 DEMO: ${demo:.2f}\n🔴 REAL: ${real:.2f}\n📍 {get_mode_text()}")
         except Exception as e: bot.send_message(m.chat.id,f"Balance error {e}")
         return
-    
-    # SAFE BALANCE - won't crash if IQ False
     try:
         bal_demo = get_real_balance("PRACTICE") if IQ_CONNECTED else STATS.get("real_balance",0.0)
     except:
         bal_demo = 0.0
-
     mk=types.InlineKeyboardMarkup(row_width=1)
     mk.add(types.InlineKeyboardButton(f"💹 SCAN ALL OTC + AUTO 85% 1-2-4-8 - ${bal_demo:.2f}",callback_data="scan_all_otc"))
     mk.add(types.InlineKeyboardButton(f"📈 TRADE REAL (22) AUTO EXPIRY",callback_data="trade_real"))
@@ -532,7 +523,6 @@ def cb(c):
         try:
             with IQ_LOCK:
                 logging.disable(logging.CRITICAL); pnl=iq.check_win_v4(oid)
-                logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
             bal_now=get_real_balance(bal)
             if pnl>0:
                 STATS['wins']+=1; STATS['real_balance']=bal_now; STATS['streak']+=1
@@ -567,12 +557,13 @@ def handle_custom_amt(m):
         bot.send_message(cid,f"✅ Placed {oid} Waiting {exp}s..."); time.sleep(exp+6)
         with IQ_LOCK:
             logging.disable(logging.CRITICAL); pnl=iq.check_win_v4(oid)
-            logging.disable(logging.NOTSET); logging.disable(logging.ERROR)
         bal_now=get_real_balance(bal)
         if pnl>0: STATS['wins']+=1; STATS['streak']+=1; bot.send_message(cid,f"✅ WIN +${pnl:.2f} Bal ${bal_now:.2f}")
         else: STATS['loss']+=1; STATS['streak']=0; bot.send_message(cid,f"❌ LOSS Bal ${bal_now:.2f}")
     except: bot.send_message(cid,"❌ Send number only")
 
+# FIXED - THIS LINE WAS MISSING BEFORE
+threading.Thread(target=background_iq, daemon=True).start()
 threading.Thread(target=real_signal_scanner,daemon=True).start()
 threading.Thread(target=otc_auto_85_scanner,daemon=True).start()
 
