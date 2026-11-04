@@ -16,15 +16,15 @@ BOT_TOKEN = os.getenv("BOT_TOKEN") or os.getenv("TELE_TOKEN")
 OWNER_ID = 8659453018
 if not BOT_TOKEN:
     print("ERROR BOT_TOKEN missing")
-bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
+bot = telebot.TeleBot(BOT_TOKEN, threaded=True, num_threads=10)
 app = Flask(__name__)
 
 REAL_PAIRS = ["EURUSD","GBPUSD","USDJPY","EURGBP","AUDUSD","USDCAD","EURJPY","GBPJPY","USDCHF","AUDJPY","EURAUD","GBPCHF","EURCHF","NZDUSD","GBPAUD","EURCAD","AUDCAD","GBPCAD","NZDJPY","AUDNZD","CHFJPY","CADJPY"]
-OTC_PAIRS = ["EURUSD-OTC","GBPUSD-OTC","AUDUSD-OTC","EURGBP-OTC","EURJPY-OTC","GBPJPY-OTC","AUDJPY-OTC","EURAUD-OTC","GBPAUD-OTC","NZDUSD-OTC"]
+OTC_PAIRS = ["EURUSD-OTC","GBPUSD-OTC","USDJPY-OTC","AUDUSD-OTC","USDCAD-OTC","EURGBP-OTC","EURJPY-OTC","GBPJPY-OTC","AUDJPY-OTC","EURAUD-OTC","GBPAUD-OTC","NZDUSD-OTC","GBPCHF-OTC","EURCHF-OTC","USDCHF-OTC","AUDCAD-OTC","EURCAD-OTC","CADJPY-OTC","NZDJPY-OTC"]
 PAIR_EMOJI = {"EURUSD":"🇪🇺 EUR/USD REAL","GBPUSD":"🇬🇧 GBP/USD REAL","USDJPY":"🇺🇸 USD/JPY REAL","EURGBP":"🇪🇺 EUR/GBP REAL","AUDUSD":"🇦🇺 AUD/USD REAL","USDCAD":"🇺🇸 USD/CAD REAL","EURJPY":"🇪🇺 EUR/JPY REAL","GBPJPY":"🇬🇧 GBP/JPY REAL","USDCHF":"🇺🇸 USD/CHF REAL","AUDJPY":"🇦🇺 AUD/JPY REAL","EURAUD":"🇪🇺 EUR/AUD REAL","GBPCHF":"🇬🇧 GBP/CHF REAL","EURCHF":"🇪🇺 EUR/CHF REAL","NZDUSD":"🇳🇿 NZD/USD REAL","GBPAUD":"🇬🇧 GBP/AUD REAL","EURCAD":"🇪🇺 EUR/CAD REAL","AUDCAD":"🇦🇺 AUD/CAD REAL","GBPCAD":"🇬🇧 GBP/CAD REAL","NZDJPY":"🇳🇿 NZD/JPY REAL","AUDNZD":"🇦🇺 AUD/NZD REAL","CHFJPY":"🇨🇭 CHF/JPY REAL","CADJPY":"🇨🇦 CAD/JPY REAL","EURUSD-OTC":"🇪🇺 EUR/USD OTC","GBPUSD-OTC":"🇬🇧 GBP/USD OTC","EURGBP-OTC":"🇪🇺 EUR/GBP OTC","USDJPY-OTC":"🇺🇸 USD/JPY OTC","GBPJPY-OTC":"🇬🇧 GBP/JPY OTC","AUDUSD-OTC":"🇦🇺 AUD/USD OTC","USDCHF-OTC":"🇺🇸 USD/CHF OTC","EURJPY-OTC":"🇪🇺 EUR/JPY OTC","AUDJPY-OTC":"🇦🇺 AUD/JPY OTC","EURAUD-OTC":"🇪🇺 EUR/AUD OTC","GBPAUD-OTC":"🇬🇧 GBP/AUD OTC","NZDUSD-OTC":"🇳🇿 NZD/USD OTC","GBPCHF-OTC":"🇬🇧 GBP/CHF OTC","EURCHF-OTC":"🇪🇺 EUR/CHF OTC","USDCAD-OTC":"🇺🇸 USD/CAD OTC","AUDCAD-OTC":"🇦🇺 AUD/CAD OTC","EURCAD-OTC":"🇪🇺 EUR/CAD OTC","CADJPY-OTC":"🇨🇦 CAD/JPY OTC","NZDJPY-OTC":"🇳🇿 NZD/JPY OTC"}
 
 STATS = {"balance":0.0,"real_balance":0.0,"wins":0,"loss":0,"streak":0}
-user_states = {}; AUTO_STATE = {}; IQ_LOCK = threading.Lock()
+user_states = {}; AUTO_STATE = {}; IQ_LOCK = threading.RLock()
 IQ_CONNECTED=False; iq=None; PAYOUT_CACHE={}; PAYOUT_TIME=0
 OTC_SESSION_RESULTS = []
 OTC_MARTI = {"loss_streak":0, "base":1.0, "bal":"PRACTICE", "levels":[1,2,4]}
@@ -46,9 +46,13 @@ def home():
     return f"V11 FREE WEB SERVICE RUNNING IQ:{IQ_CONNECTED} {datetime.now(pytz.timezone('Africa/Lagos')).strftime('%H:%M:%S')}"
 
 @app.route(f"/{BOT_TOKEN}",methods=['POST'])
-def wh(): 
-    bot.process_new_updates([telebot.types.Update.de_json(request.get_data().decode("utf-8"))])
-    return "ok"
+def wh():
+    try:
+        update = telebot.types.Update.de_json(request.get_data().decode("utf-8"))
+        threading.Thread(target=bot.process_new_updates, args=([update],), daemon=True).start()
+    except Exception as e:
+        print(f"Webhook err {e}", flush=True)
+    return "ok", 200
 
 def background_iq():
     global iq, IQ_CONNECTED
@@ -60,7 +64,7 @@ def background_iq():
             PROXY=os.getenv("PROXY_URL")
             if not EMAIL or not PWD:
                 print("IQ_EMAIL/PASS missing"); return
-            print(f"[IQ] Attempt {attempt+1}/10 Email:{EMAIL} Proxy:{'YES' if PROXY else 'NO'}")
+            print(f"[IQ] Attempt {attempt+1}/10 Proxy:{'YES' if PROXY else 'NO'}", flush=True)
             iq=IQ_Option(EMAIL,PWD)
             if PROXY:
                 try:
@@ -69,34 +73,38 @@ def background_iq():
                         up, hp = pc.split("@")
                         pu, pp = up.split(":")
                         ph, pt = hp.split(":")
-                        print(f"[IQ] Setting proxy {ph}:{pt}")
+                        print(f"[IQ] Setting proxy {ph}:{pt}", flush=True)
                         iq.set_proxy(proxy_type="http", host=ph, port=int(pt), user=pu, password=pp)
+                    else:
+                        ph, pt = pc.split(":")
+                        print(f"[IQ] Setting proxy no-auth {ph}:{pt}", flush=True)
+                        iq.set_proxy(proxy_type="http", host=ph, port=int(pt))
                 except Exception as pe:
-                    print(f"[IQ] Proxy parse error {pe}")
+                    print(f"[IQ] Proxy parse error {pe} - continuing without proxy", flush=True)
             logging.disable(logging.CRITICAL)
             iq.connect()
             IQ_CONNECTED=iq.check_connect()
-            print(f"[IQ] check_connect={IQ_CONNECTED}")
+            print(f"[IQ] check_connect={IQ_CONNECTED}", flush=True)
             if IQ_CONNECTED:
                 try:
                     iq.change_balance("PRACTICE")
                     time.sleep(1)
                     bal = iq.get_balance()
                     STATS["real_balance"]=bal
-                    print(f"[IQ] SUCCESS BALANCE ${bal}")
+                    print(f"[IQ] SUCCESS BALANCE ${bal}", flush=True)
                 except Exception as be:
-                    print(f"[IQ] Balance err {be} but connected")
-                print(f"[IQ] CONNECTED TRUE")
+                    print(f"[IQ] Balance err {be} but connected", flush=True)
+                print(f"[IQ] CONNECTED TRUE", flush=True)
                 return
             else:
-                print(f"[IQ] False, retrying...")
+                print(f"[IQ] False, retrying...", flush=True)
                 time.sleep(8)
         except Exception as e:
-            print(f"[IQ] Fail attempt {attempt+1}: {e}")
+            print(f"[IQ] Fail attempt {attempt+1}: {e}", flush=True)
             import traceback; traceback.print_exc()
             time.sleep(10)
     IQ_CONNECTED=False
-    print("[IQ] FAILED AFTER 10")
+    print("[IQ] FAILED AFTER 10", flush=True)
 
 def iq_reconnect():
     global iq, IQ_CONNECTED
@@ -113,10 +121,13 @@ def iq_reconnect():
                     pu, pp = up.split(":")
                     ph, pt = hp.split(":")
                     iq.set_proxy(proxy_type="http", host=ph, port=int(pt), user=pu, password=pp)
+                else:
+                    ph, pt = pc.split(":")
+                    iq.set_proxy(proxy_type="http", host=ph, port=int(pt))
             except: pass
         iq.connect()
         IQ_CONNECTED=iq.check_connect()
-        if IQ_CONNECTED: 
+        if IQ_CONNECTED:
             try: STATS["real_balance"]=iq.get_balance()
             except: pass
         return IQ_CONNECTED
@@ -131,28 +142,33 @@ def get_real_balance(bal_type="PRACTICE"):
 
 def get_payout(pair):
     global PAYOUT_CACHE, PAYOUT_TIME
-    if time.time()-PAYOUT_TIME<60 and pair in PAYOUT_CACHE: return PAYOUT_CACHE[pair]
+    if pair in PAYOUT_CACHE and time.time()-PAYOUT_TIME<300: return PAYOUT_CACHE[pair]
     try:
-        with IQ_LOCK:
-            logging.disable(logging.CRITICAL); all_p=iq.get_all_profit()
-            if pair in all_p:
-                for k in ['blitz','turbo','binary']:
-                    if k in all_p[pair]:
-                        PAYOUT_CACHE[pair]=float(all_p[pair][k]); PAYOUT_TIME=time.time(); return float(all_p[pair][k])
+        # FIXED: No IQ_LOCK here, reading payout no need lock, lock was blocking candles
+        all_p = iq.get_all_profit()
+        if pair in all_p:
+            for k in ['blitz','turbo','binary']:
+                if k in all_p[pair]:
+                    PAYOUT_CACHE[pair]=float(all_p[pair][k]); PAYOUT_TIME=time.time(); return float(all_p[pair][k])
         return 0.85
     except: return PAYOUT_CACHE.get(pair,0.85)
 
 def get_candles(pair):
-    if not IQ_CONNECTED and not iq_reconnect(): return None
-    if pair not in REAL_PAIRS and pair not in OTC_PAIRS: return None
-    for _ in range(2):
-        try:
-            with IQ_LOCK:
-                logging.disable(logging.CRITICAL); c=iq.get_candles(pair,60,50,time.time())
-            if c and len(c)>25: return pd.DataFrame(sorted(c,key=lambda x:x['from']))
-            time.sleep(0.4)
-        except: time.sleep(0.4)
-    return None
+    if not IQ_CONNECTED:
+        return None
+    if pair not in REAL_PAIRS and pair not in OTC_PAIRS:
+        return None
+    try:
+        # FIXED: No thread, no IQ_LOCK, no timeout zombie.
+        # IQ API handles its own queue. Direct call only.
+        c = iq.get_candles(pair, 60, 50, time.time())
+        if c and len(c) > 25:
+            return pd.DataFrame(sorted(c, key=lambda x: x['from']))
+        print(f"[SCAN] {pair} no candles len={len(c) if c else 0}", flush=True)
+        return None
+    except Exception as e:
+        print(f"[SCAN] {pair} get_candles error {e}", flush=True)
+        return None
 
 def calc_rsi(closes, period=7):
     delta=closes.diff(); gain=delta.where(delta>0,0).rolling(period).mean(); loss=-delta.where(delta<0,0).rolling(period).mean(); rs=gain/loss; return 100-(100/(1+rs))
@@ -174,6 +190,7 @@ def legit_live_scan(cid, mid, pair):
         time.sleep(delay)
 
 def analyze_momentum(pair, sniper_mode=False):
+    print(f"[SCAN] Trying {pair}...", flush=True)
     df=get_candles(pair)
     if df is None: return None
     try:
@@ -273,39 +290,28 @@ def try_auto_otc_trade(d, cid):
     except Exception as e:
         bot.send_message(cid,f"Auto OTC martingale error {e}")
 
-def real_signal_scanner():
-    last_signal={}; tz=pytz.timezone("Africa/Lagos")
-    while True:
-        try:
-            if is_real_hours() and IQ_CONNECTED:
-                for pair in REAL_PAIRS:
-                    if pair in last_signal and time.time()-last_signal[pair]<600: continue
-                    d=analyze_momentum(pair,sniper_mode=True)
-                    if d and not d.get('rejected') and d['conf']>=85:
-                        now=datetime.now(tz); entry=now+timedelta(seconds=45); entry2=entry+timedelta(seconds=120); entry3=entry+timedelta(seconds=240); exp=d['expiry']; dir_e="🟢 CALL ⬆️" if d['dir']=="CALL" else "🔴 PUT ⬇️"; base=OTC_MARTI["base"]
-                        msg=f"""📡 **REAL SIGNAL V11 - 3 LEVELS (2 MIN EACH)** 📡\n\n💱 {PAIR_EMOJI.get(pair,pair)}\n📊 {dir_e} | 🎯 {d['conf']:.0f}% SAFE\n📈 {d['reason']} | RSI {d['rsi']:.1f} | ATR {d['atr']:.5f}\n💸 {int(d['payout']*100)}% | 2 Min Each Level\n\n⏰ ENTRY: {entry.strftime('%H:%M:%S WAT')} (in 45s)\n📅 {now.strftime('%A %d %b %H:%M WAT')}\n\n**Level 1:** {entry.strftime('%H:%M:%S')} - 2 Min - ${base:.2f}\n**Level 2:** {entry2.strftime('%H:%M:%S')} - 2 Min - ${base*2:.2f}\n**Level 3:** {entry3.strftime('%H:%M:%S')} - 2 Min - ${base*4:.2f}\n\n⛔ STOP after Level 3. No Level 4.\n⚠️ MANUAL - Follow levels only\n"""
-                        try: bot.send_message(OWNER_ID,msg,parse_mode="Markdown"); last_signal[pair]=time.time()
-                        except: pass
-                    time.sleep(3)
-            time.sleep(25)
-        except: time.sleep(30)
-
-def otc_auto_85_scanner():
+def unified_scanner():
     last_signal={}
     while True:
         try:
-            if not is_real_hours() and IQ_CONNECTED:
-                for pair in OTC_PAIRS:
-                    if pair in last_signal and time.time()-last_signal[pair]<180: continue
+            if is_real_hours():
+                pairs = REAL_PAIRS; is_otc = False
+            else:
+                pairs = OTC_PAIRS; is_otc = True
+            if IQ_CONNECTED:
+                for pair in pairs:
+                    if pair in last_signal and time.time()-last_signal[pair]<600: continue
                     d=analyze_momentum(pair,sniper_mode=True)
                     if d and not d.get('rejected') and d['conf']>=85:
-                        tz=pytz.timezone("Africa/Lagos"); now=datetime.now(tz); entry=now+timedelta(seconds=45); entry2=entry+timedelta(seconds=120); entry3=entry+timedelta(seconds=240); exp=d['expiry']; dir_e="🟢 CALL ⬆️" if d['dir']=="CALL" else "🔴 PUT ⬇️"; levels = OTC_MARTI["levels"]; idx = OTC_MARTI["loss_streak"] % len(levels); mult = levels[idx]; base = OTC_MARTI["base"]; curr = base*mult
-                        msg=f"""📡 **OTC SIGNAL V11 - 3 LEVELS (2 MIN EACH)** 📡\n\n💱 {PAIR_EMOJI.get(pair,pair)}\n📊 {dir_e} | 🎯 {d['conf']:.0f}% SAFE\n📈 {d['reason']} | RSI {d['rsi']:.1f}\n💸 {int(d['payout']*100)}% | 2 Min Each Level\n\n⏰ ENTRY: {entry.strftime('%H:%M:%S WAT')}\n\n**Level 1:** {entry.strftime('%H:%M:%S')} - 2 Min - ${base:.2f}\n**Level 2:** {entry2.strftime('%H:%M:%S')} - 2 Min - ${base*2:.2f}\n**Level 3:** {entry3.strftime('%H:%M:%S')} - 2 Min - ${base*4:.2f}\n\n⛔ STOP after Level 3.\n🤖 Auto placing ${curr:.2f} Level {idx+1} ({mult}x) now...\n"""
-                        try: bot.send_message(OWNER_ID,msg,parse_mode="Markdown"); last_signal[pair]=time.time()
+                        tz=pytz.timezone("Africa/Lagos"); now=datetime.now(tz)
+                        dir_e="🟢 CALL ⬆️" if d['dir']=="CALL" else "🔴 PUT ⬇️"
+                        label="OTC SIGNAL" if is_otc else "REAL SIGNAL"
+                        try: bot.send_message(OWNER_ID,f"📡 **{label} V11 - 85%+**\n\n💱 {PAIR_EMOJI.get(pair,pair)}\n📊 {dir_e} | 🎯 {d['conf']:.0f}% SAFE\n📈 {d['reason']} | RSI {d['rsi']:.1f}"); last_signal[pair]=time.time()
                         except: pass
-                        threading.Thread(target=try_auto_otc_trade,args=(d,OWNER_ID),daemon=True).start()
+                        if is_otc:
+                            threading.Thread(target=try_auto_otc_trade,args=(d,OWNER_ID),daemon=True).start()
                     time.sleep(2)
-            time.sleep(12)
+            time.sleep(15)
         except: time.sleep(15)
 
 def auto_trader_loop(cid):
@@ -517,23 +523,26 @@ def cb(c):
         ok,oid,exp=iq_trade(pair,d['dir'],amt,bal,expiry)
         if not ok:
             mk=types.InlineKeyboardMarkup(row_width=2); mk.add(types.InlineKeyboardButton("💹 NEW TRADE",callback_data="trade"),types.InlineKeyboardButton("🔄 RETRY",callback_data=f"amt_{int(amt)}_{pair}_{bal}_{expiry}"))
-            bot.send_message(cid,"❌ Trade Failed",reply_markup=mk); iq_reconnect(); return
-        bot.send_message(cid,f"✅ Placed {oid} | Waiting {exp}s | Bal ${get_real_balance(bal):.2f}"); time.sleep(exp+6)
-        try:
-            with IQ_LOCK:
-                logging.disable(logging.CRITICAL); pnl=iq.check_win_v4(oid)
-            bal_now=get_real_balance(bal)
-            if pnl>0:
-                STATS['wins']+=1; STATS['real_balance']=bal_now; STATS['streak']+=1
-                mk=types.InlineKeyboardMarkup(row_width=2); mk.add(types.InlineKeyboardButton("🔁 SAME SAFE TRADE",callback_data=f"amt_{int(amt)}_{pair}_{bal}_{expiry}"),types.InlineKeyboardButton("💹 NEW TRADE",callback_data="trade")); mk.add(types.InlineKeyboardButton("📊 STATS",callback_data="stats"),types.InlineKeyboardButton("🤖 AUTO",callback_data="auto_setup"))
-                bot.send_message(cid,f"✅ **WIN +${pnl:.2f}**\n💱 {pair} Safe 2 Min\n🔥 Streak {STATS['streak']} | Bal ${bal_now:.2f}",reply_markup=mk,parse_mode="Markdown")
-            else:
-                STATS['loss']+=1; STATS['real_balance']=bal_now; STATS['streak']=0
-                mk=types.InlineKeyboardMarkup(row_width=2); mk.add(types.InlineKeyboardButton(f"🔁 MARTINGALE 1-2-4",callback_data=f"amt_{int(amt*2)}_{pair}_{bal}_{expiry}"),types.InlineKeyboardButton("💹 NEW TRADE",callback_data="trade"))
-                bot.send_message(cid,f"❌ **LOSS -${amt}**\n💱 {pair} Safe 2 Min\nBal ${bal_now:.2f}",reply_markup=mk,parse_mode="Markdown")
-        except:
-            mk=types.InlineKeyboardMarkup(row_width=2); mk.add(types.InlineKeyboardButton("💹 NEW TRADE",callback_data="trade"),types.InlineKeyboardButton("🔄 RETRY",callback_data=f"amt_{int(amt)}_{pair}_{bal}_{expiry}"))
-            bot.send_message(cid,f"⏱️ Expired {oid} - Check IQ",reply_markup=mk,parse_mode="Markdown")
+            bot.send_message(cid,"❌ Trade Failed",reply_markup=mk); threading.Thread(target=iq_reconnect,daemon=True).start(); return
+        bot.send_message(cid,f"✅ Placed {oid} | Waiting {exp}s | Bal ${get_real_balance(bal):.2f}")
+        def _check_result(cid=cid, oid=oid, pair=pair, amt=amt, exp=exp, bal=bal):
+            time.sleep(exp+6)
+            try:
+                with IQ_LOCK:
+                    logging.disable(logging.CRITICAL); pnl=iq.check_win_v4(oid)
+                bal_now=get_real_balance(bal)
+                if pnl>0:
+                    STATS['wins']+=1; STATS['real_balance']=bal_now; STATS['streak']+=1
+                    mk=types.InlineKeyboardMarkup(row_width=2); mk.add(types.InlineKeyboardButton("🔁 SAME SAFE TRADE",callback_data=f"amt_{int(amt)}_{pair}_{bal}_{exp}"),types.InlineKeyboardButton("💹 NEW TRADE",callback_data="trade")); mk.add(types.InlineKeyboardButton("📊 STATS",callback_data="stats"),types.InlineKeyboardButton("🤖 AUTO",callback_data="auto_setup"))
+                    bot.send_message(cid,f"✅ **WIN +${pnl:.2f}**\n💱 {pair} Safe 2 Min\n🔥 Streak {STATS['streak']} | Bal ${bal_now:.2f}",reply_markup=mk,parse_mode="Markdown")
+                else:
+                    STATS['loss']+=1; STATS['real_balance']=bal_now; STATS['streak']=0
+                    mk=types.InlineKeyboardMarkup(row_width=2); mk.add(types.InlineKeyboardButton(f"🔁 MARTINGALE 1-2-4",callback_data=f"amt_{int(amt*2)}_{pair}_{bal}_{exp}"),types.InlineKeyboardButton("💹 NEW TRADE",callback_data="trade"))
+                    bot.send_message(cid,f"❌ **LOSS -${amt}**\n💱 {pair} Safe 2 Min\nBal ${bal_now:.2f}",reply_markup=mk,parse_mode="Markdown")
+            except:
+                mk=types.InlineKeyboardMarkup(row_width=2); mk.add(types.InlineKeyboardButton("💹 NEW TRADE",callback_data="trade"),types.InlineKeyboardButton("🔄 RETRY",callback_data=f"amt_{int(amt)}_{pair}_{bal}_{exp}"))
+                bot.send_message(cid,f"⏱️ Expired {oid} - Check IQ",reply_markup=mk,parse_mode="Markdown")
+        threading.Thread(target=_check_result,daemon=True).start()
         return
     if data=="stats":
         total=STATS['wins']+STATS['loss']; wr=(STATS['wins']/total*100) if total else 0; bal=get_real_balance("PRACTICE"); mk=types.InlineKeyboardMarkup(row_width=2); mk.add(types.InlineKeyboardButton("💹 NEW TRADE",callback_data="trade"),types.InlineKeyboardButton("🤖 AUTO",callback_data="auto_setup"))
@@ -553,25 +562,27 @@ def handle_custom_amt(m):
         if not d: return
         ok,oid,exp=iq_trade(pair,d['dir'],amt,bal,expiry)
         if not ok: bot.send_message(cid,"❌ Failed"); return
-        bot.send_message(cid,f"✅ Placed {oid} Waiting {exp}s..."); time.sleep(exp+6)
-        with IQ_LOCK:
-            logging.disable(logging.CRITICAL); pnl=iq.check_win_v4(oid)
-        bal_now=get_real_balance(bal)
-        if pnl>0: STATS['wins']+=1; STATS['streak']+=1; bot.send_message(cid,f"✅ WIN +${pnl:.2f} Bal ${bal_now:.2f}")
-        else: STATS['loss']+=1; STATS['streak']=0; bot.send_message(cid,f"❌ LOSS Bal ${bal_now:.2f}")
+        bot.send_message(cid,f"✅ Placed {oid} Waiting {exp}s...")
+        def _check_custom(cid=cid, oid=oid, amt=amt, bal=bal, exp=exp):
+            time.sleep(exp+6)
+            with IQ_LOCK:
+                logging.disable(logging.CRITICAL); pnl=iq.check_win_v4(oid)
+            bal_now=get_real_balance(bal)
+            if pnl>0: STATS['wins']+=1; STATS['streak']+=1; bot.send_message(cid,f"✅ WIN +${pnl:.2f} Bal ${bal_now:.2f}")
+            else: STATS['loss']+=1; STATS['streak']=0; bot.send_message(cid,f"❌ LOSS Bal ${bal_now:.2f}")
+        threading.Thread(target=_check_custom,daemon=True).start()
     except: bot.send_message(cid,"❌ Send number only")
 
 threading.Thread(target=background_iq, daemon=True).start()
-threading.Thread(target=real_signal_scanner,daemon=True).start()
-threading.Thread(target=otc_auto_85_scanner,daemon=True).start()
+threading.Thread(target=unified_scanner,daemon=True).start()
 
 if __name__ == "__main__":
     try:
         url=os.getenv("RENDER_EXTERNAL_URL")
         if url and BOT_TOKEN:
             requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={url}/{BOT_TOKEN}", timeout=5)
-            print(f"Webhook set {url}")
+            print(f"Webhook set {url}", flush=True)
     except: pass
     port=int(os.getenv("PORT",10000))
-    print(f"Starting Flask on 0.0.0.0:{port} - FREE WEB SERVICE")
+    print(f"Starting Flask on 0.0.0.0:{port} - FREE WEB SERVICE", flush=True)
     app.run(host="0.0.0.0", port=port, threaded=True)
