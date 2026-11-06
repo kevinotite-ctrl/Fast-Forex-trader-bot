@@ -245,7 +245,6 @@ def iq_trade(pair,direction,amount,bal,expiry_sec=120):
     except: iq_reconnect(); return False,None,0
 
 def try_auto_otc_trade(d, cid):
-    # OTC DISABLED - Do nothing
     if not ENABLE_OTC:
         return
     global OTC_SESSION_RESULTS, OTC_MARTI
@@ -279,6 +278,67 @@ def try_auto_otc_trade(d, cid):
     except Exception as e:
         bot.send_message(cid,f"Auto OTC martingale error {e}")
 
+# ===== NEW: AUTO REAL TRADER 90-100% ONLY =====
+def auto_real_trader(cid, bal_type):
+    consecutive_losses = 0
+    base = OTC_MARTI["base"]
+    AUTO_STATE[cid] = {'running': True, 'bal': bal_type, 'base_amt': base, 'pair': 'AUTO_REAL'}
+    try:
+        bot.send_message(cid, f"🤖 AUTO TRADE STARTED - {bal_type}\n\n✅ Only 90-100% signals\n✅ Martingale 1-2-4 | 2 Min each\n✅ Manual signals still dey come\n\nPress 🛑 STOP AUTO TRADE to stop")
+    except: pass
+    while AUTO_STATE.get(cid, {}).get('running', False):
+        try:
+            best = None
+            best_score = 0
+            for p in REAL_PAIRS:
+                if not AUTO_STATE.get(cid, {}).get('running', False):
+                    break
+                d = analyze_momentum(p, sniper_mode=True)
+                if d and not d.get('rejected') and d['conf'] >= 90 and d['conf'] > best_score:
+                    best_score = d['conf']
+                    best = d
+                time.sleep(0.5)
+            if not best:
+                time.sleep(20)
+                continue
+            levels = [1, 2, 4]
+            idx = consecutive_losses % len(levels)
+            curr_amt = round(base * levels[idx], 2)
+            pair = best['pair']
+            dir_ = best['dir']
+            try:
+                bot.send_message(cid, f"🤖 AUTO PLACING - {bal_type}\n\n💱 {pair} {dir_} ${curr_amt} L{idx+1} ({levels[idx]}x)\n🎯 {best['conf']:.0f}% | {best['reason']}\n⏱️ 2 Min")
+            except: pass
+            ok, oid, exp = iq_trade(pair, dir_, curr_amt, bal_type, 120)
+            if not ok:
+                time.sleep(10)
+                continue
+            time.sleep(exp + 6)
+            try:
+                with IQ_LOCK:
+                    logging.disable(logging.CRITICAL); pnl = iq.check_win_v4(oid)
+            except:
+                pnl = 0
+            bal_now = get_real_balance(bal_type)
+            if pnl > 0:
+                STATS['wins'] += 1; STATS['streak'] += 1; consecutive_losses = 0
+                try: bot.send_message(cid, f"✅ AUTO WIN +${pnl:.2f}\n💱 {pair} L{levels[idx]} | Bal ${bal_now:.2f}\n♻️ Reset to ${base} Level 1")
+                except: pass
+            else:
+                STATS['loss'] += 1; STATS['streak'] = 0; consecutive_losses += 1
+                if consecutive_losses >= 3:
+                    consecutive_losses = 0
+                    try: bot.send_message(cid, f"❌ AUTO LOSS -${curr_amt:.2f} | 1-2-4 done\n💰 Bal ${bal_now:.2f} | Reset to Level 1")
+                    except: pass
+                else:
+                    try: bot.send_message(cid, f"❌ AUTO LOSS -${curr_amt:.2f}\n💰 Bal ${bal_now:.2f} | Next L{levels[consecutive_losses]} ${base*levels[consecutive_losses]:.2f}")
+                    except: pass
+            time.sleep(8)
+        except:
+            time.sleep(10)
+    try: bot.send_message(cid, "🛑 AUTO TRADE STOPPED")
+    except: pass
+
 def real_signal_scanner():
     last_signal={}; tz=pytz.timezone("Africa/Lagos")
     while True:
@@ -297,13 +357,11 @@ def real_signal_scanner():
         except: time.sleep(30)
 
 def otc_auto_85_scanner():
-    # OTC DISABLED - Sleep forever, no scanning, no hang
     while True:
         print("[SCAN] OTC DISABLED - Sleeping, REAL only at 7AM", flush=True)
         time.sleep(60)
         if not ENABLE_OTC:
             continue
-        # Code below will never run while ENABLE_OTC=False
         last_signal={}
         try:
             if not is_real_hours() and IQ_CONNECTED:
@@ -328,7 +386,6 @@ def auto_trader_loop(cid):
             if not state or not state['running']: break
             if not IQ_CONNECTED: iq_reconnect(); time.sleep(5); continue
             pair_to_trade=state['pair']
-            # OTC DISABLED - If auto trader tries OTC, stop it
             if "-OTC" in str(pair_to_trade):
                 bot.send_message(cid,"⛔ OTC DISABLED - Auto trader stopped. Use REAL pairs tomorrow 7AM.")
                 AUTO_STATE[cid]['running']=False
@@ -406,6 +463,9 @@ OTC: {'✅ ON' if ENABLE_OTC else '⛔ DISABLED - REAL only'}
         bal_demo = 0.0
     mk=types.InlineKeyboardMarkup(row_width=1)
     mk.add(types.InlineKeyboardButton(f"📈 TRADE REAL (22) AUTO EXPIRY - ${bal_demo:.2f}",callback_data="trade_real"))
+    mk.add(types.InlineKeyboardButton("🤖 START AUTO TRADE DEMO",callback_data="start_auto_demo"))
+    mk.add(types.InlineKeyboardButton("🔴 START AUTO TRADE REAL",callback_data="start_auto_real"))
+    mk.add(types.InlineKeyboardButton("🛑 STOP AUTO TRADE",callback_data="stop_auto"))
     mk.add(types.InlineKeyboardButton("📊 MY STATS",callback_data="stats"),types.InlineKeyboardButton("⚙️ SETTINGS",callback_data="settings"))
     txt=f"""🤖 **Z-BOT V11.3 REAL ONLY - OTC DISABLED** 🤖
 
@@ -422,6 +482,29 @@ OTC: {'✅ ON' if ENABLE_OTC else '⛔ DISABLED - REAL only'}
 def cb(c):
     if not is_allowed(c.from_user.id): bot.answer_callback_query(c.id,"❌ Private"); return
     data=c.data; cid=c.message.chat.id
+    # ===== NEW AUTO BUTTONS =====
+    if data=="start_auto_demo":
+        if AUTO_STATE.get(cid,{}).get('running'):
+            bot.answer_callback_query(c.id,"Auto already running")
+            bot.send_message(cid,"⚠️ Auto already dey run. Press STOP first.")
+            return
+        bot.answer_callback_query(c.id,"Starting Auto Demo...")
+        threading.Thread(target=auto_real_trader,args=(cid,"PRACTICE"),daemon=True).start()
+        return
+    if data=="start_auto_real":
+        if AUTO_STATE.get(cid,{}).get('running'):
+            bot.answer_callback_query(c.id,"Auto already running")
+            bot.send_message(cid,"⚠️ Auto already dey run. Press STOP first.")
+            return
+        bot.answer_callback_query(c.id,"Starting Auto REAL...")
+        bot.send_message(cid,"⚠️ You dey start REAL money auto trade. E go use real money for 90-100% signals only.")
+        threading.Thread(target=auto_real_trader,args=(cid,"REAL"),daemon=True).start()
+        return
+    if data=="stop_auto":
+        if cid in AUTO_STATE: AUTO_STATE[cid]['running']=False
+        bot.answer_callback_query(c.id,"Stopping...")
+        bot.send_message(cid,"🛑 Stopping auto trade...")
+        return
     if data=="trade_real":
         mk=types.InlineKeyboardMarkup(row_width=1); mk.add(types.InlineKeyboardButton("🔍 📊 SCAN ALL REAL NOW (22 PAIRS)",callback_data="scan_all_real"))
         for p in REAL_PAIRS: mk.add(types.InlineKeyboardButton(f"{PAIR_EMOJI.get(p,p)}",callback_data=f"real_pair_{p}"))
@@ -468,8 +551,6 @@ def cb(c):
         bot.answer_callback_query(c.id,"OTC Disabled")
         bot.send_message(cid,"⛔ **OTC DISABLED**\n\nOTC dey cause hang. Bot go only send REAL signals from 7AM tomorrow.\n\nUse TRADE REAL for now.")
         return
-    if data=="stop_auto":
-        if cid in AUTO_STATE: AUTO_STATE[cid]['running']=False; bot.send_message(cid,"🛑 Stopping..."); return
     if data.startswith("bal_"):
         parts=data.split("_"); bal=parts[1]; pair=parts[2]; expiry=int(parts[3]); mk=types.InlineKeyboardMarkup(row_width=3); mk.add(types.InlineKeyboardButton("💵 $1",callback_data=f"amt_1_{pair}_{bal}_{expiry}"),types.InlineKeyboardButton("💵 $2",callback_data=f"amt_2_{pair}_{bal}_{expiry}"),types.InlineKeyboardButton("💵 $4",callback_data=f"amt_4_{pair}_{bal}_{expiry}")); mk.add(types.InlineKeyboardButton("✏️ CUSTOM",callback_data=f"custom_{pair}_{bal}_{expiry}"))
         bot.send_message(cid,f"✅ {pair} Safe 2 Min | {bal}\n\n💰 **AMOUNT**",reply_markup=mk,parse_mode="Markdown"); return
