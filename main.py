@@ -244,6 +244,24 @@ def iq_trade(pair,direction,amount,bal,expiry_sec=120):
             return False,None,0
     except: iq_reconnect(); return False,None,0
 
+# ===== BLITZ 2 MIN - FOR AUTO TRADER ONLY =====
+def iq_trade_blitz(pair, direction, amount, bal, expiry_sec=120):
+    if not IQ_CONNECTED and not iq_reconnect():
+        return False, None, 0
+    try:
+        with IQ_LOCK:
+            logging.disable(logging.CRITICAL)
+            iq.change_balance(bal)
+            try:
+                _, oid = iq.buy_blitz(pair, amount, direction.lower(), expiry_sec)
+                return True, oid, expiry_sec
+            except Exception as e:
+                print(f"[BLITZ] Fail {e}")
+                return False, None, 0
+    except:
+        iq_reconnect()
+        return False, None, 0
+
 def try_auto_otc_trade(d, cid):
     if not ENABLE_OTC:
         return
@@ -278,13 +296,13 @@ def try_auto_otc_trade(d, cid):
     except Exception as e:
         bot.send_message(cid,f"Auto OTC martingale error {e}")
 
-# ===== NEW: AUTO REAL TRADER 90-100% ONLY =====
+# ===== AUTO REAL TRADER - BLITZ 2 MIN - 90-100% ONLY =====
 def auto_real_trader(cid, bal_type):
     consecutive_losses = 0
     base = OTC_MARTI["base"]
     AUTO_STATE[cid] = {'running': True, 'bal': bal_type, 'base_amt': base, 'pair': 'AUTO_REAL'}
     try:
-        bot.send_message(cid, f"🤖 AUTO TRADE STARTED - {bal_type}\n\n✅ Only 90-100% signals\n✅ Martingale 1-2-4 | 2 Min each\n✅ Manual signals still dey come\n\nPress 🛑 STOP AUTO TRADE to stop")
+        bot.send_message(cid, f"🤖 AUTO TRADE STARTED - {bal_type} - BLITZ 2 MIN\n\n✅ Only 90-100% signals\n✅ Martingale 1-2-4 | Blitz 2 Min each\n✅ Manual signals still dey come\n\nPress 🛑 STOP AUTO TRADE to stop")
     except: pass
     while AUTO_STATE.get(cid, {}).get('running', False):
         try:
@@ -307,9 +325,9 @@ def auto_real_trader(cid, bal_type):
             pair = best['pair']
             dir_ = best['dir']
             try:
-                bot.send_message(cid, f"🤖 AUTO PLACING - {bal_type}\n\n💱 {pair} {dir_} ${curr_amt} L{idx+1} ({levels[idx]}x)\n🎯 {best['conf']:.0f}% | {best['reason']}\n⏱️ 2 Min")
+                bot.send_message(cid, f"🤖 AUTO PLACING - {bal_type} - BLITZ 2 MIN\n\n💱 {pair} {dir_} ${curr_amt} L{idx+1} ({levels[idx]}x)\n🎯 {best['conf']:.0f}% | {best['reason']}\n⏱️ Blitz 2 Min")
             except: pass
-            ok, oid, exp = iq_trade(pair, dir_, curr_amt, bal_type, 120)
+            ok, oid, exp = iq_trade_blitz(pair, dir_, curr_amt, bal_type, 120)
             if not ok:
                 time.sleep(10)
                 continue
@@ -322,16 +340,16 @@ def auto_real_trader(cid, bal_type):
             bal_now = get_real_balance(bal_type)
             if pnl > 0:
                 STATS['wins'] += 1; STATS['streak'] += 1; consecutive_losses = 0
-                try: bot.send_message(cid, f"✅ AUTO WIN +${pnl:.2f}\n💱 {pair} L{levels[idx]} | Bal ${bal_now:.2f}\n♻️ Reset to ${base} Level 1")
+                try: bot.send_message(cid, f"✅ AUTO BLITZ WIN +${pnl:.2f}\n💱 {pair} L{levels[idx]} | Bal ${bal_now:.2f}\n♻️ Reset to ${base} Level 1")
                 except: pass
             else:
                 STATS['loss'] += 1; STATS['streak'] = 0; consecutive_losses += 1
                 if consecutive_losses >= 3:
                     consecutive_losses = 0
-                    try: bot.send_message(cid, f"❌ AUTO LOSS -${curr_amt:.2f} | 1-2-4 done\n💰 Bal ${bal_now:.2f} | Reset to Level 1")
+                    try: bot.send_message(cid, f"❌ AUTO BLITZ LOSS -${curr_amt:.2f} | 1-2-4 done\n💰 Bal ${bal_now:.2f} | Reset to Level 1")
                     except: pass
                 else:
-                    try: bot.send_message(cid, f"❌ AUTO LOSS -${curr_amt:.2f}\n💰 Bal ${bal_now:.2f} | Next L{levels[consecutive_losses]} ${base*levels[consecutive_losses]:.2f}")
+                    try: bot.send_message(cid, f"❌ AUTO BLITZ LOSS -${curr_amt:.2f}\n💰 Bal ${bal_now:.2f} | Next L{levels[consecutive_losses]} ${base*levels[consecutive_losses]:.2f}")
                     except: pass
             time.sleep(8)
         except:
@@ -482,7 +500,6 @@ OTC: {'✅ ON' if ENABLE_OTC else '⛔ DISABLED - REAL only'}
 def cb(c):
     if not is_allowed(c.from_user.id): bot.answer_callback_query(c.id,"❌ Private"); return
     data=c.data; cid=c.message.chat.id
-    # ===== NEW AUTO BUTTONS =====
     if data=="start_auto_demo":
         if AUTO_STATE.get(cid,{}).get('running'):
             bot.answer_callback_query(c.id,"Auto already running")
