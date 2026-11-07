@@ -22,7 +22,7 @@ app = Flask(__name__)
 ENABLE_OTC = True
 
 REAL_PAIRS = ["EURUSD","GBPUSD","USDJPY","EURGBP","AUDUSD","USDCAD","EURJPY","GBPJPY","USDCHF","AUDJPY","EURAUD","GBPCHF","EURCHF","NZDUSD","GBPAUD","EURCAD","AUDCAD","GBPCAD","NZDJPY","AUDNZD","CHFJPY","CADJPY"]
-OTC_PAIRS = ["EURUSD-OTC","GBPUSD-OTC","USDJPY-OTC","AUDUSD-OTC","USDCAD-OTC","EURGBP-OTC","EURJPY-OTC","GBPJPY-OTC","AUDJPY-OTC","EURAUD-OTC","GBPAUD-OTC","NZDUSD-OTC","GBPCHF-OTC","EURCHF-OTC","USDCHF-OTC","AUDCAD-OTC","EURCAD-OTC","CADJPY-OTC","NZDJPY-OTC"]
+OTC_PAIRS = ["EURUSD-OTC","GBPUSD-OTC","USDJPY-OTC","AUDUSD-OTC","USDCAD-OTC","EURGBP-OTC","EURJPY-OTC","GBPJPY-OTC","AUDJPY-OTC","EURAUD-OTC","NZDUSD-OTC","USDCHF-OTC","EURCHF-OTC"]
 PAIR_EMOJI = {"EURUSD":"🇪🇺 EUR/USD REAL","GBPUSD":"🇬🇧 GBP/USD REAL","USDJPY":"🇺🇸 USD/JPY REAL","EURGBP":"🇪🇺 EUR/GBP REAL","AUDUSD":"🇦🇺 AUD/USD REAL","USDCAD":"🇺🇸 USD/CAD REAL","EURJPY":"🇪🇺 EUR/JPY REAL","GBPJPY":"🇬🇧 GBP/JPY REAL","USDCHF":"🇺🇸 USD/CHF REAL","AUDJPY":"🇦🇺 AUD/JPY REAL","EURAUD":"🇪🇺 EUR/AUD REAL","GBPCHF":"🇬🇧 GBP/CHF REAL","EURCHF":"🇪🇺 EUR/CHF REAL","NZDUSD":"🇳🇿 NZD/USD REAL","GBPAUD":"🇬🇧 GBP/AUD REAL","EURCAD":"🇪🇺 EUR/CAD REAL","AUDCAD":"🇦🇺 AUD/CAD REAL","GBPCAD":"🇬🇧 GBP/CAD REAL","NZDJPY":"🇳🇿 NZD/JPY REAL","AUDNZD":"🇦🇺 AUD/NZD REAL","CHFJPY":"🇨🇭 CHF/JPY REAL","CADJPY":"🇨🇦 CAD/JPY REAL","EURUSD-OTC":"🇪🇺 EUR/USD OTC","GBPUSD-OTC":"🇬🇧 GBP/USD OTC","EURGBP-OTC":"🇪🇺 EUR/GBP OTC","USDJPY-OTC":"🇺🇸 USD/JPY OTC","GBPJPY-OTC":"🇬🇧 GBP/JPY OTC","AUDUSD-OTC":"🇦🇺 AUD/USD OTC","USDCHF-OTC":"🇺🇸 USD/CHF OTC","EURJPY-OTC":"🇪🇺 EUR/JPY OTC","AUDJPY-OTC":"🇦🇺 AUD/JPY OTC","EURAUD-OTC":"🇪🇺 EUR/AUD OTC","GBPAUD-OTC":"🇬🇧 GBP/AUD OTC","NZDUSD-OTC":"🇳🇿 NZD/USD OTC","GBPCHF-OTC":"🇬🇧 GBP/CHF OTC","EURCHF-OTC":"🇪🇺 EUR/CHF OTC","USDCAD-OTC":"🇺🇸 USD/CAD OTC","AUDCAD-OTC":"🇦🇺 AUD/CAD OTC","EURCAD-OTC":"🇪🇺 EUR/CAD OTC","CADJPY-OTC":"🇨🇦 CAD/JPY OTC","NZDJPY-OTC":"🇳🇿 NZD/JPY OTC"}
 
 STATS = {"balance":0.0,"real_balance":0.0,"wins":0,"loss":0,"streak":0}
@@ -47,7 +47,7 @@ def get_mode_text():
 
 @app.route("/")
 def home():
-    return f"V13 + V13-OTC RUNNING IQ:{IQ_CONNECTED} OTC:{ENABLE_OTC} {datetime.now(pytz.timezone('Africa/Lagos')).strftime('%H:%M:%S')}"
+    return f"V13 + V13-OTC 13 PAIRS RUNNING IQ:{IQ_CONNECTED} OTC:{ENABLE_OTC} {datetime.now(pytz.timezone('Africa/Lagos')).strftime('%H:%M:%S')}"
 
 @app.route(f"/{BOT_TOKEN}",methods=['POST'])
 def wh():
@@ -488,6 +488,7 @@ def start(m):
 📊 Mode: {get_mode_text()}
 💎 IQ: {'✅' if IQ_CONNECTED else '❌ False - Check email/pass or IP blocked'}
 🛡️ REAL: V13 (88%+) | OTC: V13-OTC Strict (91%+)
+OTC Pairs: 13 | REAL Pairs: 22
 OTC Signals: {'✅ ON - MANUAL ONLY' if ENABLE_OTC else '⛔ OFF'}
 Auto Trade: ⛔ REMOVED - MANUAL ONLY
 """
@@ -505,7 +506,7 @@ Auto Trade: ⛔ REMOVED - MANUAL ONLY
     except: bal_demo = 0.0
     mk=types.InlineKeyboardMarkup(row_width=1)
     mk.add(types.InlineKeyboardButton(f"📈 TRADE REAL (22) - ${bal_demo:.2f}",callback_data="trade_real"))
-    mk.add(types.InlineKeyboardButton(f"📈 TRADE OTC (19) - MANUAL",callback_data="trade_otc"))
+    mk.add(types.InlineKeyboardButton(f"📈 TRADE OTC (13) - MANUAL",callback_data="trade_otc"))
     mk.add(types.InlineKeyboardButton("📊 MY STATS",callback_data="stats"),types.InlineKeyboardButton("⚙️ SETTINGS",callback_data="settings"))
     txt=f"""🤖 **Z-BOT V13 + OTC STRICT - SIGNAL ONLY** 🤖
 
@@ -527,7 +528,7 @@ def cb(c):
         for p in REAL_PAIRS: mk.add(types.InlineKeyboardButton(f"{PAIR_EMOJI.get(p,p)}",callback_data=f"real_pair_{p}"))
         bot.send_message(cid,f"📈 **TRADE REAL V13**\n📍 {get_mode_text()}",reply_markup=mk,parse_mode="Markdown"); return
     if data=="trade_otc":
-        mk=types.InlineKeyboardMarkup(row_width=1); mk.add(types.InlineKeyboardButton("🔍 📊 SCAN ALL OTC NOW (19 PAIRS)",callback_data="scan_all_otc"))
+        mk=types.InlineKeyboardMarkup(row_width=1); mk.add(types.InlineKeyboardButton("🔍 📊 SCAN ALL OTC NOW (13 PAIRS)",callback_data="scan_all_otc"))
         for p in OTC_PAIRS: mk.add(types.InlineKeyboardButton(f"{PAIR_EMOJI.get(p,p)}",callback_data=f"otc_pair_{p}"))
         bot.send_message(cid,f"📈 **TRADE OTC V13-OTC STRICT - MANUAL ONLY**\n📍 {get_mode_text()}",reply_markup=mk,parse_mode="Markdown"); return
     if data=="scan_all_real":
@@ -560,7 +561,7 @@ def cb(c):
             bot.send_message(cid,signal_txt,parse_mode="Markdown")
         return
     if data=="scan_all_otc":
-        bot.answer_callback_query(c.id,"Scanning 19 OTC pairs V13-OTC..."); scan_msg=bot.send_message(cid,"🔍 **SCANNING ALL 19 OTC PAIRS V13-OTC STRICT...**\n\n⏳ ~12 sec"); results=[]; datas={}
+        bot.answer_callback_query(c.id,"Scanning 13 OTC pairs V13-OTC..."); scan_msg=bot.send_message(cid,"🔍 **SCANNING ALL 13 OTC PAIRS V13-OTC STRICT...**\n\n⏳ ~12 sec"); results=[]; datas={}
         for pair in OTC_PAIRS:
             d=analyze_otc_v13(pair,sniper_mode=False)
             if not d: results.append((pair,0,"-","No data","🔴 NO TRADE",120)); continue
@@ -623,7 +624,7 @@ def cb(c):
         total=STATS['wins']+STATS['loss']; wr=(STATS['wins']/total*100) if total else 0; bal=get_real_balance("PRACTICE"); mk=types.InlineKeyboardMarkup(row_width=2); mk.add(types.InlineKeyboardButton("📈 TRADE REAL",callback_data="trade_real"),types.InlineKeyboardButton("📈 TRADE OTC",callback_data="trade_otc"))
         bot.send_message(cid,f"📊 **STATS V13**\n📍 {get_mode_text()}\n🏆 Wins: {STATS['wins']}\n❌ Loss: {STATS['loss']}\n📈 Winrate: {wr:.1f}%\n🔥 Streak: {STATS['streak']}\n💰 Bal: ${bal:.2f}\n📦 Auto Trade: REMOVED | Signal Only",reply_markup=mk,parse_mode="Markdown")
     if data=="settings":
-        bot.send_message(cid,f"⚙️ **SETTINGS V13 + OTC STRICT**\n\n🛡️ REAL: V13 - 5M Trend + ADX + MACD + Stochastic + BB + Volume + Payout + SR + News Filter - 88%+\n🛡️ OTC: V13-OTC Strict - EMA Full Align + ADX 22+ + RSI Tight + Pin/Engulf MUST + No Volume/SR - 91%+\n⏱️ Expiry: FIXED 2 Min (120s) for Level 1, 2, 3\n📊 REAL: 7AM-8PM auto 88%+ signals\n📊 OTC: Night/Weekend auto 91%+ signals\n🤖 Auto Trade: REMOVED - MANUAL ONLY")
+        bot.send_message(cid,f"⚙️ **SETTINGS V13 + OTC STRICT**\n\n🛡️ REAL: V13 - 5M Trend + ADX + MACD + Stochastic + BB + Volume + Payout + SR + News Filter - 88%+\n🛡️ OTC: V13-OTC Strict - EMA Full Align + ADX 22+ + RSI Tight + Pin/Engulf MUST + No Volume/SR - 91%+\n⏱️ Expiry: FIXED 2 Min (120s) for Level 1, 2, 3\n📊 REAL: 22 Pairs - 7AM-8PM auto 88%+ signals\n📊 OTC: 13 Pairs - Night/Weekend auto 91%+ signals\n🤖 Auto Trade: REMOVED - MANUAL ONLY")
 
 @bot.message_handler(func=lambda m: user_states.get(m.chat.id,{}).get("step")=="await_amt")
 def handle_custom_amt(m):
@@ -643,5 +644,5 @@ if __name__ == "__main__":
             print(f"Webhook set {url}")
     except: pass
     port=int(os.getenv("PORT",10000))
-    print(f"Starting Flask on 0.0.0.0:{port} - V13 + OTC STRICT SIGNAL ONLY - NO AUTO TRADE")
+    print(f"Starting Flask on 0.0.0.0:{port} - V13 + OTC STRICT 13 PAIRS SIGNAL ONLY - NO AUTO TRADE")
     app.run(host="0.0.0.0", port=port, threaded=True)
