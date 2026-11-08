@@ -501,6 +501,93 @@ def real_signal_scanner():
             time.sleep(25)
         except: time.sleep(30)
 
+# ===== NEW: DAILY 8PM AUTO REPORT - ADDED =====
+def daily_8pm_report():
+    """Bot go send report by itself every day 8PM WAT - No need to type /ai"""
+    tz = pytz.timezone("Africa/Lagos")
+    last_sent_date = ""
+    while True:
+        try:
+            now = datetime.now(tz)
+            today_str = now.strftime('%Y-%m-%d')
+            # Check: Is it 8PM and we never send today?
+            if now.hour == 20 and now.minute < 5 and last_sent_date != today_str:
+                pnl, total, wins, losses = ai_daily_stats()
+                if total > 0:
+                    total_all, wins_all, best_pairs, best_hours, high_wr, low_wr, weights = ai_get_insight()
+                    # Worst pair today
+                    try:
+                        con = sqlite3.connect(DB_FILE)
+                        cur = con.cursor()
+                        cur.execute("SELECT pair, COUNT(*), SUM(win) FROM trades WHERE created_at LIKE ? GROUP BY pair ORDER BY SUM(win) ASC LIMIT 1", (today_str + "%",))
+                        worst = cur.fetchone()
+                        con.close()
+                    except:
+                        worst = None
+                    wr_today = (wins/total*100) if total else 0
+                    if best_pairs:
+                        # best_pairs format: (pair, count, wins) - sorted by COUNT in ai_get_insight, so pick highest wins
+                        best_sorted = sorted(best_pairs, key=lambda x: (x[2]/x[1] if x[1] else 0), reverse=True)
+                        bp = best_sorted[0]
+                        best_pair_txt = f"{bp[0]} - {bp[2]}/{bp[1]} wins"
+                    else:
+                        best_pair_txt = "No data yet"
+                    if worst and worst[1] >= 3 and (worst[2] or 0) / worst[1] < 0.35:
+                        avoid_txt = f"⛔ Tomorrow AVOID {worst[0]} - Today e lose {worst[1] - (worst[2] or 0)}/{worst[1]}"
+                    else:
+                        avoid_txt = "✅ No bad pair today, all pairs try"
+                    try:
+                        con = sqlite3.connect(DB_FILE)
+                        cur = con.cursor()
+                        cur.execute("SELECT hour, COUNT(*), SUM(win) FROM trades WHERE created_at LIKE ? GROUP BY hour ORDER BY SUM(win) DESC LIMIT 1", (today_str + "%",))
+                        best_h = cur.fetchone()
+                        con.close()
+                        best_hour_txt = f"{best_h[0]}:00 - {best_h[2]}/{best_h[1]} wins" if best_h else "No data"
+                    except:
+                        best_hour_txt = "No data"
+                    locked, _, _ = ai_is_daily_locked()
+                    msg = f"""🌙 **DAILY REPORT - {now.strftime('%A %d %b')} - 8PM** 🌙
+
+━━━━━━━━━━━━━━━
+💰 **TODAY RESULT**
+💵 PnL Today: ${pnl:+.2f}
+🏆 W:{wins} L:{losses} | Total: {total} trades
+📈 Winrate Today: {wr_today:.0f}%
+🛡️ Status: {'🔒 LOCKED - You hit max loss' if locked else '✅ OPEN'}
+━━━━━━━━━━━━━━━
+
+🧠 **WETIN BOT LEARN TODAY**
+⭐ Best Pair: {best_pair_txt}
+⏰ Best Hour: {best_hour_txt}
+🎯 High Conf (88%+) Winrate (All Time): {high_wr}
+
+⚠️ **TOMORROW ADVICE**
+{avoid_txt}
+💡 Focus on your best pair tomorrow morning, no chase loss.
+
+🛡️ **PROTECTION**
+Max Loss: -${DAILY_MAX_LOSS:.0f} | Tomorrow bot go reset to $0.00 PnL, lock go open again 7AM.
+
+😴 Bot don sleep. See you tomorrow 7AM!
+Rest well, no trade for night. OTC na trap.
+"""
+                    try:
+                        bot.send_message(OWNER_ID, msg, parse_mode="Markdown")
+                        print(f"[DAILY REPORT] Sent for {today_str}")
+                    except Exception as e:
+                        print(f"[DAILY REPORT] Send err {e}")
+                    last_sent_date = today_str
+                else:
+                    try:
+                        bot.send_message(OWNER_ID, f"🌙 **DAILY REPORT - {now.strftime('%A %d %b')}**\n\n📭 You no trade today. No wahala, rest.\n\nBot go wake tomorrow 7AM. See you then! 😴")
+                    except: pass
+                    last_sent_date = today_str
+            time.sleep(60)
+        except Exception as e:
+            print(f"[Daily Report err] {e}")
+            time.sleep(60)
+# ===== END DAILY 8PM REPORT =====
+
 @bot.message_handler(commands=['start','stop','mode','balance','results','ai','today'])
 def start(m):
     if not is_allowed(m.from_user.id): bot.send_message(m.chat.id,"❌ Private"); return
@@ -721,6 +808,7 @@ def handle_custom_amt(m):
 
 threading.Thread(target=background_iq, daemon=True).start()
 threading.Thread(target=real_signal_scanner,daemon=True).start()
+threading.Thread(target=daily_8pm_report,daemon=True).start()
 
 if __name__ == "__main__":
     try:
@@ -730,5 +818,5 @@ if __name__ == "__main__":
             print(f"Webhook set {url}")
     except: pass
     port=int(os.getenv("PORT",10000))
-    print(f"Starting Flask on 0.0.0.0:{port} - FREE WEB SERVICE - OTC DISABLED - V14 PROTECTED")
+    print(f"Starting Flask on 0.0.0.0:{port} - FREE WEB SERVICE - OTC DISABLED - V14 PROTECTED + DAILY 8PM REPORT")
     app.run(host="0.0.0.0", port=port, threaded=True)
