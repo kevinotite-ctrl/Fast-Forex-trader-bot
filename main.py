@@ -21,8 +21,8 @@ app = Flask(__name__)
 
 ENABLE_OTC = False
 # ===== V14 SETTINGS - CHANGE AM HERE =====
-DAILY_MAX_LOSS = 20.0  # If you lose $20 today, bot go lock till tomorrow. Change to 10.0 or 50.0
-DAILY_MAX_TRADES = 30  # Max 30 trades per day to avoid over-trading
+DAILY_MAX_LOSS = 20.0
+DAILY_MAX_TRADES = 30
 
 REAL_PAIRS = ["EURUSD","GBPUSD","USDJPY","EURGBP","AUDUSD","USDCAD","EURJPY","GBPJPY","USDCHF","AUDJPY","EURAUD","GBPCHF","EURCHF","NZDUSD","GBPAUD","EURCAD","AUDCAD","GBPCAD","NZDJPY","AUDNZD","CHFJPY","CADJPY"]
 OTC_PAIRS = ["EURUSD-OTC","GBPUSD-OTC","USDJPY-OTC","AUDUSD-OTC","USDCAD-OTC","EURGBP-OTC","EURJPY-OTC","GBPJPY-OTC","AUDJPY-OTC","EURAUD-OTC","GBPAUD-OTC","NZDUSD-OTC","GBPCHF-OTC","EURCHF-OTC","USDCHF-OTC","AUDCAD-OTC","EURCAD-OTC","CADJPY-OTC","NZDJPY-OTC"]
@@ -473,7 +473,6 @@ def real_signal_scanner():
             if is_real_hours() and IQ_CONNECTED:
                 for pair in REAL_PAIRS:
                     if pair in last_signal and time.time()-last_signal[pair]<600: continue
-                    # V14 PROTECTION CHECK
                     locked, pnl_today, trades_today = ai_is_daily_locked()
                     if locked:
                         if time.time() - last_lock_msg > 3600:
@@ -503,19 +502,16 @@ def real_signal_scanner():
 
 # ===== NEW: DAILY 8PM AUTO REPORT - ADDED =====
 def daily_8pm_report():
-    """Bot go send report by itself every day 8PM WAT - No need to type /ai"""
     tz = pytz.timezone("Africa/Lagos")
     last_sent_date = ""
     while True:
         try:
             now = datetime.now(tz)
             today_str = now.strftime('%Y-%m-%d')
-            # Check: Is it 8PM and we never send today?
             if now.hour == 20 and now.minute < 5 and last_sent_date != today_str:
                 pnl, total, wins, losses = ai_daily_stats()
                 if total > 0:
                     total_all, wins_all, best_pairs, best_hours, high_wr, low_wr, weights = ai_get_insight()
-                    # Worst pair today
                     try:
                         con = sqlite3.connect(DB_FILE)
                         cur = con.cursor()
@@ -526,7 +522,6 @@ def daily_8pm_report():
                         worst = None
                     wr_today = (wins/total*100) if total else 0
                     if best_pairs:
-                        # best_pairs format: (pair, count, wins) - sorted by COUNT in ai_get_insight, so pick highest wins
                         best_sorted = sorted(best_pairs, key=lambda x: (x[2]/x[1] if x[1] else 0), reverse=True)
                         bp = best_sorted[0]
                         best_pair_txt = f"{bp[0]} - {bp[2]}/{bp[1]} wins"
@@ -587,6 +582,29 @@ Rest well, no trade for night. OTC na trap.
             print(f"[Daily Report err] {e}")
             time.sleep(60)
 # ===== END DAILY 8PM REPORT =====
+
+# ===== NEW: PLAN B BACKUP - 8:05PM SEND DB FILE =====
+def nightly_backup_to_telegram():
+    """Every day 8:05PM, send zbot_memory.db to you so you get backup. Forward am to Saved Messages."""
+    tz = pytz.timezone("Africa/Lagos")
+    last_backup = ""
+    while True:
+        try:
+            now = datetime.now(tz)
+            today_str = now.strftime('%Y-%m-%d')
+            if now.hour == 20 and now.minute == 5 and last_backup != today_str:
+                try:
+                    with open(DB_FILE, 'rb') as f:
+                        bot.send_document(OWNER_ID, f, caption=f"💾 BACKUP - {today_str}\n\nThis na your AI memory file. If Render wipe, send this file back to me, I go restore am. Forward am to Saved Messages to keep am safe.")
+                    print(f"[BACKUP] Sent DB backup for {today_str}")
+                except Exception as e:
+                    print(f"[BACKUP err] {e}")
+                last_backup = today_str
+            time.sleep(60)
+        except Exception as e:
+            print(f"[Backup err] {e}")
+            time.sleep(60)
+# ===== END PLAN B BACKUP =====
 
 @bot.message_handler(commands=['start','stop','mode','balance','results','ai','today'])
 def start(m):
@@ -711,7 +729,6 @@ def cb(c):
                 bot.send_message(cid, f"""❌ **LOSS - MANUAL RESULT**\n\n━━━━━━━━━━━━━━━\n💸 **Loss:** -${amt:.2f}\n💱 **Pair:** {PAIR_EMOJI.get(pair,pair)} {direction}\n💵 **Amount:** ${amt:.2f} | Level {level} ({level}x)\n🎯 **Conf:** {conf:.0f}%\n📊 **Stats:** W:{STATS['wins']} L:{STATS['loss']}\n━━━━━━━━━━━━━━━\n\n➡️ Next trade na **Level {OTC_MARTI['loss_streak']+1} - ${next_amt:.2f} ({next_mult}x)**\n🧠 AI don save am\n💪 Don't give up!""", reply_markup=mk, parse_mode="Markdown")
         return
     if data=="trade_real":
-        # Protection check for manual scan too
         locked, pnl_today, trades_today = ai_is_daily_locked()
         if locked:
             bot.send_message(cid, f"🔒 **DAILY LOCKED**\n\nToday PnL: ${pnl_today:+.2f}\nYou don reach Max Loss -${DAILY_MAX_LOSS:.0f} or Max Trades. Rest till tomorrow.")
@@ -722,7 +739,6 @@ def cb(c):
     if data=="scan_all_real":
         bot.answer_callback_query(c.id,"Scanning 22 REAL pairs V14..."); scan_msg=bot.send_message(cid,"🔍 **SCANNING ALL 22 REAL PAIRS V14 PROTECTED...**\n\n⏳ ~12 sec"); results=[]; datas={}
         for pair in REAL_PAIRS:
-            # Auto-block check for manual scan too
             now_hour = datetime.now(pytz.timezone("Africa/Lagos")).hour
             is_blocked, _ = ai_should_block(pair, now_hour)
             if is_blocked:
@@ -757,7 +773,6 @@ def cb(c):
         return
     if data.startswith("real_pair_"):
         pair=data.replace("real_pair_","")
-        # Block check for single pair
         now_hour = datetime.now(pytz.timezone("Africa/Lagos")).hour
         is_blocked, block_reason = ai_should_block(pair, now_hour)
         if is_blocked:
@@ -809,6 +824,7 @@ def handle_custom_amt(m):
 threading.Thread(target=background_iq, daemon=True).start()
 threading.Thread(target=real_signal_scanner,daemon=True).start()
 threading.Thread(target=daily_8pm_report,daemon=True).start()
+threading.Thread(target=nightly_backup_to_telegram,daemon=True).start()
 
 if __name__ == "__main__":
     try:
@@ -818,5 +834,5 @@ if __name__ == "__main__":
             print(f"Webhook set {url}")
     except: pass
     port=int(os.getenv("PORT",10000))
-    print(f"Starting Flask on 0.0.0.0:{port} - FREE WEB SERVICE - OTC DISABLED - V14 PROTECTED + DAILY 8PM REPORT")
+    print(f"Starting Flask on 0.0.0.0:{port} - FREE WEB SERVICE - OTC DISABLED - V14 PROTECTED + DAILY 8PM REPORT + BACKUP")
     app.run(host="0.0.0.0", port=port, threaded=True)
