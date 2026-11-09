@@ -20,17 +20,34 @@ bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 app = Flask(__name__)
 
 ENABLE_OTC = False
-# ===== V17 SETTINGS =====
+# ===== V18 SAFE SETTINGS =====
 DAILY_MAX_LOSS = 20.0
-DAILY_MAX_TRADES = 30
-SIGNAL_COOLDOWN = 300  # 5 MIN - 1 signal at a time, pause before scanning again
+DAILY_MAX_TRADES = 6
+SIGNAL_COOLDOWN = 600
 LAST_SIGNAL_TIME = 0
+
+# ===== V18 SAFE PAIRS - ONLY 6 SAFEST =====
+SAFE_PAIRS = ["EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "USDCAD"]
+SAFE_MIN_CONF = 92
+SAFE_MIN_PAYOUT = 0.80
+SAFE_MIN_ADX = 25
+
+# ===== V18 AUTO EXPIRY BY CONFIDENCE =====
+def get_expiry_by_conf(conf):
+    if conf >= 94:
+        return 120
+    elif conf >= 92:
+        return 180
+    elif conf >= 88:
+        return 180
+    else:
+        return 180
 
 REAL_PAIRS = ["EURUSD","GBPUSD","USDJPY","EURGBP","AUDUSD","USDCAD","EURJPY","GBPJPY","USDCHF","AUDJPY","EURAUD","GBPCHF","EURCHF","NZDUSD","GBPAUD","EURCAD","AUDCAD","GBPCAD","NZDJPY","AUDNZD","CHFJPY","CADJPY"]
 OTC_PAIRS = ["EURUSD-OTC","GBPUSD-OTC","USDJPY-OTC","AUDUSD-OTC","USDCAD-OTC","EURGBP-OTC","EURJPY-OTC","GBPJPY-OTC","AUDJPY-OTC","EURAUD-OTC","GBPAUD-OTC","NZDUSD-OTC","GBPCHF-OTC","EURCHF-OTC","USDCHF-OTC","AUDCAD-OTC","EURCAD-OTC","CADJPY-OTC","NZDJPY-OTC"]
 PAIR_EMOJI = {"EURUSD":"🇪🇺 EUR/USD REAL","GBPUSD":"🇬🇧 GBP/USD REAL","USDJPY":"🇺🇸 USD/JPY REAL","EURGBP":"🇪🇺 EUR/GBP REAL","AUDUSD":"🇦🇺 AUD/USD REAL","USDCAD":"🇺🇸 USD/CAD REAL","EURJPY":"🇪🇺 EUR/JPY REAL","GBPJPY":"🇬🇧 GBP/JPY REAL","USDCHF":"🇺🇸 USD/CHF REAL","AUDJPY":"🇦🇺 AUD/JPY REAL","EURAUD":"🇪🇺 EUR/AUD REAL","GBPCHF":"🇬🇧 GBP/CHF REAL","EURCHF":"🇪🇺 EUR/CHF REAL","NZDUSD":"🇳🇿 NZD/USD REAL","GBPAUD":"🇬🇧 GBP/AUD REAL","EURCAD":"🇪🇺 EUR/CAD REAL","AUDCAD":"🇦🇺 AUD/CAD REAL","GBPCAD":"🇬🇧 GBP/CAD REAL","NZDJPY":"🇳🇿 NZD/JPY REAL","AUDNZD":"🇦🇺 AUD/NZD REAL","CHFJPY":"🇨🇭 CHF/JPY REAL","CADJPY":"🇨🇦 CAD/JPY REAL","EURUSD-OTC":"🇪🇺 EUR/USD OTC","GBPUSD-OTC":"🇬🇧 GBP/USD OTC","EURGBP-OTC":"🇪🇺 EUR/GBP OTC","USDJPY-OTC":"🇺🇸 USD/JPY OTC","GBPJPY-OTC":"🇬🇧 GBP/JPY OTC","AUDUSD-OTC":"🇦🇺 AUD/USD OTC","USDCHF-OTC":"🇺🇸 USD/CHF OTC","EURJPY-OTC":"🇪🇺 EUR/JPY OTC","AUDJPY-OTC":"🇦🇺 AUD/JPY OTC","EURAUD-OTC":"🇪🇺 EUR/AUD OTC","GBPAUD-OTC":"🇬🇧 GBP/AUD OTC","NZDUSD-OTC":"🇳🇿 NZD/USD OTC","GBPCHF-OTC":"🇬🇧 GBP/CHF OTC","EURCHF-OTC":"🇪🇺 EUR/CHF OTC","USDCAD-OTC":"🇺🇸 USD/CAD OTC","AUDCAD-OTC":"🇦🇺 AUD/CAD OTC","EURCAD-OTC":"🇪🇺 EUR/CAD OTC","CADJPY-OTC":"🇨🇦 CAD/JPY OTC","NZDJPY-OTC":"🇳🇿 NZD/JPY OTC"}
 
-# ===== AI MEMORY LAYER - V17 =====
+# ===== AI MEMORY LAYER - V18 =====
 DB_FILE = "zbot_memory.db"
 def ai_init_db():
     con = sqlite3.connect(DB_FILE)
@@ -198,17 +215,18 @@ try:
         else: break
     _con.close()
     STATS["streak"] = _streak
-    print(f"[V17] Loaded STATS from DB: W:{STATS['wins']} L:{STATS['loss']} Streak:{_streak}")
+    print(f"[V18] Loaded STATS from DB: W:{STATS['wins']} L:{STATS['loss']} Streak:{_streak}")
 except Exception as e:
-    print(f"[V17] Load STATS err {e}")
+    print(f"[V18] Load STATS err {e}")
 
 user_states = {}; AUTO_STATE = {}; IQ_LOCK = threading.Lock()
 IQ_CONNECTED=False; iq=None; PAYOUT_CACHE={}; PAYOUT_TIME=0
 OTC_SESSION_RESULTS = []
 OTC_MARTI = {"loss_streak":0, "base":1.0, "bal":"PRACTICE", "levels":[1,2,4]}
 PENDING_MANUAL = {}
+PENDING_MARTI = {}
 
-# ===== V17: NEWS FILTER + BACKTEST =====
+# ===== V18: NEWS FILTER + BACKTEST =====
 NEWS_CACHE = {"time": 0, "events": []}
 def fetch_news_events():
     global NEWS_CACHE
@@ -285,17 +303,11 @@ def run_backtest(pair="EURUSD", candles_to_test=100):
         print(f"[BACKTEST err] {e}")
         return None
 
-# ===== V17: STRATEGY 1,2,3 =====
 def get_support_resistance(df):
-    """Find S/R from last 50 candles - where price don bounce many times"""
     try:
-        # Use highs/lows of last 50 candles
         last = df.tail(50)
         highs = last['max'].tolist()
         lows = last['min'].tolist()
-        # Resistance = highest high area, Support = lowest low area
-        # Simple: use rolling max/min + recent swing points
-        # Find swing highs: high > prev and next
         resistances = []
         supports = []
         for i in range(2, len(last)-2):
@@ -305,27 +317,22 @@ def get_support_resistance(df):
                 resistances.append(h)
             if l < float(last['min'].iloc[i-1]) and l < float(last['min'].iloc[i-2]) and l < float(last['min'].iloc[i+1]) and l < float(last['min'].iloc[i+2]):
                 supports.append(l)
-        # Closest levels to current price
         c_now = float(df['close'].iloc[-1])
-        # Nearest resistance above price, nearest support below price
         res_above = [r for r in resistances if r > c_now]
         sup_below = [s for s in supports if s < c_now]
         nearest_res = min(res_above, key=lambda x: abs(x - c_now)) if res_above else float(max(highs))
         nearest_sup = max(sup_below, key=lambda x: abs(x - c_now)) if sup_below else float(min(lows))
-        # Also use 50-period high/low as fallback
         return nearest_sup, nearest_res
     except:
         return None, None
 
 def get_session_info():
-    """V17 Strategy 2: London / NY session filter - WAT time"""
     try:
         tz = pytz.timezone("Africa/Lagos")
         now = datetime.now(tz)
         hour = now.hour
         minute = now.minute
         time_float = hour + minute/60
-        # London Open: 9-11 WAT, NY Open: 14:30-16:30 WAT = Golden
         if 9 <= time_float < 11:
             return "LONDON", True, "London Open - Big Money"
         elif 14.5 <= time_float < 16.5:
@@ -369,7 +376,7 @@ def get_manual_amt_and_level():
 
 @app.route("/")
 def home():
-    return f"V17 PROTECTED RUNNING IQ:{IQ_CONNECTED} OTC:{ENABLE_OTC} {datetime.now(pytz.timezone('Africa/Lagos')).strftime('%H:%M:%S')}"
+    return f"V18 SAFE RUNNING IQ:{IQ_CONNECTED} OTC:{ENABLE_OTC} {datetime.now(pytz.timezone('Africa/Lagos')).strftime('%H:%M:%S')}"
 @app.route(f"/{BOT_TOKEN}",methods=['POST'])
 def wh():
     bot.process_new_updates([telebot.types.Update.de_json(request.get_data().decode("utf-8"))])
@@ -483,12 +490,12 @@ def calc_atr(df, period=14):
         high=df['max']; low=df['min']; close=df['close']; tr1=high-low; tr2=(high-close.shift()).abs(); tr3=(low-close.shift()).abs(); tr=pd.concat([tr1,tr2,tr3],axis=1).max(axis=1); return tr.rolling(period).mean().iloc[-1]
     except: return 0.0005
 def legit_live_scan(cid, mid, pair):
-    steps = [(0,"🚀 V17 Protected Sniper Init...",0.15),(20,f"🔌 Checking {pair}...",0.2),(40,"📊 ADX + ATR + Volume...",0.25),(60,"📈 EMA + MACD + 5M Trend...",0.2),(80,"💹 RSI + S/R + Session + Pullback...",0.2),(100,"🔒 SNIPER LOCKED!",0.3)]
+    steps = [(0,"🚀 V18 Safe Sniper Init...",0.15),(20,f"🔌 Checking {pair}...",0.2),(40,"📊 ADX + ATR + Volume...",0.25),(60,"📈 EMA + MACD + 5M Trend...",0.2),(80,"💹 RSI + S/R + Session + Pullback...",0.2),(100,"🔒 SNIPER LOCKED!",0.3)]
     last_pct=-1
     for pct, text, delay in steps:
         if pct==last_pct: time.sleep(delay); continue
         last_pct=pct; filled=int(pct//5); bar="█"*filled+"░"*(20-filled); color="🟥" if pct<40 else "🟨" if pct<80 else "🟩" if pct<100 else "💎"
-        txt=f"""{color} **Z-BOT V17 PROTECTED** {color}\n\n💱 {PAIR_EMOJI.get(pair,pair)}\n💎 IQ: {'✅' if IQ_CONNECTED else '❌'}\n\n{bar} {pct}%\n\n🔍 {text}\n⏳ V17 Protected"""
+        txt=f"""{color} **Z-BOT V18 SAFE** {color}\n\n💱 {PAIR_EMOJI.get(pair,pair)}\n💎 IQ: {'✅' if IQ_CONNECTED else '❌'}\n\n{bar} {pct}%\n\n🔍 {text}\n⏳ V18 Safe"""
         try: bot.edit_message_text(txt,cid,mid,parse_mode="Markdown")
         except: pass
         time.sleep(delay)
@@ -503,6 +510,8 @@ def calc_adx_v12(df, period=14):
         dx=100*((plus_di-minus_di).abs()/(plus_di+minus_di)); adx=dx.rolling(period).mean().iloc[-1]
         return float(adx), float(plus_di.iloc[-1]), float(minus_di.iloc[-1])
     except: return 0, 0, 0
+
+# ===== V18 SAFE STRATEGY: Trend + Pullback + Bounce - NO CHASE =====
 def analyze_sniper_v12(pair, sniper_mode=False):
     df = get_candles(pair)
     if df is None: return None
@@ -522,120 +531,100 @@ def analyze_sniper_v12(pair, sniper_mode=False):
         atr=calc_atr(df,14); adx, pdi, mdi = calc_adx_v12(df)
         ema12=close.ewm(12).mean(); ema26=close.ewm(26).mean(); macd=ema12-ema26; signal=macd.ewm(9).mean()
         macd_val=float(macd.iloc[-1]); sig_val=float(signal.iloc[-1])
-        sma20=close.rolling(20).mean(); std20=close.rolling(20).std()
-        upper=float((sma20+2*std20).iloc[-1]); lower=float((sma20-2*std20).iloc[-1])
-        low14=low.rolling(14).min(); high14=high.rolling(14).max(); stoch=100*(close-low14)/(high14-low14); stoch_val=float(stoch.iloc[-1])
         c_now=float(close.iloc[-1]); o_now=float(open_.iloc[-1]); c_prev=float(close.iloc[-2]); o_prev=float(open_.iloc[-2])
         h_now=float(high.iloc[-1]); l_now=float(low.iloc[-1]); e9=float(ema9.iloc[-1]); e21=float(ema21.iloc[-1]); e50=float(ema50.iloc[-1])
-        r7=float(rsi7.iloc[-1]); r14=float(rsi14.iloc[-1]); mom1=(close.iloc[-1]-close.iloc[-2])/close.iloc[-2]*100; mom3=(close.iloc[-1]-close.iloc[-4])/close.iloc[-4]*100
-        body=abs(c_now-o_now); upper_wick=h_now-max(c_now,o_now); lower_wick=min(c_now,o_now)-l_now; is_green=c_now>o_now; payout=get_payout(pair); sig="CALL" if is_green else "PUT"
-        if adx < 18: return {"pair":pair,"dir":sig,"conf":42,"price":c_now,"rsi":r7,"adx":adx,"reason":"Choppy - ADX Low","payout":payout,"expiry":120,"atr":atr,"rejected":False}
-        if body < atr*0.30: return {"pair":pair,"dir":sig,"conf":48,"price":c_now,"rsi":r7,"adx":adx,"reason":"Doji - No Body","payout":payout,"expiry":120,"atr":atr,"rejected":False}
-        if payout < 0.70: return {"pair":pair,"dir":sig,"conf":52,"price":c_now,"rsi":r7,"adx":adx,"reason":f"Low Payout {int(payout*100)}%","payout":payout,"expiry":120,"atr":atr,"rejected":False}
-        score=30; reasons=[]
-        w = ai_get_weights()
+        r7=float(rsi7.iloc[-1]); r14=float(rsi14.iloc[-1])
+        body=abs(c_now-o_now); upper_wick=h_now-max(c_now,o_now); lower_wick=min(c_now,o_now)-l_now; is_green=c_now>o_now; payout=get_payout(pair)
+        if adx < SAFE_MIN_ADX:
+            return {"pair":pair,"dir":"CALL" if is_green else "PUT","conf":42,"price":c_now,"rsi":r7,"adx":adx,"reason":"V18: No trend - ADX low","payout":payout,"expiry":180,"atr":atr,"rejected":False}
+        if payout < SAFE_MIN_PAYOUT:
+            return {"pair":pair,"dir":"CALL" if is_green else "PUT","conf":52,"price":c_now,"rsi":r7,"adx":adx,"reason":f"V18: Payout low {int(payout*100)}%","payout":payout,"expiry":180,"atr":atr,"rejected":False}
+        if body < atr*0.30:
+            return {"pair":pair,"dir":"CALL" if is_green else "PUT","conf":48,"price":c_now,"rsi":r7,"adx":adx,"reason":"V18: Doji - No body","payout":payout,"expiry":180,"atr":atr,"rejected":False}
+        # STEP 1: TREND
+        trend_1m = 1 if e9 > e21 > e50 else -1 if e9 < e21 < e50 else 0
+        if trend_1m == 0:
+            return {"pair":pair,"dir":"CALL" if is_green else "PUT","conf":45,"price":c_now,"rsi":r7,"adx":adx,"reason":"V18: EMA messy - No clear trend","payout":payout,"expiry":180,"atr":atr,"rejected":True}
+        trend_5m = 0
         if df5 is not None:
             c5=df5['close']; e9_5=c5.ewm(9).mean(); e21_5=c5.ewm(21).mean()
             trend_5m = 1 if float(e9_5.iloc[-1]) > float(e21_5.iloc[-1]) else -1
-            if (is_green and trend_5m==-1) or (not is_green and trend_5m==1): score-=18; reasons.append("Against 5M Trend")
-            else: score+=12; reasons.append("5M Trend Align")
-        if is_green:
-            if e9>e21>e50: score+=w.get("EMA",18); reasons.append("EMA Bull Align")
-            elif e9>e21: score+=10
-            else: score-=8
+            if trend_5m != trend_1m:
+                return {"pair":pair,"dir":"CALL" if is_green else "PUT","conf":45,"price":c_now,"rsi":r7,"adx":adx,"reason":"V18: 1M vs 5M trend disagree","payout":payout,"expiry":180,"atr":atr,"rejected":True}
+        sig = "CALL" if trend_1m == 1 else "PUT"
+        # STEP 2: PULLBACK - Must be near EMA
+        dist_ema21 = abs(c_now - e21) / c_now * 100
+        dist_ema9 = abs(c_now - e9) / c_now * 100
+        if dist_ema21 > 0.06 and dist_ema9 > 0.06:
+            return {"pair":pair,"dir":sig,"conf":50,"price":c_now,"rsi":r7,"adx":adx,"reason":f"V18: Too far from EMA - Chasing {dist_ema21:.3f}%","payout":payout,"expiry":180,"atr":atr,"rejected":True}
+        # STEP 3: BOUNCE + RSI
+        score = 50
+        reasons = [f"V18 Trend {sig} + Pullback {dist_ema21:.3f}%"]
+        if sig == "CALL":
+            if 45 <= r7 <= 60 and 45 <= r14 <= 60:
+                score += 18; reasons.append(f"RSI Safe {r7:.0f}")
+            else:
+                return {"pair":pair,"dir":sig,"conf":55,"price":c_now,"rsi":r7,"adx":adx,"reason":f"V18: RSI {r7:.0f} not safe for CALL","payout":payout,"expiry":180,"atr":atr,"rejected":True}
         else:
-            if e9<e21<e50: score+=w.get("EMA",18); reasons.append("EMA Bear Align")
-            elif e9<e21: score+=10
-            else: score-=8
-        if adx >= 28: score+=w.get("ADX",12); reasons.append(f"ADX Strong {adx:.0f}")
-        elif adx >= 22: score+=7
-        if is_green and pdi > mdi: score+=8
-        elif not is_green and mdi > pdi: score+=8
-        else: score-=10
-        if is_green:
-            if 52 <= r7 <= 65 and 48 <= r14 <= 62: score+=w.get("RSI",15); reasons.append(f"RSI Safe {r7:.0f}")
-            elif r7 > 75 or r7 < 45: score-=12
-            else: score+=6
+            if 40 <= r7 <= 55 and 40 <= r14 <= 55:
+                score += 18; reasons.append(f"RSI Safe {r7:.0f}")
+            else:
+                return {"pair":pair,"dir":sig,"conf":55,"price":c_now,"rsi":r7,"adx":adx,"reason":f"V18: RSI {r7:.0f} not safe for PUT","payout":payout,"expiry":180,"atr":atr,"rejected":True}
+        if sig == "CALL" and not is_green:
+            return {"pair":pair,"dir":sig,"conf":58,"price":c_now,"rsi":r7,"adx":adx,"reason":"V18: No bounce yet - Still pulling back","payout":payout,"expiry":180,"atr":atr,"rejected":True}
+        if sig == "PUT" and is_green:
+            return {"pair":pair,"dir":sig,"conf":58,"price":c_now,"rsi":r7,"adx":adx,"reason":"V18: No bounce yet - Still pulling back","payout":payout,"expiry":180,"atr":atr,"rejected":True}
+        score += 10; reasons.append("Bounce Candle")
+        if sig == "CALL" and macd_val > sig_val:
+            score += 8; reasons.append("MACD Bull")
+        elif sig == "PUT" and macd_val < sig_val:
+            score += 8; reasons.append("MACD Bear")
         else:
-            if 35 <= r7 <= 48 and 38 <= r14 <= 52: score+=w.get("RSI",15); reasons.append(f"RSI Safe {r7:.0f}")
-            elif r7 < 25 or r7 > 55: score-=12
-            else: score+=6
-        if is_green and macd_val > sig_val: score+=w.get("MACD",10); reasons.append("MACD Bull")
-        elif not is_green and macd_val < sig_val: score+=w.get("MACD",10); reasons.append("MACD Bear")
-        else: score-=8
-        if is_green:
-            if mom1 > 0.03 and mom3 > 0.06: score+=w.get("MOM",12); reasons.append(f"Mom {mom1:.3f}%")
-            elif mom1 > 0.01: score+=5
-            elif mom1 < 0: score-=12
-        else:
-            if mom1 < -0.03 and mom3 < -0.06: score+=w.get("MOM",12); reasons.append(f"Mom {mom1:.3f}%")
-            elif mom1 < -0.01: score+=5
-            elif mom1 > 0: score-=12
+            return {"pair":pair,"dir":sig,"conf":60,"price":c_now,"rsi":r7,"adx":adx,"reason":"V18: MACD disagree","payout":payout,"expiry":180,"atr":atr,"rejected":True}
+        if adx >= 28: score += 8; reasons.append(f"ADX {adx:.0f} Strong")
+        elif adx >= 25: score += 5
+        if sig == "CALL" and pdi > mdi: score += 5
+        elif sig == "PUT" and mdi > pdi: score += 5
+        else: score -= 5
         bull_eng = c_now > o_prev and o_now < c_prev and is_green and c_prev < o_prev
         bear_eng = c_now < o_prev and o_now > c_prev and not is_green and c_prev > o_prev
-        pin_bull = lower_wick > body*1.8 and lower_wick > upper_wick*1.5 and is_green
-        pin_bear = upper_wick > body*1.8 and upper_wick > lower_wick*1.5 and not is_green
-        if is_green:
-            if bull_eng: score+=10; reasons.append("Bull Engulf")
-            if pin_bull: score+=10; reasons.append("Pin Bull")
-        else:
-            if bear_eng: score+=10; reasons.append("Bear Engulf")
-            if pin_bear: score+=10; reasons.append("Pin Bear")
-        if is_green and stoch_val > 85: score-=12
-        if not is_green and stoch_val < 15: score-=12
-        if is_green and 50 < stoch_val < 80: score+=5
-        if not is_green and 20 < stoch_val < 50: score+=5
-        if is_green and c_now > upper: score+=5; reasons.append("BB Breakout")
-        if not is_green and c_now < lower: score+=5; reasons.append("BB Breakout")
+        pin_bull = lower_wick > body*1.8 and is_green
+        pin_bear = upper_wick > body*1.8 and not is_green
+        if sig == "CALL" and (bull_eng or pin_bull): score += 8; reasons.append("Pin/Engulf Bull")
+        if sig == "PUT" and (bear_eng or pin_bear): score += 8; reasons.append("Pin/Engulf Bear")
         avg_vol=float(vol.rolling(20).mean().iloc[-1]) if len(vol)>20 else 1; curr_vol=float(vol.iloc[-1]) if len(vol)>0 else 1
-        if curr_vol > avg_vol*1.2: score+=w.get("VOL",8); reasons.append("Vol Spike")
-        elif curr_vol > avg_vol: score+=4
-        # ===== V17 STRATEGY 1: SUPPORT / RESISTANCE =====
+        if curr_vol > avg_vol*1.2: score += 5; reasons.append("Vol Spike")
         sup, res = get_support_resistance(df)
         sr_info = ""
         if sup is not None and res is not None:
-            dist_to_res = abs(c_now - res) / atr if atr > 0 else 999
-            dist_to_sup = abs(c_now - sup) / atr if atr > 0 else 999
-            if is_green:
-                if dist_to_res < 0.8:  # Too close to resistance, CALL go fail
-                    score -= 15; reasons.append(f"Near Resistance {res:.5f} - BLOCK CALL"); sr_info = f"Near Res {res:.5f}"
-                elif dist_to_sup < 1.0:  # Bounce from support, CALL strong
-                    score += 10; reasons.append(f"Bounce Support {sup:.5f}"); sr_info = f"Sup Bounce {sup:.5f}"
-                else:
-                    score += 3; sr_info = f"S/R Clear"
+            dist_res = abs(c_now - res) / atr if atr>0 else 999
+            dist_sup = abs(c_now - sup) / atr if atr>0 else 999
+            if sig == "CALL":
+                if dist_res < 0.8:
+                    return {"pair":pair,"dir":sig,"conf":60,"price":c_now,"rsi":r7,"adx":adx,"reason":f"V18: Near Resistance {res:.5f}","payout":payout,"expiry":180,"atr":atr,"rejected":True}
+                if dist_sup < 1.2: score += 8; reasons.append(f"Bounce Support {sup:.5f}"); sr_info = f"Sup Bounce {sup:.5f}"
+                else: sr_info = "S/R Clear"
             else:
-                if dist_to_sup < 0.8:  # Too close to support, PUT go fail
-                    score -= 15; reasons.append(f"Near Support {sup:.5f} - BLOCK PUT"); sr_info = f"Near Sup {sup:.5f}"
-                elif dist_to_res < 1.0:  # Reject from resistance, PUT strong
-                    score += 10; reasons.append(f"Reject Resistance {res:.5f}"); sr_info = f"Res Reject {res:.5f}"
-                else:
-                    score += 3; sr_info = f"S/R Clear"
-        # ===== V17 STRATEGY 2: SESSION FILTER =====
+                if dist_sup < 0.8:
+                    return {"pair":pair,"dir":sig,"conf":60,"price":c_now,"rsi":r7,"adx":adx,"reason":f"V18: Near Support {sup:.5f}","payout":payout,"expiry":180,"atr":atr,"rejected":True}
+                if dist_res < 1.2: score += 8; reasons.append(f"Reject Resistance {res:.5f}"); sr_info = f"Res Reject {res:.5f}"
+                else: sr_info = "S/R Clear"
         sess_name, is_golden, sess_reason = get_session_info()
-        if is_golden:
-            score += 6; reasons.append(f"{sess_name} Golden")
+        if not is_golden:
+            if sess_name in ["LUNCH", "LATE", "OFF"]:
+                return {"pair":pair,"dir":sig,"conf":60,"price":c_now,"rsi":r7,"adx":adx,"reason":f"V18: {sess_name} - No trade outside golden","payout":payout,"expiry":180,"atr":atr,"rejected":True}
+            score += 3
         else:
-            # Outside golden hours, need higher confidence - penalize
-            if sess_name in ["LUNCH", "LATE"]:
-                score -= 8; reasons.append(f"{sess_name} - Weak Session")
-            elif sess_name == "EARLY":
-                score -= 4; reasons.append(f"{sess_name} - Slow")
-        # ===== V17 STRATEGY 3: PULLBACK ENTRY - No chase price =====
-        # Distance from EMA9 - if price don run far, no chase
-        dist_ema9_pct = abs(c_now - e9) / c_now * 100 if c_now else 0
-        if dist_ema9_pct > 0.08:  # Price don run too far from EMA9, e go reverse
-            score -= 12; reasons.append(f"Chasing - Far from EMA9 {dist_ema9_pct:.3f}%")
-        elif dist_ema9_pct < 0.03:  # Price near EMA9, good pullback entry
-            score += 8; reasons.append(f"Pullback to EMA9 {dist_ema9_pct:.3f}% - Good Entry")
-        else:
-            score += 2
-        score = max(40, min(96, score)); reason = " + ".join(reasons) if reasons else "Weak PA"
-        # V17: In golden session need 88%, outside golden need 92% for auto signal
-        threshold = 88 if is_golden else 92
-        if sniper_mode and score < threshold: return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":r7,"adx":adx,"reason":reason,"payout":payout,"expiry":120,"atr":atr,"rejected":True, "session":sess_name, "sr":sr_info}
-        return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":r7,"adx":adx,"reason":reason,"payout":payout,"expiry":120,"atr":atr,"rejected":False, "session":sess_name, "sr":sr_info}
+            score += 5; reasons.append(f"{sess_name} Golden")
+        score = max(40, min(96, score)); reason = " + ".join(reasons)
+        expiry_auto = get_expiry_by_conf(score)
+        threshold = SAFE_MIN_CONF
+        if sniper_mode and score < threshold:
+            return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":r7,"adx":adx,"reason":reason,"payout":payout,"expiry":expiry_auto,"atr":atr,"rejected":True, "session":sess_name, "sr":sr_info}
+        return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":r7,"adx":adx,"reason":reason,"payout":payout,"expiry":expiry_auto,"atr":atr,"rejected":False, "session":sess_name, "sr":sr_info}
     except Exception as e:
-        print(f"V12 err {pair} {e}"); return None
+        print(f"V18 err {pair} {e}"); return None
+
 def iq_trade(pair,direction,amount,bal,expiry_sec=120):
     if not IQ_CONNECTED and not iq_reconnect(): return False,None,0
     try:
@@ -655,6 +644,36 @@ def iq_trade(pair,direction,amount,bal,expiry_sec=120):
             return False,None,0
     except: iq_reconnect(); return False,None,0
 
+# ===== V18 PULLBACK MARTINGALE =====
+def wait_for_pullback_level(pair, orig_dir, level, amt):
+    print(f"[V18 MARTI] Waiting for pullback Level {level} {pair} {orig_dir} - Max 15 min")
+    tz = pytz.timezone("Africa/Lagos")
+    start = time.time()
+    while time.time() - start < 900:
+        try:
+            locked, _, _ = ai_is_daily_locked()
+            if locked:
+                bot.send_message(OWNER_ID, f"🔒 Daily locked, no Level {level} for {pair}")
+                return
+            d = analyze_sniper_v12(pair, sniper_mode=True)
+            if d and not d.get('rejected') and d['conf'] >= SAFE_MIN_CONF and d['dir'] == orig_dir:
+                exp = d['expiry']; exp_min = int(exp/60)
+                now = datetime.now(tz); entry = now + timedelta(seconds=45)
+                msg = f"""🔁 **LEVEL {level} - NEXT PULLBACK FOUND** 🔁\n\n💱 {PAIR_EMOJI.get(pair,pair)}\n📊 {'🟢 CALL ⬆️' if d['dir']=='CALL' else '🔴 PUT ⬇️'} | 🎯 {d['conf']:.0f}% - New Pullback Bounce\n📈 {d['reason']} | RSI {d['rsi']:.1f}\n💸 {int(d['payout']*100)}% | ⏱️ {exp_min} Min | 🤖 Bot choose {exp_min} Min - Conf {d['conf']:.0f}%\n\n⏰ ENTRY: {entry.strftime('%H:%M:%S WAT')} (in 45s)\n💰 **Level {level}: {entry.strftime('%H:%M:%S')} - {exp_min} Min - ${amt:.2f}**\n\n✅ This na fresh pullback, no be same bad move. Enter now.\n\n👇 After you trade, press result:"""
+                bot.send_message(OWNER_ID, msg, parse_mode="Markdown", reply_markup=manual_result_keyboard(pair, d['dir'], d['conf'], amt, level, d['payout']))
+                print(f"[V18 MARTI] Level {level} sent {pair} {d['conf']:.0f}%")
+                return
+            else:
+                print(f"[V18 MARTI] Level {level} {pair} waiting... {d['conf'] if d else 0:.0f}%")
+        except Exception as e:
+            print(f"[V18 MARTI err] {e}")
+        time.sleep(20)
+    try:
+        bot.send_message(OWNER_ID, f"""⏰ **LEVEL {level} CANCELLED - {pair}**\n\nNo good pullback come in 15 min.\n\n✅ Good news - Bot no force you enter bad trade. We save ${amt:.2f}.\nWait for next fresh signal. Reset to Level 1.""")
+    except: pass
+    OTC_MARTI["loss_streak"] = 0
+    print(f"[V18 MARTI] Level {level} {pair} timeout - cancelled, reset")
+
 def real_signal_scanner():
     global LAST_SIGNAL_TIME
     last_signal={}; tz=pytz.timezone("Africa/Lagos")
@@ -668,7 +687,7 @@ def real_signal_scanner():
                     time.sleep(20)
                     continue
                 signal_sent_this_round = False
-                for pair in REAL_PAIRS:
+                for pair in SAFE_PAIRS:
                     if signal_sent_this_round: break
                     if pair in last_signal and time.time()-last_signal[pair]<600: continue
                     locked, pnl_today, trades_today = ai_is_daily_locked()
@@ -692,20 +711,32 @@ def real_signal_scanner():
                         last_signal[pair] = time.time()
                         continue
                     d=analyze_sniper_v12(pair,sniper_mode=True)
-                    if d and not d.get('rejected') and d['conf']>=88:
-                        now=datetime.now(tz); entry=now+timedelta(seconds=45); entry2=entry+timedelta(seconds=120); entry3=entry+timedelta(seconds=240); exp=d['expiry']; dir_e="🟢 CALL ⬆️" if d['dir']=="CALL" else "🔴 PUT ⬇️"; base=OTC_MARTI["base"]
+                    if d and not d.get('rejected') and d['conf']>=SAFE_MIN_CONF:
+                        print(f"[V18 SAFE] First pass {pair} {d['conf']:.0f}% - Waiting 30s to confirm...")
+                        time.sleep(30)
+                        d2 = analyze_sniper_v12(pair, sniper_mode=True)
+                        if not d2 or d2.get('rejected') or d2['conf'] < SAFE_MIN_CONF:
+                            print(f"[V18 SAFE] {pair} FAILED 2nd confirm - SKIP, na fake")
+                            last_signal[pair] = time.time()
+                            continue
+                        if d2['dir'] != d['dir']:
+                            print(f"[V18 SAFE] {pair} direction flip - SKIP, market confused")
+                            continue
+                        d = d2
+                        print(f"[V18 SAFE] CONFIRMED {pair} {d['conf']:.0f}% x2 - SENDING")
+                        now=datetime.now(tz); entry=now+timedelta(seconds=45); exp=d['expiry']; exp_min=int(exp/60); dir_e="🟢 CALL ⬆️" if d['dir']=="CALL" else "🔴 PUT ⬇️"; base=OTC_MARTI["base"]
                         amt_m, mult_m, lvl_m = get_manual_amt_and_level()
                         pnl_today2, _, _, _ = ai_daily_stats()
                         PENDING_MANUAL[pair] = {"rsi": d.get('rsi',0), "adx": d.get('adx',0), "reason": d.get('reason',''), "conf": d.get('conf',0)}
                         sess_txt = d.get('session','')
                         sr_txt = d.get('sr','')
-                        msg=f"""📡 **REAL SIGNAL V17 - 3 LEVELS** 📡\n\n💱 {PAIR_EMOJI.get(pair,pair)}\n📊 {dir_e} | 🎯 {d['conf']:.0f}% SNIPER\n📈 {d['reason']} | RSI {d['rsi']:.1f} | ATR {d['atr']:.5f}\n💸 {int(d['payout']*100)}% | 2 Min Each Level\n🧠 AI: {pair} NOT blocked - Winrate good\n📍 Session: {sess_txt} | S/R: {sr_txt}\n💰 Today PnL: ${pnl_today2:+.2f} | Max Loss: -${DAILY_MAX_LOSS:.0f}\n\n⏰ ENTRY: {entry.strftime('%H:%M:%S WAT')} (in 45s)\n📅 {now.strftime('%A %d %b %H:%M WAT')}\n\n**Level 1:** {entry.strftime('%H:%M:%S')} - 2 Min - ${base:.2f}\n**Level 2:** {entry2.strftime('%H:%M:%S')} - 2 Min - ${base*2:.2f}\n**Level 3:** {entry3.strftime('%H:%M:%S')} - 2 Min - ${base*4:.2f}\n\n⛔ STOP after Level 3. No Level 4.\n⚠️ MANUAL - Follow levels only\n\n👇 After you trade manually, press result below:"""
+                        msg=f"""📡 **REAL SIGNAL V18 SAFE - AUTO EXPIRY {exp_min} MIN** 📡\n\n💱 {PAIR_EMOJI.get(pair,pair)}\n📊 {dir_e} | 🎯 {d['conf']:.0f}% SNIPER\n📈 {d['reason']} | RSI {d['rsi']:.1f} | ATR {d['atr']:.5f}\n💸 {int(d['payout']*100)}% | ⏱️ {exp_min} Min Each Level | 🤖 Bot choose {exp_min} Min because Conf {d['conf']:.0f}%\n🧠 AI: {pair} NOT blocked - Winrate good\n📍 Session: {sess_txt} | S/R: {sr_txt}\n💰 Today PnL: ${pnl_today2:+.2f} | Max Loss: -${DAILY_MAX_LOSS:.0f}\n\n⏰ ENTRY: {entry.strftime('%H:%M:%S WAT')} (in 45s)\n📅 {now.strftime('%A %d %b %H:%M WAT')}\n\n**Level 1:** {entry.strftime('%H:%M:%S')} - {exp_min} Min - ${base:.2f} - ENTER NOW\n**Level 2:** ⏳ WAIT - Bot go send when next pullback come - ${base*2:.2f}\n**Level 3:** ⏳ WAIT - Bot go send when next pullback come - ${base*4:.2f}\n\n⚠️ DO NOT enter Level 2/3 by time. Wait for my next message.\n⛔ STOP after Level 3. No Level 4.\n⚠️ MANUAL - Follow levels only\n\n👇 After you trade manually, press result below:"""
                         try:
                             bot.send_message(OWNER_ID,msg,parse_mode="Markdown", reply_markup=manual_result_keyboard(pair, d['dir'], d['conf'], amt_m, mult_m, d['payout']))
                             last_signal[pair]=time.time()
                             LAST_SIGNAL_TIME = time.time()
                             signal_sent_this_round = True
-                            print(f"[V17] Signal sent {pair} - cooldown 5 min started - Session {sess_txt} SR {sr_txt}")
+                            print(f"[V18] Signal sent {pair} - cooldown 10 min - Session {sess_txt} SR {sr_txt}")
                         except: pass
                         break
                     time.sleep(3)
@@ -752,7 +783,7 @@ def daily_8pm_report():
                     except:
                         best_hour_txt = "No data"
                     locked, _, _ = ai_is_daily_locked()
-                    msg = f"""🌙 **DAILY REPORT - {now.strftime('%A %d %b')} - 8PM** 🌙\n\n━━━━━━━━━━━━━━━\n💰 **TODAY RESULT**\n💵 PnL Today: ${pnl:+.2f}\n🏆 W:{wins} L:{losses} | Total: {total} trades\n📈 Winrate Today: {wr_today:.0f}%\n🛡️ Status: {'🔒 LOCKED - You hit max loss' if locked else '✅ OPEN'}\n━━━━━━━━━━━━━━━\n\n🧠 **WETIN BOT LEARN TODAY**\n⭐ Best Pair: {best_pair_txt}\n⏰ Best Hour: {best_hour_txt}\n🎯 High Conf (88%+) Winrate (All Time): {high_wr}\n\n⚠️ **TOMORROW ADVICE**\n{avoid_txt}\n💡 Focus on your best pair tomorrow morning, no chase loss.\n\n🛡️ **PROTECTION**\nMax Loss: -${DAILY_MAX_LOSS:.0f} | Tomorrow bot go reset to $0.00 PnL, lock go open again 7AM.\n\n😴 Bot don sleep. See you tomorrow 7AM!\nRest well, no trade for night. OTC na trap.\n"""
+                    msg = f"""🌙 **DAILY REPORT - {now.strftime('%A %d %b')} - 8PM** 🌙\n\n━━━━━━━━━━━━━━━\n💰 **TODAY RESULT**\n💵 PnL Today: ${pnl:+.2f}\n🏆 W:{wins} L:{losses} | Total: {total} trades\n📈 Winrate Today: {wr_today:.0f}%\n🛡️ Status: {'🔒 LOCKED - You hit max loss' if locked else '✅ OPEN'}\n━━━━━━━━━━━━━━━\n\n🧠 **WETIN BOT LEARN TODAY**\n⭐ Best Pair: {best_pair_txt}\n⏰ Best Hour: {best_hour_txt}\n🎯 High Conf (92%+) Winrate (All Time): {high_wr}\n\n⚠️ **TOMORROW ADVICE**\n{avoid_txt}\n💡 Focus on your best pair tomorrow morning, no chase loss.\n\n🛡️ **PROTECTION**\nMax Loss: -${DAILY_MAX_LOSS:.0f} | Tomorrow bot go reset to $0.00 PnL, lock go open again 7AM.\n\n😴 Bot don sleep. See you tomorrow 7AM!\nRest well, no trade for night. OTC na trap.\n"""
                     try:
                         bot.send_message(OWNER_ID, msg, parse_mode="Markdown")
                         print(f"[DAILY REPORT] Sent for {today_str}")
@@ -845,7 +876,7 @@ def start(m):
         total, wins, best_pairs, best_hours, high_wr, low_wr, weights = ai_get_insight()
         losses = total - wins
         wr = (wins/total*100) if total else 0
-        txt = f"""🧠 **Z-BOT AI BRAIN REPORT**\n\n📊 Total Learned: {total} trades\n🏆 W:{wins} L:{losses} | Winrate: {wr:.1f}%\n\n🎯 **High Conf (88%+) Winrate:** {high_wr}\n⚠️ **Low Conf (<88%) Winrate:** {low_wr}\n\n💪 **Best Pairs:**\n"""
+        txt = f"""🧠 **Z-BOT AI BRAIN REPORT**\n\n📊 Total Learned: {total} trades\n🏆 W:{wins} L:{losses} | Winrate: {wr:.1f}%\n\n🎯 **High Conf (92%+) Winrate:** {high_wr}\n⚠️ **Low Conf (<92%) Winrate:** {low_wr}\n\n💪 **Best Pairs:**\n"""
         for p, t, w in best_pairs:
             txt += f"• {p}: {w}/{t} wins\n"
         txt += f"\n⏰ **Best Hours (WAT):**\n"
@@ -856,14 +887,14 @@ def start(m):
             txt += f"• {k}: {v}\n"
         pnl_today, total_today, wins_today, losses_today = ai_daily_stats()
         locked, _, _ = ai_is_daily_locked()
-        txt += f"\n🛡️ **PROTECTION (V17):**\n"
+        txt += f"\n🛡️ **PROTECTION (V18):**\n"
         txt += f"• Today PnL: ${pnl_today:+.2f} / Max Loss -${DAILY_MAX_LOSS:.0f}\n"
         txt += f"• Today Trades: {total_today}/{DAILY_MAX_TRADES}\n"
         txt += f"• Status: {'🔒 LOCKED - Rest Till Tomorrow' if locked else '✅ OPEN - You fit trade'}\n"
         txt += f"• Auto-Block: ON - Bad pair/hour go block by itself after 5 losses\n"
-        txt += f"• Signal Cooldown: 5 min - 1 signal at a time\n"
+        txt += f"• Signal Cooldown: 10 min - 1 signal at a time\n"
         txt += f"• News Filter: ON - Block 30 min before/after High news\n"
-        txt += f"• S/R Filter: ON | Session Filter: ON | Pullback: ON\n"
+        txt += f"• Strategy: Trend + Pullback + Bounce | Auto Expiry 2/3 Min | Pullback Martingale\n"
         txt += f"\n💡 Bot go continue to learn after every trade. After 50 trades, e go sabi which pair/time dey favour you."
         bot.send_message(m.chat.id, txt, parse_mode="Markdown")
         return
@@ -873,7 +904,7 @@ def start(m):
     if m.text.startswith('/results'):
         if not OTC_SESSION_RESULTS: bot.send_message(m.chat.id,"📭 No OTC 85% auto trades yet this session"); return
         wins=sum(1 for x in OTC_SESSION_RESULTS if x['win']); losses=len(OTC_SESSION_RESULTS)-wins; pnl_total=sum(x['pnl'] for x in OTC_SESSION_RESULTS); levels = OTC_MARTI["levels"]; idx = OTC_MARTI["loss_streak"] % len(levels)
-        txt=f"📊 **OTC 85% AUTO MARTINGALE RESULTS (1-2-4)**\n\nTotal: {len(OTC_SESSION_RESULTS)} | W:{wins} L:{losses} | PnL: ${pnl_total:.2f}\nCurrent Level: {idx+1} ({levels[idx]}x) | Base: ${OTC_MARTI['base']} | Each Level 2 Min\n\n"
+        txt=f"📊 **OTC 85% AUTO MARTINGALE RESULTS (1-2-4)**\n\nTotal: {len(OTC_SESSION_RESULTS)} | W:{wins} L:{losses} | PnL: ${pnl_total:.2f}\nCurrent Level: {idx+1} ({levels[idx]}x) | Base: ${OTC_MARTI['base']} | Pullback Martingale\n\n"
         for r in OTC_SESSION_RESULTS[-25:]: txt+=f"{'✅' if r['win'] else '❌'} {r['time']} {r['pair']} {r['dir']} ${r['amt']} L{r['level']} {r['conf']}% {r['pnl']:+.2f}\n"
         bot.send_message(m.chat.id,txt,parse_mode="Markdown"); return
     if m.text.startswith('/mode'):
@@ -881,7 +912,7 @@ def start(m):
         pnl_today, total_today, _, _ = ai_daily_stats()
         locked, _, _ = ai_is_daily_locked()
         sess_name, is_golden, sess_reason = get_session_info()
-        txt=f"""📍 **MODE CHECK V17 PROTECTED**\n\n⏰ Now: {now.strftime('%A %H:%M:%S WAT')}\n📊 Mode: {get_mode_text()}\n📍 Session: {sess_name} - {sess_reason} | {'🟢 GOLDEN - Need 88%' if is_golden else '🟡 WEAK - Need 92%'}\n💎 IQ: {'✅' if IQ_CONNECTED else '❌ False - Check email/pass or IP blocked'}\n🛡️ Martingale: 1-2-4 (3 Levels, 2 Min each)\n🧠 AI: {'✅ ON - Learning + Auto-Block'}\n📰 News Filter: ✅ ON\n💰 Today PnL: ${pnl_today:+.2f} / Max -${DAILY_MAX_LOSS:.0f} | Status: {'🔒 LOCKED' if locked else '✅ OPEN'}\n⏳ Cooldown: 5 min between signals\nOTC: {'✅ ON' if ENABLE_OTC else '⛔ DISABLED - REAL only'}\n"""
+        txt=f"""📍 **MODE CHECK V18 SAFE**\n\n⏰ Now: {now.strftime('%A %H:%M:%S WAT')}\n📊 Mode: {get_mode_text()}\n📍 Session: {sess_name} - {sess_reason} | {'🟢 GOLDEN - Need 92%' if is_golden else '🟡 WEAK - No trade'}\n💎 IQ: {'✅' if IQ_CONNECTED else '❌ False - Check email/pass or IP blocked'}\n🛡️ Martingale: 1-2-4 (Pullback, No fixed time)\n🧠 AI: {'✅ ON - Learning + Auto-Block'}\n📰 News Filter: ✅ ON\n💰 Today PnL: ${pnl_today:+.2f} / Max -${DAILY_MAX_LOSS:.0f} | Status: {'🔒 LOCKED' if locked else '✅ OPEN'}\n⏳ Cooldown: 10 min between signals\nOTC: {'✅ ON' if ENABLE_OTC else '⛔ DISABLED - REAL only'}\n"""
         bot.send_message(m.chat.id,txt,parse_mode="Markdown"); return
     if m.text.startswith('/balance'):
         try:
@@ -897,11 +928,11 @@ def start(m):
     except:
         bal_demo = 0.0
     mk=types.InlineKeyboardMarkup(row_width=1)
-    mk.add(types.InlineKeyboardButton(f"📈 TRADE REAL (22) AUTO EXPIRY - ${bal_demo:.2f}",callback_data="trade_real"))
+    mk.add(types.InlineKeyboardButton(f"📈 TRADE SAFE (6) - ${bal_demo:.2f}",callback_data="trade_real"))
     mk.add(types.InlineKeyboardButton("🧠 AI BRAIN REPORT",callback_data="ai_report"))
     mk.add(types.InlineKeyboardButton("📅 TODAY REPORT",callback_data="today_report"))
     mk.add(types.InlineKeyboardButton("📊 MY STATS",callback_data="stats"),types.InlineKeyboardButton("⚙️ SETTINGS",callback_data="settings"))
-    txt=f"""🤖 **Z-BOT V17 PROTECTED - REAL ONLY** 🤖\n\n💎 IQ: {'✅' if IQ_CONNECTED else '❌ False - Retrying...'} | 💰 DEMO ${bal_demo:.2f}\n🏆 W:{STATS['wins']} L:{STATS['loss']} | 🔥 {STATS['streak']}\n📍 {get_mode_text()}\n🧠 AI: Learning + Auto-Block + Daily Max Loss -${DAILY_MAX_LOSS:.0f}\n📰 News Filter: ON | ⏳ 1 Signal at a time, 5 min cooldown\n📍 S/R + Session + Pullback: ON\n⛔ OTC Disabled - REAL signals start 7AM\n\n👇 **Select:**\n"""
+    txt=f"""🤖 **Z-BOT V18 SAFE - REAL ONLY** 🤖\n\n💎 IQ: {'✅' if IQ_CONNECTED else '❌ False - Retrying...'} | 💰 DEMO ${bal_demo:.2f}\n🏆 W:{STATS['wins']} L:{STATS['loss']} | 🔥 {STATS['streak']}\n📍 {get_mode_text()}\n🧠 AI: Learning + Auto-Block + Daily Max Loss -${DAILY_MAX_LOSS:.0f}\n📰 News Filter: ON | ⏳ 1 Signal at a time, 10 min cooldown\n📍 Trend + Pullback + Bounce | Auto Expiry 2/3 Min | Pullback Martingale\n⛔ OTC Disabled - REAL signals start 7AM\n\n👇 **Select:**\n"""
     bot.send_message(m.chat.id,txt,reply_markup=mk,parse_mode="Markdown")
 
 @bot.callback_query_handler(func=lambda c: True)
@@ -958,52 +989,52 @@ def cb(c):
             else:
                 OTC_MARTI["loss_streak"] += 1
                 levels = OTC_MARTI["levels"]; next_mult = levels[OTC_MARTI["loss_streak"]]; next_amt = round(OTC_MARTI["base"] * next_mult, 2)
-                mk = types.InlineKeyboardMarkup(row_width=2)
-                mk.add(types.InlineKeyboardButton("📈 TRADE REAL", callback_data="trade_real"), types.InlineKeyboardButton("📊 STATS", callback_data="stats"))
-                bot.send_message(cid, f"""❌ **LOSS - MANUAL RESULT**\n\n━━━━━━━━━━━━━━━\n💸 **Loss:** -${amt:.2f}\n💱 **Pair:** {PAIR_EMOJI.get(pair,pair)} {direction}\n💵 **Amount:** ${amt:.2f} | Level {level} ({level}x)\n🎯 **Conf:** {conf:.0f}%\n📊 **Stats:** W:{STATS['wins']} L:{STATS['loss']}\n━━━━━━━━━━━━━━━\n\n➡️ Next trade na **Level {OTC_MARTI['loss_streak']+1} - ${next_amt:.2f} ({next_mult}x)**\n🧠 AI don save am\n💪 Don't give up!""", reply_markup=mk, parse_mode="Markdown")
+                next_level = OTC_MARTI["loss_streak"]+1
+                bot.send_message(cid, f"""❌ **LOSS - MANUAL RESULT**\n\n━━━━━━━━━━━━━━━\n💸 **Loss:** -${amt:.2f}\n💱 **Pair:** {PAIR_EMOJI.get(pair,pair)} {direction}\n💵 **Amount:** ${amt:.2f} | Level {level} ({level}x)\n🎯 **Conf:** {conf:.0f}%\n📊 **Stats:** W:{STATS['wins']} L:{STATS['loss']}\n━━━━━━━━━━━━━━━\n\n⏳ **Level {next_level} - ${next_amt:.2f} - WAITING FOR NEXT PULLBACK**\n🧠 AI don save am\n🚫 DO NOT enter now. Bot go scan {pair} every 20 sec, when fresh pullback + bounce come, I go send Level {next_level} signal.\nIf no pullback in 15 min, I go cancel and save your money.""", parse_mode="Markdown")
+                threading.Thread(target=wait_for_pullback_level, args=(pair, direction, next_level, next_amt), daemon=True).start()
         return
     if data=="trade_real":
         locked, pnl_today, trades_today = ai_is_daily_locked()
         if locked:
             bot.send_message(cid, f"🔒 **DAILY LOCKED**\n\nToday PnL: ${pnl_today:+.2f}\nYou don reach Max Loss -${DAILY_MAX_LOSS:.0f} or Max Trades. Rest till tomorrow.")
             return
-        mk=types.InlineKeyboardMarkup(row_width=1); mk.add(types.InlineKeyboardButton("🔍 📊 SCAN ALL REAL NOW (22 PAIRS)",callback_data="scan_all_real"))
-        for p in REAL_PAIRS: mk.add(types.InlineKeyboardButton(f"{PAIR_EMOJI.get(p,p)}",callback_data=f"real_pair_{p}"))
-        bot.send_message(cid,f"📈 **TRADE REAL V17 PROTECTED**\n📍 {get_mode_text()}\n💰 Today PnL: ${pnl_today:+.2f} | Max -${DAILY_MAX_LOSS:.0f}",reply_markup=mk,parse_mode="Markdown"); return
+        mk=types.InlineKeyboardMarkup(row_width=1); mk.add(types.InlineKeyboardButton("🔍 📊 SCAN ALL SAFE NOW (6 PAIRS)",callback_data="scan_all_real"))
+        for p in SAFE_PAIRS: mk.add(types.InlineKeyboardButton(f"{PAIR_EMOJI.get(p,p)}",callback_data=f"real_pair_{p}"))
+        bot.send_message(cid,f"📈 **TRADE SAFE V18**\n📍 {get_mode_text()}\n💰 Today PnL: ${pnl_today:+.2f} | Max -${DAILY_MAX_LOSS:.0f}",reply_markup=mk,parse_mode="Markdown"); return
     if data=="scan_all_real":
-        bot.answer_callback_query(c.id,"Scanning 22 REAL pairs V17..."); scan_msg=bot.send_message(cid,"🔍 **SCANNING ALL 22 REAL PAIRS V17 PROTECTED...**\n\n⏳ ~12 sec"); results=[]; datas={}
-        for pair in REAL_PAIRS:
+        bot.answer_callback_query(c.id,"Scanning 6 SAFE pairs V18..."); scan_msg=bot.send_message(cid,"🔍 **SCANNING 6 SAFE PAIRS V18...**\n\n⏳ ~12 sec"); results=[]; datas={}
+        for pair in SAFE_PAIRS:
             now_hour = datetime.now(pytz.timezone("Africa/Lagos")).hour
             is_blocked, _ = ai_should_block(pair, now_hour)
             if is_blocked:
-                results.append((pair,0,"-","AI Blocked - Bad winrate","🚫 BLOCKED",120)); continue
+                results.append((pair,0,"-","AI Blocked - Bad winrate","🚫 BLOCKED",180)); continue
             d=analyze_sniper_v12(pair,sniper_mode=False)
-            if not d: results.append((pair,0,"-","No data","🔴 NO TRADE",120)); continue
+            if not d: results.append((pair,0,"-","No data","🔴 NO TRADE",180)); continue
             conf=d['conf']; dir_=d['dir']; reason=d['reason']; exp=d['expiry']
-            if conf>=88: status="🟢 READY"
-            elif conf>=65: status="🟡 READY"
+            if conf>=92: status="🟢 READY"
+            elif conf>=75: status="🟡 READY"
             else: status="🔴 NO TRADE"
             results.append((pair,conf,dir_,reason,status,exp)); datas[pair]=d
-            try: bot.edit_message_text(f"🔍 Scanning V17... {pair} {conf:.0f}%",cid,scan_msg.message_id)
+            try: bot.edit_message_text(f"🔍 Scanning V18... {pair} {conf:.0f}%",cid,scan_msg.message_id)
             except: pass
             time.sleep(0.3)
-        results.sort(key=lambda x: x[1], reverse=True); txt="📊 **REAL V17 PROTECTED READINESS** 📊\n"; txt+=f"📍 {get_mode_text()}\n⏰ {datetime.now(pytz.timezone('Africa/Lagos')).strftime('%H:%M:%S WAT')}\n\n"
+        results.sort(key=lambda x: x[1], reverse=True); txt="📊 **SAFE V18 READINESS** 📊\n"; txt+=f"📍 {get_mode_text()}\n⏰ {datetime.now(pytz.timezone('Africa/Lagos')).strftime('%H:%M:%S WAT')}\n\n"
         for pair,conf,dir_,reason,status,exp in results:
             emoji=PAIR_EMOJI.get(pair,pair)
-            if conf>=65: txt+=f"{status} {emoji}: {conf:.0f}% {dir_} Safe 2 min - {reason}\n"
+            if conf>=75: txt+=f"{status} {emoji}: {conf:.0f}% {dir_} Safe {int(exp/60)} min - {reason}\n"
             else: txt+=f"{status} {emoji}: {conf:.0f}% - {reason}\n"
         best = results[0] if results else None
-        if best and best[1]>=65: txt+=f"\n💡 **BEST NOW:** {PAIR_EMOJI.get(best[0],best[0])} {best[1]:.0f}% Safe 2 min"
+        if best and best[1]>=75: txt+=f"\n💡 **BEST NOW:** {PAIR_EMOJI.get(best[0],best[0])} {best[1]:.0f}% Safe {int(best[5]/60)} min"
         mk=types.InlineKeyboardMarkup(row_width=2)
-        if best and best[1]>=65: mk.add(types.InlineKeyboardButton(f"✅ TRADE BEST {best[0]}",callback_data=f"real_pair_{best[0]}"))
+        if best and best[1]>=75: mk.add(types.InlineKeyboardButton(f"✅ TRADE BEST {best[0]}",callback_data=f"real_pair_{best[0]}"))
         mk.add(types.InlineKeyboardButton("🔄 RE-SCAN ALL",callback_data="scan_all_real"))
         bot.send_message(cid,txt,reply_markup=mk,parse_mode="Markdown")
-        if best and best[1]>=65 and best[0] in datas:
-            time.sleep(0.5); best_data=datas[best[0]]; tz=pytz.timezone("Africa/Lagos"); now=datetime.now(tz); entry=now+timedelta(seconds=45); entry2=entry+timedelta(seconds=120); entry3=entry+timedelta(seconds=240); exp=best_data['expiry']; dir_e="🟢 CALL ⬆️" if best_data['dir']=="CALL" else "🔴 PUT ⬇️"; base=OTC_MARTI["base"]
+        if best and best[1]>=75 and best[0] in datas:
+            time.sleep(0.5); best_data=datas[best[0]]; tz=pytz.timezone("Africa/Lagos"); now=datetime.now(tz); entry=now+timedelta(seconds=45); exp=best_data['expiry']; exp_min=int(exp/60); dir_e="🟢 CALL ⬆️" if best_data['dir']=="CALL" else "🔴 PUT ⬇️"; base=OTC_MARTI["base"]
             amt_m, mult_m, lvl_m = get_manual_amt_and_level()
             pnl_today2, _, _, _ = ai_daily_stats()
             PENDING_MANUAL[best_data['pair']] = {"rsi": best_data.get('rsi',0), "adx": best_data.get('adx',0), "reason": best_data.get('reason',''), "conf": best_data.get('conf',0)}
-            signal_txt=f"""📡 **REAL TOP SIGNAL V17 PROTECTED - 3 LEVELS** 📡\n\n💱 {PAIR_EMOJI.get(best_data['pair'],best_data['pair'])}\n📊 {dir_e} | 🎯 {best_data['conf']:.0f}% SNIPER\n📈 {best_data['reason']} | RSI {best_data['rsi']:.1f}\n💸 {int(best_data['payout']*100)}% | 💰 {best_data['price']:.5f}\n💰 Today PnL: ${pnl_today2:+.2f} | Max -${DAILY_MAX_LOSS:.0f}\n\n⏰ ENTRY: {entry.strftime('%H:%M:%S WAT')} (in 45s)\n\n**Level 1:** {entry.strftime('%H:%M:%S')} - 2 Min - ${base:.2f}\n**Level 2:** {entry2.strftime('%H:%M:%S')} - 2 Min - ${base*2:.2f}\n**Level 3:** {entry3.strftime('%H:%M:%S')} - 2 Min - ${base*4:.2f}\n\n⛔ STOP after Level 3.\n\n👇 After you trade manually, press result below:"""
+            signal_txt=f"""📡 **SAFE TOP SIGNAL V18 - AUTO EXPIRY {exp_min} MIN** 📡\n\n💱 {PAIR_EMOJI.get(best_data['pair'],best_data['pair'])}\n📊 {dir_e} | 🎯 {best_data['conf']:.0f}% SNIPER\n📈 {best_data['reason']} | RSI {best_data['rsi']:.1f}\n💸 {int(best_data['payout']*100)}% | 💰 {best_data['price']:.5f} | ⏱️ {exp_min} Min | 🤖 Bot choose {exp_min} Min - Conf {best_data['conf']:.0f}%\n💰 Today PnL: ${pnl_today2:+.2f} | Max -${DAILY_MAX_LOSS:.0f}\n\n⏰ ENTRY: {entry.strftime('%H:%M:%S WAT')} (in 45s)\n\n**Level 1:** {entry.strftime('%H:%M:%S')} - {exp_min} Min - ${base:.2f} - ENTER NOW\n**Level 2:** ⏳ WAIT - Bot go send when next pullback come - ${base*2:.2f}\n**Level 3:** ⏳ WAIT - Bot go send when next pullback come - ${base*4:.2f}\n\n⚠️ DO NOT enter Level 2/3 by time. Wait for next message.\n⛔ STOP after Level 3.\n\n👇 After you trade manually, press result below:"""
             bot.send_message(cid,signal_txt,parse_mode="Markdown", reply_markup=manual_result_keyboard(best_data['pair'], best_data['dir'], best_data['conf'], amt_m, mult_m, best_data['payout']))
         return
     if data.startswith("real_pair_"):
@@ -1017,15 +1048,15 @@ def cb(c):
         if news_blocked:
             bot.send_message(cid, f"📰 **NEWS BLOCK**\n\n{news_reason}\n\nWait till news pass, bot go allow trade again.")
             return
-        bot.answer_callback_query(c.id,f"Scanning {pair} V17..."); scan_msg=bot.send_message(cid,f"🔍 **V17 PROTECTED SCAN {PAIR_EMOJI.get(pair,pair)}**\n\n0%\n🚀 Sniper..."); legit_live_scan(cid,scan_msg.message_id,pair); d=analyze_sniper_v12(pair,sniper_mode=False)
-        if not d or d['conf'] < 65:
+        bot.answer_callback_query(c.id,f"Scanning {pair} V18..."); scan_msg=bot.send_message(cid,f"🔍 **V18 SAFE SCAN {PAIR_EMOJI.get(pair,pair)}**\n\n0%\n🚀 Sniper..."); legit_live_scan(cid,scan_msg.message_id,pair); d=analyze_sniper_v12(pair,sniper_mode=False)
+        if not d or d['conf'] < 75:
             mk=types.InlineKeyboardMarkup(); mk.add(types.InlineKeyboardButton("🔄 RETRY",callback_data=f"real_pair_{pair}"),types.InlineKeyboardButton("📈 SCAN ALL",callback_data="scan_all_real"))
-            bot.send_message(cid,f"⚠️ **No safe trade now for {pair}**\n\n📊 Conf: {d['conf'] if d else 0}% < 65%\n🛡️ {d['reason'] if d else 'No data'}",reply_markup=mk); return
-        tz=pytz.timezone("Africa/Lagos"); now=datetime.now(tz); entry=now+timedelta(seconds=45); entry2=entry+timedelta(seconds=120); entry3=entry+timedelta(seconds=240); exp=d['expiry']; dir_e="🟢 CALL ⬆️" if d['dir']=="CALL" else "🔴 PUT ⬇️"; base=OTC_MARTI["base"]
+            bot.send_message(cid,f"⚠️ **No safe trade now for {pair}**\n\n📊 Conf: {d['conf'] if d else 0}% < 75%\n🛡️ {d['reason'] if d else 'No data'}",reply_markup=mk); return
+        tz=pytz.timezone("Africa/Lagos"); now=datetime.now(tz); entry=now+timedelta(seconds=45); exp=d['expiry']; exp_min=int(exp/60); dir_e="🟢 CALL ⬆️" if d['dir']=="CALL" else "🔴 PUT ⬇️"; base=OTC_MARTI["base"]
         amt_m, mult_m, lvl_m = get_manual_amt_and_level()
         pnl_today2, _, _, _ = ai_daily_stats()
         PENDING_MANUAL[pair] = {"rsi": d.get('rsi',0), "adx": d.get('adx',0), "reason": d.get('reason',''), "conf": d.get('conf',0)}
-        signal_txt=f"""📡 **REAL SIGNAL V17 PROTECTED - 3 LEVELS** 📡\n\n💱 {PAIR_EMOJI.get(pair,pair)}\n📊 {dir_e} | 🎯 {d['conf']:.0f}% SNIPER\n📈 {d['reason']} | RSI {d['rsi']:.1f} | ATR {d['atr']:.5f}\n💸 {int(d['payout']*100)}% | 💰 {d['price']:.5f}\n📍 Session: {d.get('session','')} | S/R: {d.get('sr','')}\n💰 Today PnL: ${pnl_today2:+.2f} | Max -${DAILY_MAX_LOSS:.0f}\n\n⏰ ENTRY: {entry.strftime('%H:%M:%S WAT')} (in 45s)\n⏱️ EXPIRY: 2 Min Each Level\n\n**Level 1:** {entry.strftime('%H:%M:%S')} - 2 Min - ${base:.2f}\n**Level 2:** {entry2.strftime('%H:%M:%S')} - 2 Min - ${base*2:.2f}\n**Level 3:** {entry3.strftime('%H:%M:%S')} - 2 Min - ${base*4:.2f}\n\n⛔ STOP after Level 3.\n⚠️ **MANUAL PLACE**\n\n👇 After you trade manually, press result below:"""
+        signal_txt=f"""📡 **SAFE SIGNAL V18 - AUTO EXPIRY {exp_min} MIN** 📡\n\n💱 {PAIR_EMOJI.get(pair,pair)}\n📊 {dir_e} | 🎯 {d['conf']:.0f}% SNIPER\n📈 {d['reason']} | RSI {d['rsi']:.1f} | ATR {d['atr']:.5f}\n💸 {int(d['payout']*100)}% | 💰 {d['price']:.5f}\n📍 Session: {d.get('session','')} | S/R: {d.get('sr','')}\n⏱️ {exp_min} Min | 🤖 Bot choose {exp_min} Min - Conf {d['conf']:.0f}%\n💰 Today PnL: ${pnl_today2:+.2f} | Max -${DAILY_MAX_LOSS:.0f}\n\n⏰ ENTRY: {entry.strftime('%H:%M:%S WAT')} (in 45s)\n⏱️ EXPIRY: {exp_min} Min Each Level\n\n**Level 1:** {entry.strftime('%H:%M:%S')} - {exp_min} Min - ${base:.2f} - ENTER NOW\n**Level 2:** ⏳ WAIT - Bot go send when next pullback come - ${base*2:.2f}\n**Level 3:** ⏳ WAIT - Bot go send when next pullback come - ${base*4:.2f}\n\n⚠️ DO NOT enter Level 2/3 by time. Wait for next message.\n⛔ STOP after Level 3.\n⚠️ **MANUAL PLACE**\n\n👇 After you trade manually, press result below:"""
         mk=manual_result_keyboard(pair, d['dir'], d['conf'], amt_m, mult_m, d['payout'])
         mk.add(types.InlineKeyboardButton("🔁 SAME PAIR",callback_data=f"real_pair_{pair}"),types.InlineKeyboardButton("📈 SCAN ALL",callback_data="scan_all_real"))
         bot.send_message(cid,signal_txt,reply_markup=mk,parse_mode="Markdown"); return
@@ -1037,42 +1068,14 @@ def cb(c):
         if cid in AUTO_STATE: AUTO_STATE[cid]['running']=False; bot.send_message(cid,"🛑 Stopping..."); return
     if data=="stats":
         total=STATS['wins']+STATS['loss']; wr=(STATS['wins']/total*100) if total else 0; bal=get_real_balance("PRACTICE"); mk=types.InlineKeyboardMarkup(row_width=2); mk.add(types.InlineKeyboardButton("💹 NEW TRADE",callback_data="trade"),types.InlineKeyboardButton("🤖 AUTO",callback_data="auto_setup"))
-        bot.send_message(cid,f"📊 **STATS V17 PROTECTED**\n📍 {get_mode_text()}\n🏆 Wins: {STATS['wins']}\n❌ Loss: {STATS['loss']}\n📈 Winrate: {wr:.1f}%\n🔥 Streak: {STATS['streak']}\n💰 Bal: ${bal:.2f}\n🧠 AI: Learning + Block + Daily Max -${DAILY_MAX_LOSS:.0f} | 📦 OTC: DISABLED | REAL only",reply_markup=mk,parse_mode="Markdown")
+        bot.send_message(cid,f"📊 **STATS V18 SAFE**\n📍 {get_mode_text()}\n🏆 Wins: {STATS['wins']}\n❌ Loss: {STATS['loss']}\n📈 Winrate: {wr:.1f}%\n🔥 Streak: {STATS['streak']}\n💰 Bal: ${bal:.2f}\n🧠 AI: Learning + Block + Daily Max -${DAILY_MAX_LOSS:.0f} | 📦 OTC: DISABLED | REAL only",reply_markup=mk,parse_mode="Markdown")
     if data=="settings":
-        bot.send_message(cid,f"⚙️ **SETTINGS V17 PROTECTED REAL ONLY**\n\n🛡️ V17: 5M Trend + ADX + MACD + Stochastic + BB + Volume + Payout + AI Weights + S/R + Session + Pullback\n⏱️ Expiry: FIXED 2 Min (120s) for Level 1, 2, 3\n🧠 AI: Auto-adjust weights after every 5 trades\n🚫 Auto-Block: Block pair/hour if winrate <35% after 5 trades\n🔒 Daily Max Loss: -${DAILY_MAX_LOSS:.0f} | Max Trades: {DAILY_MAX_TRADES}\n⏳ Cooldown: 5 min - 1 signal at a time, pause before next scan\n📰 News Filter: ON - Block 30 min before/after High news\n📍 S/R: ON - Block CALL near Resistance, Block PUT near Support\n⏰ Session: Golden 9-11AM & 2:30-4:30PM = 88% needed, Other time = 92% needed\n📉 Pullback: ON - No chase if price far from EMA9, +8 if near EMA9\n🔙 Backtest: /backtest EURUSD\n📊 OTC: DISABLED\nREAL: 7AM-8PM auto signals\n\nType /ai to see what bot don learn\nType /today to see today PnL")
-
-@bot.message_handler(func=lambda m: user_states.get(m.chat.id,{}).get("step")=="await_amt")
-def handle_custom_amt(m):
-    cid=m.chat.id; st=user_states.get(cid,{})
-    if not is_allowed(m.from_user.id): return
-    try:
-        amt=float(m.text.strip()); pair=st.get("pair"); bal=st.get("bal"); expiry=st.get("expiry",120)
-        if not pair: return
-        bot.send_message(cid,f"✅ Custom ${amt} - Placing Safe 2 Min trade...")
-        d=analyze_sniper_v12(pair,sniper_mode=False)
-        if not d: return
-        ok,oid,exp=iq_trade(pair,d['dir'],amt,bal,expiry)
-        if not ok: bot.send_message(cid,"❌ Failed"); return
-        bot.send_message(cid,f"✅ Placed {oid} Waiting {exp}s..."); time.sleep(exp+6)
-        with IQ_LOCK:
-            logging.disable(logging.CRITICAL); pnl=iq.check_win_v4(oid)
-        bal_now=get_real_balance(bal)
-        if pnl>0: STATS['wins']+=1; STATS['streak']+=1; bot.send_message(cid,f"✅ WIN +${pnl:.2f} Bal ${bal_now:.2f}")
-        else: STATS['loss']+=1; STATS['streak']=0; bot.send_message(cid,f"❌ LOSS Bal ${bal_now:.2f}")
-    except: bot.send_message(cid,"❌ Send number only")
-
-threading.Thread(target=background_iq, daemon=True).start()
-threading.Thread(target=real_signal_scanner,daemon=True).start()
-threading.Thread(target=daily_8pm_report,daemon=True).start()
-threading.Thread(target=nightly_backup_to_telegram,daemon=True).start()
+        bot.send_message(cid,f"⚙️ **SETTINGS V18 SAFE REAL ONLY**\n\n🛡️ V18: Trend + Pullback + Bounce - No chase\n⏱️ Expiry: AUTO - 94%+ = 2 Min, 92-93% = 3 Min (Bot decide)\n🧠 AI: Auto-adjust weights after every 5 trades\n🚫 Auto-Block: Block pair/hour if winrate <35% after 5 trades\n🔒 Daily Max Loss: -${DAILY_MAX_LOSS:.0f} | Max Trades: {DAILY_MAX_TRADES}\n⏳ Cooldown: 10 min - 1 signal at a time, pause before next scan\n📰 News Filter: ON - Block 30 min before/after High news\n📍 S/R: ON - Block CALL near Resistance, Block PUT near Support\n⏰ Session: Golden 9-11AM & 2:30-4:30PM only - Lunch/Late blocked\n📉 Pullback: ON - Must touch EMA, bounce, then enter\n🔁 Martingale: Pullback Martingale - Level 2/3 wait for next pullback, 15 min timeout\n🔙 Backtest: /backtest EURUSD\n📊 OTC: DISABLED\nREAL: 7AM-8PM auto signals\n")
 
 if __name__ == "__main__":
-    try:
-        url=os.getenv("RENDER_EXTERNAL_URL")
-        if url and BOT_TOKEN:
-            requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={url}/{BOT_TOKEN}", timeout=5)
-            print(f"Webhook set {url}")
-    except: pass
-    port=int(os.getenv("PORT",10000))
-    print(f"Starting Flask on 0.0.0.0:{port} - FREE WEB SERVICE - OTC DISABLED - V17 PROTECTED + S/R + SESSION + PULLBACK + 5MIN COOLDOWN + NEWS FILTER + BACKTEST")
-    app.run(host="0.0.0.0", port=port, threaded=True)
+    threading.Thread(target=background_iq, daemon=True).start()
+    threading.Thread(target=real_signal_scanner, daemon=True).start()
+    threading.Thread(target=daily_8pm_report, daemon=True).start()
+    threading.Thread(target=nightly_backup_to_telegram, daemon=True).start()
+    port = int(os.getenv("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
