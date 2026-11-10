@@ -6,6 +6,7 @@ from telebot import types
 import pandas as pd
 import requests
 import pytz
+import xml.etree.ElementTree as ET
 
 warnings.filterwarnings("ignore")
 logging.getLogger().setLevel(logging.CRITICAL)
@@ -31,6 +32,65 @@ OTC_MARTI = {"loss_streak":0, "base":1.0, "bal":"PRACTICE", "levels":[1,2,4,8]}
 PULLBACK_STATE = {}
 ACTIVE_SIGNAL = {"active": False, "pair": None, "dir": None, "conf":0, "rsi":0, "adx":0, "started": 0}
 DAILY_SUMMARY_SENT = ""
+MARKET_GOOD_SENT = {"date": "", "last_alert": 0}
+MORNING_GREET_SENT = ""
+NEWS_CACHE = {"data": [], "time": 0}
+
+# ===== GREETING =====
+def get_greeting():
+    tz = pytz.timezone("Africa/Lagos"); hour = datetime.now(tz).hour
+    if 5 <= hour < 12: return "🌅 GOOD MORNING TRAILBLAZER ☀️"
+    elif 12 <= hour < 17: return "☀️ GOOD AFTERNOON TRAILBLAZER 🔥"
+    elif 17 <= hour < 21: return "🌇 GOOD EVENING TRAILBLAZER 🌙"
+    else: return "🌙 GOOD NIGHT TRAILBLAZER 💤"
+def get_greeting_msg():
+    tz = pytz.timezone("Africa/Lagos"); hour = datetime.now(tz).hour
+    if 5 <= hour < 12: return "🌅 Rise and shine! New day, new money to stack 💰\n☕ Grab your coffee, market is waking up!"
+    elif 12 <= hour < 17: return "☀️ Afternoon grind time! Market is hot 🔥\n💪 Stay focused, Trailblazer!"
+    elif 17 <= hour < 21: return "🌇 Evening session! Last chance to stack up before market closes 🌙\n🎯 Let's finish strong!"
+    else: return "🌙 Market is sleeping. Rest your mind, Trailblazer 💤\n💰 Tomorrow we stack again!"
+
+# ===== NEWS SCANNER =====
+def get_upcoming_news():
+    try:
+        if time.time() - NEWS_CACHE["time"] < 300: return NEWS_CACHE["data"]
+        url = "https://nfs.faireconomy.media/ff_calendar_thisweek.xml"
+        r = requests.get(url, timeout=10)
+        if r.status_code != 200: return []
+        root = ET.fromstring(r.content)
+        now = datetime.now(pytz.timezone("UTC")).replace(tzinfo=None)
+        upcoming = []
+        for event in root.findall("event"):
+            try:
+                title = event.find("title").text; country = event.find("country").text; impact = event.find("impact").text
+                date_str = event.find("date").text; time_str = event.find("time").text
+                if impact != "High": continue
+                if country not in ["USD","EUR","GBP","JPY","AUD","CAD","NZD","CHF"]: continue
+                dt = datetime.strptime(f"{date_str} {time_str}", "%m-%d-%Y %I:%M%p")
+                dt_utc = dt + timedelta(hours=5)
+                diff_min = (dt_utc - now).total_seconds() / 60
+                if -15 <= diff_min <= 120:
+                    upcoming.append({"title":title,"country":country,"time_utc":dt_utc,"in_min":int(diff_min),"impact":impact})
+            except: continue
+        NEWS_CACHE["data"] = upcoming; NEWS_CACHE["time"] = time.time(); return upcoming
+    except Exception as e: print(f"News err {e}"); return []
+def is_news_blocking_pair(pair, minutes=30):
+    news = get_upcoming_news()
+    if not news: return None
+    base = pair[:3]; quote = pair[3:6] if len(pair) >= 6 else ""
+    for n in news:
+        if n["country"] in [base, quote] and n["in_min"] <= minutes and n["in_min"] >= -15: return n
+    return None
+def format_news_alert(news_list):
+    if not news_list: return ""
+    txt = "📰 **UPCOMING HIGH IMPACT NEWS** 📰\n\n"
+    for n in news_list:
+        flag = {"USD":"🇺🇸","EUR":"🇪🇺","GBP":"🇬🇧","JPY":"🇯🇵","AUD":"🇦🇺","CAD":"🇨🇦","NZD":"🇳🇿","CHF":"🇨🇭"}.get(n["country"], "🌍")
+        if n["in_min"] < 0: when = f"Started {-n['in_min']} min ago"
+        elif n["in_min"] == 0: when = "⚡ RIGHT NOW!"
+        else: when = f"In {n['in_min']} min"
+        txt += f"🔴 {flag} {n['country']} - {n['title']}\n⏰ {when}\n\n"
+    return txt
 
 # ===== AI BRAIN =====
 PAIR_BRAIN = {}
@@ -56,8 +116,7 @@ def record_brain(pair, won, conf, rsi, adx):
     s = get_pair_stats(pair)
     if won: s["wins"] += 1
     else: s["loss"] += 1
-    s["history"].append({"win":won,"conf":conf,"rsi":rsi,"adx":adx,"time":time.time()})
-    s["history"] = s["history"][-30:]
+    s["history"].append({"win":won,"conf":conf,"rsi":rsi,"adx":adx,"time":time.time()}); s["history"] = s["history"][-30:]
     wr = get_pair_winrate(pair); total = s["wins"] + s["loss"]
     if total >= 5:
         if wr < 40: s["blocked_until"] = time.time() + 7200; s["score_boost"] = -15
@@ -89,7 +148,7 @@ def can_trade_today():
 def count_trade(): STATS["daily_trades"] += 1
 
 @app.route("/")
-def home(): return f"V14 BRAIN+SKIP RUNNING IQ:{IQ_CONNECTED} {datetime.now(pytz.timezone('Africa/Lagos')).strftime('%H:%M:%S')}"
+def home(): return f"V16 TRAILBLAZER+NEWS RUNNING IQ:{IQ_CONNECTED} {datetime.now(pytz.timezone('Africa/Lagos')).strftime('%H:%M:%S')}"
 @app.route(f"/{BOT_TOKEN}",methods=['POST'])
 def wh():
     bot.process_new_updates([telebot.types.Update.de_json(request.get_data().decode("utf-8"))]); return "ok"
@@ -117,7 +176,6 @@ def background_iq():
             time.sleep(8)
         except Exception as e: print(f"[IQ] Fail {e}"); time.sleep(10)
     IQ_CONNECTED=False
-
 def iq_reconnect():
     global iq, IQ_CONNECTED
     try:
@@ -135,7 +193,6 @@ def iq_reconnect():
             except: pass
         return IQ_CONNECTED
     except: IQ_CONNECTED=False; return False
-
 def get_real_balance(bal_type="PRACTICE"):
     try:
         with IQ_LOCK: logging.disable(logging.CRITICAL); iq.change_balance(bal_type); return iq.get_balance()
@@ -171,12 +228,12 @@ def calc_atr(df, period=14):
         high=df['max']; low=df['min']; close=df['close']; tr1=high-low; tr2=(high-close.shift()).abs(); tr3=(low-close.shift()).abs(); tr=pd.concat([tr1,tr2,tr3],axis=1).max(axis=1); return tr.rolling(period).mean().iloc[-1]
     except: return 0.0005
 def legit_live_scan(cid, mid, pair):
-    steps = [(0,"🚀 V14 Brain Init...",0.15),(20,f"🔌 Checking {pair}...",0.2),(40,"📊 ADX + ATR + Brain...",0.25),(60,"📈 EMA + MACD + 5M Trend...",0.2),(80,"💹 RSI + Stochastic + BB...",0.2),(100,"🔒 SNIPER LOCKED!",0.3)]
+    steps = [(0,"🚀 V16 Trailblazer Init...",0.15),(20,f"🔌 Checking {pair}...",0.2),(40,"📊 ADX + ATR + Brain + News...",0.25),(60,"📈 EMA + MACD + 5M Trend...",0.2),(80,"💹 RSI + Stochastic + BB...",0.2),(100,"🔒 SNIPER LOCKED!",0.3)]
     last_pct=-1
     for pct, text, delay in steps:
         if pct==last_pct: time.sleep(delay); continue
         last_pct=pct; filled=int(pct//5); bar="█"*filled+"░"*(20-filled); color="🟥" if pct<40 else "🟨" if pct<80 else "🟩" if pct<100 else "💎"
-        txt=f"""{color} **Z-BOT V14 BRAIN** {color}\n\n💱 {PAIR_EMOJI.get(pair,pair)}\n💎 IQ: {'✅' if IQ_CONNECTED else '❌'}\n\n{bar} {pct}%\n\n🔍 {text}\n⏳ V14"""
+        txt=f"""{color} **Z-BOT V16 TRAILBLAZER** {color}\n\n💱 {PAIR_EMOJI.get(pair,pair)}\n💎 IQ: {'✅' if IQ_CONNECTED else '❌'}\n\n{bar} {pct}%\n\n🔍 {text}\n⏳ V16"""
         try: bot.edit_message_text(txt,cid,mid,parse_mode="Markdown")
         except: pass
         time.sleep(delay)
@@ -215,6 +272,9 @@ def analyze_sniper_v12(pair, sniper_mode=False):
         r7=float(rsi7.iloc[-1]); r14=float(rsi14.iloc[-1]); mom1=(close.iloc[-1]-close.iloc[-2])/close.iloc[-2]*100; mom3=(close.iloc[-1]-close.iloc[-4])/close.iloc[-4]*100
         body=abs(c_now-o_now); upper_wick=h_now-max(c_now,o_now); lower_wick=min(c_now,o_now)-l_now; is_green=c_now>o_now; payout=get_payout(pair); sig="CALL" if is_green else "PUT"
         if is_pair_blocked(pair): return {"pair":pair,"dir":sig,"conf":40,"price":c_now,"rsi":r7,"reason":f"🧠 BRAIN Blocked {pair}","payout":payout,"expiry":120,"atr":atr,"rejected":True}
+        # NEWS BLOCK
+        news_block = is_news_blocking_pair(pair, minutes=30)
+        if news_block: return {"pair":pair,"dir":sig,"conf":40,"price":c_now,"rsi":r7,"reason":f"📰 NEWS BLOCK {news_block['country']} {news_block['title'][:25]} in {news_block['in_min']}min","payout":payout,"expiry":120,"atr":atr,"rejected":True}
         if adx < 25: return {"pair":pair,"dir":sig,"conf":42,"price":c_now,"rsi":r7,"reason":"Choppy - ADX Low","payout":payout,"expiry":120,"atr":atr,"rejected":True}
         if body < atr*0.30: return {"pair":pair,"dir":sig,"conf":48,"price":c_now,"rsi":r7,"reason":"Doji - No Body","payout":payout,"expiry":120,"atr":atr,"rejected":True}
         if payout < 0.80: return {"pair":pair,"dir":sig,"conf":52,"price":c_now,"rsi":r7,"reason":f"Low Payout {int(payout*100)}%","payout":payout,"expiry":120,"atr":atr,"rejected":True}
@@ -280,9 +340,10 @@ def analyze_sniper_v12(pair, sniper_mode=False):
         score = max(40, min(96, score)); reason = " + ".join(reasons) if reasons else "Weak PA"
         if sniper_mode and score < 88: return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":r7,"reason":reason,"payout":payout,"expiry":120,"atr":atr,"rejected":True}
         return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":r7,"reason":reason,"payout":payout,"expiry":120,"atr":atr,"rejected":False,"adx":adx}
-    except Exception as e: print(f"V14 err {pair} {e}"); return None
+    except Exception as e: print(f"V16 err {pair} {e}"); return None
 
 def check_pullback_entry(pair, original_dir):
+    if is_news_blocking_pair(pair, minutes=30): return None
     df = get_candles(pair)
     if df is None: return None
     try:
@@ -303,7 +364,7 @@ def check_pullback_entry(pair, original_dir):
 
 def pullback_scanner_loop(cid, pair, original_dir):
     start = time.time(); PULLBACK_STATE[cid] = {"pair":pair,"dir":original_dir,"active":True}
-    bot.send_message(cid, f"🔍 **Pullback Scan ON**\n\n💱 {pair} looking for {original_dir} pullback\n📊 Scanning every 10 sec...\n📍 RSI7 + RSI14 both safe + RSI turning + Price at EMA\n⏳ Timeout 5 min\n\nPress ✅ WIN / ❌ LOSS / ⏭️ SKIP")
+    bot.send_message(cid, f"🔍 **Pullback Scan ON**\n\n💱 {pair} looking for {original_dir} pullback\n📊 Scanning every 10 sec...\n📍 RSI7 + RSI14 both safe + RSI turning + Price at EMA\n📰 News check ON - will skip if news coming\n⏳ Timeout 5 min\n\nPress ✅ WIN / ❌ LOSS / ⏭️ SKIP")
     while PULLBACK_STATE.get(cid, {}).get("active") and time.time() - start < 300:
         if not can_trade_today(): bot.send_message(cid, "⛔ Max 30 trades reached today. Pullback scan stopped."); PULLBACK_STATE[cid]["active"] = False; return
         d = check_pullback_entry(pair, original_dir)
@@ -349,8 +410,111 @@ def daily_summary_loop():
 Brain has learned from {len(PAIR_BRAIN)} pairs so far.
 Bad pairs will be blocked tomorrow.
 
-🌙 Bot will restart scanning tomorrow 7AM.
-Rest well, don't chase losses.
+🌙 {get_greeting()} - Rest well Trailblazer, tomorrow we stack again! 💰
+"""
+                try: bot.send_message(OWNER_ID, msg, parse_mode="Markdown")
+                except: pass
+            time.sleep(60)
+        except: time.sleep(60)
+
+def trailblazer_market_scanner():
+    tz = pytz.timezone("Africa/Lagos"); last_news_alert = 0
+    while True:
+        try:
+            if not is_real_hours() or not IQ_CONNECTED: time.sleep(60); continue
+            news = get_upcoming_news()
+            urgent_news = [n for n in news if 0 <= n["in_min"] <= 30]
+            if urgent_news and time.time() - last_news_alert > 3600:
+                last_news_alert = time.time(); news_txt = format_news_alert(urgent_news)
+                msg = f"""📰📰📰 **TRAILBLAZER NEWS ALERT** 📰📰📰
+
+{get_greeting()}
+
+⚠️ **HIGH IMPACT NEWS COMING - BE CAREFUL!** ⚠️
+
+{news_txt}
+🚨 **What to do:**
+❌ Don't trade pairs with that currency now
+⏳ Wait 15 min AFTER news before trading it
+✅ Trade other pairs that have no news
+
+🎯 Bot will skip news pairs automatically for next 30 min!
+💰 Protect your cash, Trailblazer! 🛡️
+"""
+                try: bot.send_message(OWNER_ID, msg, parse_mode="Markdown")
+                except: pass
+            if time.time() - MARKET_GOOD_SENT["last_alert"] < 2700: time.sleep(60); continue
+            if is_signal_active(): time.sleep(60); continue
+            good_pairs = 0; strong_pairs = []
+            for pair in ["EURUSD","GBPUSD","USDJPY","EURGBP","AUDUSD","USDCAD","EURJPY","GBPJPY"]:
+                if is_pair_blocked(pair): continue
+                if is_news_blocking_pair(pair, minutes=30): continue
+                try:
+                    df = get_candles(pair)
+                    if df is None: continue
+                    adx, _, _ = calc_adx_v12(df); payout = get_payout(pair)
+                    if adx >= 25 and payout >= 0.80: good_pairs += 1; strong_pairs.append(pair)
+                except: pass
+                time.sleep(1)
+            if urgent_news and good_pairs < 5: time.sleep(300); continue
+            if good_pairs >= 5:
+                MARKET_GOOD_SENT["last_alert"] = time.time(); greet = get_greeting(); pairs_txt = " • ".join(strong_pairs[:5])
+                if news: news_note = f"\n📰 **News Note:** {len(news)} high impact news in next 2h - Bot is avoiding news pairs ✅\n"
+                else: news_note = "\n📰 **News:** ✅ No high impact news in next 2h - Clean market! ✅\n"
+                msg = f"""🔥🔥🔥 **TRAILBLAZER MARKET IS GOOD** 🔥🔥🔥
+
+{greet}
+
+🚀 **SIGNALS COMING SOON - GET READY TO STACK UP SOME CASH** 💰💰💰
+
+📊 Market Check:
+✅ {good_pairs}/8 Major Pairs Strong Trend
+✅ ADX 25+ - Market is moving, not choppy
+✅ Payout 80%+ - Good money
+💱 Hot Pairs: {pairs_txt}
+{news_note}
+⏰ Time: {datetime.now(tz).strftime('%H:%M WAT')}
+🎯 Bot is scanning now... 88%+ signals only!
+
+💪 Get your IQ Option ready!
+📱 Keep Telegram open!
+💰 **IT'S STACKING TIME TRAILBLAZER!** 🚀🚀🚀
+
+⚡ Don't miss the next signal - it can come any second!
+"""
+                try: bot.send_message(OWNER_ID, msg, parse_mode="Markdown")
+                except: pass
+            time.sleep(300)
+        except: time.sleep(60)
+
+def morning_greet_loop():
+    global MORNING_GREET_SENT
+    tz = pytz.timezone("Africa/Lagos")
+    while True:
+        try:
+            now = datetime.now(tz); today = now.strftime("%Y-%m-%d")
+            if now.hour == 7 and now.minute < 5 and MORNING_GREET_SENT != today:
+                MORNING_GREET_SENT = today
+                msg = """🌅🌅🌅 **GOOD MORNING TRAILBLAZER** 🌅🌅🌅
+
+☀️ Rise and shine! It's 7AM - Market just opened!
+
+💰 **New day, new money to stack!** 💰
+
+📊 **Today's Plan:**
+✅ Bot is now scanning 22 REAL pairs
+✅ Only 88%+ SNIPER signals
+✅ Max 30 trades - No overtrading
+🧠 Brain is ready - It remembers your best pairs
+⏭️ SKIP button if you don't like a signal
+📰 News scanner ON - Will warn you before big news
+
+🎯 **Get ready:**
+☕ Grab coffee
+📱 Keep Telegram open
+💪 Stay disciplined - 1 Real + 3 Marti only
+
+🔥 **LET'S STACK UP SOME CASH TODAY TRAILBLAZER!** 🚀💰🔥
 """
                 try: bot.send_message(OWNER_ID, msg, parse_mode="Markdown")
                 except: pass
@@ -374,13 +538,14 @@ def real_signal_scanner():
                         mk.add(types.InlineKeyboardButton("✅ WIN - Reset", callback_data=f"manual_win_{pair}"), types.InlineKeyboardButton("❌ LOSS - Pullback Scan", callback_data=f"manual_loss_{pair}_{d['dir']}"))
                         mk.add(types.InlineKeyboardButton("⏭️ SKIP THIS TRADE", callback_data=f"skip_{pair}"))
                         brain = get_pair_stats(pair); wr = get_pair_winrate(pair); wr_txt = f" | 🧠 Brain WR {wr:.0f}%" if wr is not None else ""
-                        msg=f"""📡 **REAL SIGNAL V14 BRAIN - MANUAL** 📡
+                        msg=f"""📡 **REAL SIGNAL V16 TRAILBLAZER - MANUAL** 📡
 
 💱 {PAIR_EMOJI.get(pair,pair)}
 📊 {dir_e} | 🎯 {d['conf']:.0f}% SNIPER{wr_txt}
 📈 {d['reason']} | RSI {d['rsi']:.1f} | ATR {d['atr']:.5f}
 💸 {int(d['payout']*100)}% | 2 Min
 📅 Today: {STATS['daily_trades']}/30
+📰 News: ✅ Checked - No blocking news
 
 ⏰ ENTRY: {entry.strftime('%H:%M:%S WAT')} (in 45s)
 
@@ -397,9 +562,14 @@ def real_signal_scanner():
             time.sleep(25)
         except: time.sleep(30)
 
-@bot.message_handler(commands=['start','stop','mode','balance','results','brain'])
+@bot.message_handler(commands=['start','stop','mode','balance','results','brain','news'])
 def start(m):
     if not is_allowed(m.from_user.id): bot.send_message(m.chat.id,"❌ Private"); return
+    if m.text.startswith('/news'):
+        news = get_upcoming_news()
+        if not news: bot.send_message(m.chat.id, "📰 **NEWS CHECK**\n\n✅ No high impact news in next 2 hours - Clean market!\n🎯 Safe to trade all pairs.", parse_mode="Markdown"); return
+        txt = "📰 **UPCOMING NEWS - NEXT 2H**\n\n" + format_news_alert(news) + "⚠️ Bot is blocking these currencies for 30 min before news."
+        bot.send_message(m.chat.id, txt, parse_mode="Markdown"); return
     if m.text.startswith('/brain'):
         txt="🧠 **AI BRAIN - PAIR LEARNING**\n\n"; best=[]; bad=[]
         for pair, s in PAIR_BRAIN.items():
@@ -422,14 +592,16 @@ def start(m):
         bot.send_message(m.chat.id,txt,parse_mode="Markdown"); return
     if m.text.startswith('/mode'):
         tz=pytz.timezone("Africa/Lagos"); now=datetime.now(tz)
-        txt=f"""📍 **MODE CHECK V14 BRAIN**
+        txt=f"""📍 **MODE CHECK V16 TRAILBLAZER**
 
+{get_greeting()}
 ⏰ Now: {now.strftime('%A %H:%M:%S WAT')}
 📊 Mode: {get_mode_text()}
 💎 IQ: {'✅' if IQ_CONNECTED else '❌ False'}
 🛡️ Martingale: 1 Real + 3 Marti (1-2-4-8)
 📅 Today: {STATS['daily_trades']}/30 trades
 🧠 Brain: {'ON - Learning' if PAIR_BRAIN else 'ON - No data yet'}
+📰 News: {len(get_upcoming_news())} high impact in next 2h
 ⏳ Active Signal: {ACTIVE_SIGNAL['pair'] if is_signal_active() else 'None'}
 OTC: {'✅ ON' if ENABLE_OTC else '⛔ DISABLED - REAL only'}
 """
@@ -442,13 +614,19 @@ OTC: {'✅ ON' if ENABLE_OTC else '⛔ DISABLED - REAL only'}
         return
     try: bal_demo=get_real_balance("PRACTICE") if IQ_CONNECTED else STATS.get("real_balance",0.0)
     except: bal_demo=0.0
-    mk=types.InlineKeyboardMarkup(row_width=1); mk.add(types.InlineKeyboardButton(f"📈 TRADE REAL (22) AUTO EXPIRY - ${bal_demo:.2f}",callback_data="trade_real")); mk.add(types.InlineKeyboardButton("📊 MY STATS",callback_data="stats"),types.InlineKeyboardButton("🧠 AI BRAIN",callback_data="brain_btn"),types.InlineKeyboardButton("⚙️ SETTINGS",callback_data="settings"))
-    txt=f"""🤖 **Z-BOT V14 BRAIN - MANUAL** 🤖
+    mk=types.InlineKeyboardMarkup(row_width=1); mk.add(types.InlineKeyboardButton(f"📈 TRADE REAL (22) AUTO EXPIRY - ${bal_demo:.2f}",callback_data="trade_real")); mk.add(types.InlineKeyboardButton("📊 MY STATS",callback_data="stats"),types.InlineKeyboardButton("🧠 AI BRAIN",callback_data="brain_btn"),types.InlineKeyboardButton("📰 NEWS CHECK",callback_data="news_btn"),types.InlineKeyboardButton("⚙️ SETTINGS",callback_data="settings"))
+    greet = get_greeting(); greet_msg = get_greeting_msg()
+    txt=f"""{greet}
+
+{greet_msg}
+
+🤖 **Z-BOT V16 TRAILBLAZER - MANUAL** 🤖
 
 💎 IQ: {'✅' if IQ_CONNECTED else '❌ False - Retrying...'} | 💰 DEMO ${bal_demo:.2f}
 🏆 W:{STATS['wins']} L:{STATS['loss']} | 🔥 {STATS['streak']}
 📅 Today: {STATS['daily_trades']}/30
 🧠 Brain: Learning your best pairs
+📰 News: Auto scanner ON
 📍 {get_mode_text()}
 ⛔ OTC Disabled - REAL signals start 7AM
 
@@ -460,6 +638,11 @@ OTC: {'✅ ON' if ENABLE_OTC else '⛔ DISABLED - REAL only'}
 def cb(c):
     if not is_allowed(c.from_user.id): bot.answer_callback_query(c.id,"❌ Private"); return
     data=c.data; cid=c.message.chat.id
+    if data=="news_btn":
+        news = get_upcoming_news()
+        if not news: bot.send_message(cid, "📰 **NEWS CHECK**\n\n✅ No high impact news in next 2 hours - Clean market!\n🎯 Safe to trade all pairs.", parse_mode="Markdown"); return
+        txt = "📰 **UPCOMING NEWS - NEXT 2H**\n\n" + format_news_alert(news) + "⚠️ Bot is blocking these currencies for 30 min before news."
+        bot.send_message(cid, txt, parse_mode="Markdown"); return
     if data.startswith("skip_"):
         pair=data.replace("skip_","")
         if cid in PULLBACK_STATE: PULLBACK_STATE[cid]["active"]=False
@@ -469,7 +652,7 @@ def cb(c):
         pair=data.replace("manual_win_",""); record_brain(pair, True, ACTIVE_SIGNAL.get("conf",88), ACTIVE_SIGNAL.get("rsi",50), ACTIVE_SIGNAL.get("adx",30)); OTC_MARTI["loss_streak"]=0
         if cid in PULLBACK_STATE: PULLBACK_STATE[cid]["active"]=False
         clear_signal(); STATS['wins']+=1; count_trade(); wr=get_pair_winrate(pair); wr_txt=f"\n🧠 {pair} Brain WR now {wr:.0f}%" if wr is not None else ""
-        bot.answer_callback_query(c.id,"WIN - Reset to Real Entry"); bot.send_message(cid,f"✅ **WIN Recorded**\n\n💱 {pair}\n♻️ RESET to Real Entry $1\n🔍 Pullback scan STOPPED{wr_txt}\n📅 Today: {STATS['daily_trades']}/30 trades\n✅ Next signal can now come."); return
+        bot.answer_callback_query(c.id,"WIN - Reset to Real Entry"); bot.send_message(cid,f"✅ **WIN Recorded Trailblazer!** 🎉\n\n💱 {pair}\n♻️ RESET to Real Entry $1\n🔍 Pullback scan STOPPED{wr_txt}\n📅 Today: {STATS['daily_trades']}/30 trades\n✅ Next signal can now come.\n💰 Keep stacking! 🚀"); return
     if data.startswith("manual_loss_"):
         parts=data.replace("manual_loss_","").rsplit("_",1); pair=parts[0]; orig_dir=parts[1] if len(parts)>1 else "CALL"
         record_brain(pair, False, ACTIVE_SIGNAL.get("conf",88), ACTIVE_SIGNAL.get("rsi",50), ACTIVE_SIGNAL.get("adx",30)); OTC_MARTI["loss_streak"]+=1; STATS['loss']+=1; count_trade()
@@ -477,9 +660,9 @@ def cb(c):
             OTC_MARTI["loss_streak"]=0
             if cid in PULLBACK_STATE: PULLBACK_STATE[cid]["active"]=False
             clear_signal(); wr=get_pair_winrate(pair); wr_txt=f"\n🧠 {pair} Brain WR now {wr:.0f}%" if wr is not None else ""
-            bot.answer_callback_query(c.id,"Chain finished - Reset to $1"); bot.send_message(cid,f"⛔ **CHAIN FINISHED**\n\n💱 {pair}\n❌ Lost: $1 + $2 + $4 + $8 = -$15\n♻️ RESET to Real Entry $1\n🛑 No more martingale for this pair.{wr_txt}\n📅 Today: {STATS['daily_trades']}/30\n✅ Next signal can now come."); return
+            bot.answer_callback_query(c.id,"Chain finished - Reset to $1"); bot.send_message(cid,f"⛔ **CHAIN FINISHED**\n\n💱 {pair}\n❌ Lost: $1 + $2 + $4 + $8 = -$15\n♻️ RESET to Real Entry $1\n🛑 No more martingale for this pair.{wr_txt}\n📅 Today: {STATS['daily_trades']}/30\n✅ Next signal can now come.\n💪 Don't give up Trailblazer, next one is coming! 🔥"); return
         levels=OTC_MARTI["levels"]; idx=OTC_MARTI["loss_streak"]; mult=levels[idx]; next_amt=OTC_MARTI["base"]*mult; names=["","Martingale 1","Martingale 2","Martingale 3"]; wr=get_pair_winrate(pair); wr_txt=f"\n🧠 {pair} Brain WR {wr:.0f}%" if wr is not None else ""
-        bot.answer_callback_query(c.id,f"LOSS - Next {names[idx]} ${next_amt}"); bot.send_message(cid,f"❌ **LOSS Recorded**\n\n💱 {pair}\n👉 Next: **{names[idx]} - ${next_amt:.2f} Level {idx+1}/4 ({mult}x)**{wr_txt}\n🔍 Scanning every 10 sec for pullback entry...\n📍 RSI7 + RSI14 safe + RSI turning + Price at EMA\n\nPress ✅ WIN / ❌ LOSS / ⏭️ SKIP after you trade it manually.")
+        bot.answer_callback_query(c.id,f"LOSS - Next {names[idx]} ${next_amt}"); bot.send_message(cid,f"❌ **LOSS Recorded**\n\n💱 {pair}\n👉 Next: **{names[idx]} - ${next_amt:.2f} Level {idx+1}/4 ({mult}x)**{wr_txt}\n🔍 Scanning every 10 sec for pullback entry...\n📍 RSI7 + RSI14 safe + RSI turning + Price at EMA\n📰 News check ON\n\nPress ✅ WIN / ❌ LOSS / ⏭️ SKIP after you trade it manually.")
         threading.Thread(target=pullback_scanner_loop, args=(cid, pair, orig_dir), daemon=True).start(); return
     if data=="brain_btn":
         txt="🧠 **AI BRAIN**\n\n"; best=[]; bad=[]
@@ -493,13 +676,15 @@ def cb(c):
     if data=="trade_real":
         mk=types.InlineKeyboardMarkup(row_width=1); mk.add(types.InlineKeyboardButton("🔍 📊 SCAN ALL REAL NOW (22 PAIRS)",callback_data="scan_all_real"))
         for p in REAL_PAIRS: mk.add(types.InlineKeyboardButton(f"{PAIR_EMOJI.get(p,p)}",callback_data=f"real_pair_{p}"))
-        bot.send_message(cid,f"📈 **TRADE REAL V14 BRAIN MANUAL**\n📍 {get_mode_text()}\n📅 Today: {STATS['daily_trades']}/30",reply_markup=mk,parse_mode="Markdown"); return
+        bot.send_message(cid,f"📈 **TRADE REAL V16 TRAILBLAZER MANUAL**\n📍 {get_mode_text()}\n📅 Today: {STATS['daily_trades']}/30",reply_markup=mk,parse_mode="Markdown"); return
     if data=="scan_all_real":
         if is_signal_active(): bot.send_message(cid,f"⏳ **One signal already active**\n\n💱 {ACTIVE_SIGNAL['pair']} {ACTIVE_SIGNAL['dir']}\nFinish it first - Press ✅ WIN / ❌ LOSS / ⏭️ SKIP\nNo new signal until that chain ends."); return
         if not can_trade_today(): bot.send_message(cid,"⛔ Max 30 trades reached today. Come back tomorrow 7AM."); return
-        bot.answer_callback_query(c.id,"Scanning 22 REAL pairs V14..."); scan_msg=bot.send_message(cid,"🔍 **SCANNING ALL 22 REAL PAIRS V14 BRAIN...**\n\n⏳ ~12 sec"); results=[]; datas={}
+        bot.answer_callback_query(c.id,"Scanning 22 REAL pairs V16..."); scan_msg=bot.send_message(cid,"🔍 **SCANNING ALL 22 REAL PAIRS V16 TRAILBLAZER...**\n\n⏳ ~12 sec"); results=[]; datas={}
         for pair in REAL_PAIRS:
             if is_pair_blocked(pair): results.append((pair,0,"-","🧠 Blocked","🔴 BLOCKED",120)); continue
+            nb = is_news_blocking_pair(pair, minutes=30)
+            if nb: results.append((pair,0,"-","📰 News Block","🔴 NEWS",120)); continue
             d=analyze_sniper_v12(pair,sniper_mode=False)
             if not d: results.append((pair,0,"-","No data","🔴 NO TRADE",120)); continue
             conf=d['conf']; dir_=d['dir']; reason=d['reason']; exp=d['expiry']
@@ -507,10 +692,10 @@ def cb(c):
             elif conf>=65: status="🟡 WAIT"
             else: status="🔴 NO TRADE"
             results.append((pair,conf,dir_,reason,status,exp)); datas[pair]=d
-            try: bot.edit_message_text(f"🔍 Scanning V14... {pair} {conf:.0f}%",cid,scan_msg.message_id)
+            try: bot.edit_message_text(f"🔍 Scanning V16... {pair} {conf:.0f}%",cid,scan_msg.message_id)
             except: pass
             time.sleep(0.3)
-        results.sort(key=lambda x: x[1], reverse=True); txt="📊 **REAL V14 BRAIN READINESS** 📊\n"; txt+=f"📍 {get_mode_text()}\n⏰ {datetime.now(pytz.timezone('Africa/Lagos')).strftime('%H:%M:%S WAT')}\n📅 Today: {STATS['daily_trades']}/30\n\n"
+        results.sort(key=lambda x: x[1], reverse=True); txt="📊 **REAL V16 TRAILBLAZER READINESS** 📊\n"; txt+=f"📍 {get_mode_text()}\n⏰ {datetime.now(pytz.timezone('Africa/Lagos')).strftime('%H:%M:%S WAT')}\n📅 Today: {STATS['daily_trades']}/30\n📰 News: {len(get_upcoming_news())} high impact in next 2h\n\n"
         for pair,conf,dir_,reason,status,exp in results:
             emoji=PAIR_EMOJI.get(pair,pair)
             if conf>=65: txt+=f"{status} {emoji}: {conf:.0f}% {dir_} - {reason}\n"
@@ -523,12 +708,13 @@ def cb(c):
         if best and best[1]>=88 and best[0] in datas:
             time.sleep(0.5); best_data=datas[best[0]]; tz=pytz.timezone("Africa/Lagos"); now=datetime.now(tz); entry=now+timedelta(seconds=45); dir_e="🟢 CALL ⬆️" if best_data['dir']=="CALL" else "🔴 PUT ⬇️"; base=OTC_MARTI["base"]
             mk2=types.InlineKeyboardMarkup(row_width=2); mk2.add(types.InlineKeyboardButton("✅ WIN - Reset",callback_data=f"manual_win_{best_data['pair']}"),types.InlineKeyboardButton("❌ LOSS - Pullback Scan",callback_data=f"manual_loss_{best_data['pair']}_{best_data['dir']}")); mk2.add(types.InlineKeyboardButton("⏭️ SKIP THIS TRADE",callback_data=f"skip_{best_data['pair']}"))
-            signal_txt=f"""📡 **REAL TOP SIGNAL V14 - MANUAL** 📡
+            signal_txt=f"""📡 **REAL TOP SIGNAL V16 - MANUAL** 📡
 
 💱 {PAIR_EMOJI.get(best_data['pair'],best_data['pair'])}
 📊 {dir_e} | 🎯 {best_data['conf']:.0f}% SNIPER
 📈 {best_data['reason']} | RSI {best_data['rsi']:.1f}
 💸 {int(best_data['payout']*100)}% | 💰 {best_data['price']:.5f}
+📰 News: ✅ Checked - No blocking news
 
 ⏰ ENTRY: {entry.strftime('%H:%M:%S WAT')} (in 45s)
 
@@ -543,16 +729,19 @@ def cb(c):
         pair=data.replace("real_pair_","")
         if is_signal_active() and ACTIVE_SIGNAL['pair']!=pair: bot.send_message(cid,f"⏳ **One signal already active**\n\n💱 {ACTIVE_SIGNAL['pair']} {ACTIVE_SIGNAL['dir']}\nFinish it first - Press ✅ WIN / ❌ LOSS / ⏭️ SKIP"); return
         if is_pair_blocked(pair): bot.send_message(cid,f"🧠 **{pair} Blocked by Brain**\n\nThis pair has been losing for you. Brain blocked it for 2h.\nTry another pair or /brain"); return
-        bot.answer_callback_query(c.id,f"Scanning {pair} V14..."); scan_msg=bot.send_message(cid,f"🔍 **V14 BRAIN SCAN {PAIR_EMOJI.get(pair,pair)}**\n\n0%\n🚀 Sniper..."); legit_live_scan(cid,scan_msg.message_id,pair); d=analyze_sniper_v12(pair,sniper_mode=False)
+        nb = is_news_blocking_pair(pair, minutes=30)
+        if nb: bot.send_message(cid,f"📰 **{pair} Blocked by NEWS**\n\n🔴 {nb['country']} - {nb['title']}\n⏰ In {nb['in_min']} min\n\nWait 15 min after news, then try again."); return
+        bot.answer_callback_query(c.id,f"Scanning {pair} V16..."); scan_msg=bot.send_message(cid,f"🔍 **V16 TRAILBLAZER SCAN {PAIR_EMOJI.get(pair,pair)}**\n\n0%\n🚀 Sniper..."); legit_live_scan(cid,scan_msg.message_id,pair); d=analyze_sniper_v12(pair,sniper_mode=False)
         if not d or d['conf']<88:
             mk=types.InlineKeyboardMarkup(); mk.add(types.InlineKeyboardButton("🔄 RETRY",callback_data=f"real_pair_{pair}"),types.InlineKeyboardButton("📈 SCAN ALL",callback_data="scan_all_real")); bot.send_message(cid,f"⚠️ **No safe trade now for {pair}**\n\n📊 Conf: {d['conf'] if d else 0}% < 88%\n🛡️ {d['reason'] if d else 'No data'}",reply_markup=mk); return
         tz=pytz.timezone("Africa/Lagos"); now=datetime.now(tz); entry=now+timedelta(seconds=45); dir_e="🟢 CALL ⬆️" if d['dir']=="CALL" else "🔴 PUT ⬇️"; base=OTC_MARTI["base"]
-        signal_txt=f"""📡 **REAL SIGNAL V14 BRAIN - MANUAL** 📡
+        signal_txt=f"""📡 **REAL SIGNAL V16 TRAILBLAZER - MANUAL** 📡
 
 💱 {PAIR_EMOJI.get(pair,pair)}
 📊 {dir_e} | 🎯 {d['conf']:.0f}% SNIPER
 📈 {d['reason']} | RSI {d['rsi']:.1f} | ATR {d['atr']:.5f}
 💸 {int(d['payout']*100)}% | 💰 {d['price']:.5f}
+📰 News: ✅ Checked - No blocking news
 
 ⏰ ENTRY: {entry.strftime('%H:%M:%S WAT')} (in 45s)
 ⏱️ EXPIRY: 2 Min
@@ -569,16 +758,18 @@ def cb(c):
     if data=="stop_auto":
         if cid in AUTO_STATE: AUTO_STATE[cid]['running']=False; bot.send_message(cid,"🛑 Stopping..."); return
     if data=="stats":
-        total=STATS['wins']+STATS['loss']; wr=(STATS['wins']/total*100) if total else 0; bal=get_real_balance("PRACTICE"); bot.send_message(cid,f"📊 **STATS V14**\n📍 {get_mode_text()}\n🏆 Wins: {STATS['wins']}\n❌ Loss: {STATS['loss']}\n📈 Winrate: {wr:.1f}%\n🔥 Streak: {STATS['streak']}\n💰 Bal: ${bal:.2f}\n📅 Today: {STATS['daily_trades']}/30\n🧠 Brain pairs: {len(PAIR_BRAIN)}\n📦 OTC: DISABLED | REAL only",parse_mode="Markdown")
-    if data=="settings": bot.send_message(cid,f"⚙️ **SETTINGS V14 BRAIN MANUAL**\n\n🛡️ V14: 5M Trend + ADX 25+ + MACD + Stochastic + BB + Payout 80%+\n⏱️ Expiry: 2 Min\n📊 OTC: DISABLED\nREAL: 7AM-8PM auto 88%+ signals\n📅 Max: 30 trades/day\n💰 Martingale: 1 Real + 3 Marti (1-2-4-8) MANUAL\n🧠 Brain: Learns best/bad pairs, blocks bad 2h\n⏭️ Skip: Available on all signals\n📊 Daily Summary: Auto at 8PM")
+        total=STATS['wins']+STATS['loss']; wr=(STATS['wins']/total*100) if total else 0; bal=get_real_balance("PRACTICE"); bot.send_message(cid,f"📊 **STATS V16**\n📍 {get_mode_text()}\n{get_greeting()}\n🏆 Wins: {STATS['wins']}\n❌ Loss: {STATS['loss']}\n📈 Winrate: {wr:.1f}%\n🔥 Streak: {STATS['streak']}\n💰 Bal: ${bal:.2f}\n📅 Today: {STATS['daily_trades']}/30\n🧠 Brain pairs: {len(PAIR_BRAIN)}\n📰 News in 2h: {len(get_upcoming_news())}\n📦 OTC: DISABLED | REAL only",parse_mode="Markdown")
+    if data=="settings": bot.send_message(cid,f"⚙️ **SETTINGS V16 TRAILBLAZER MANUAL**\n\n🛡️ V16: 5M Trend + ADX 25+ + MACD + Stochastic + BB + Payout 80%+\n⏱️ Expiry: 2 Min\n📊 OTC: DISABLED\nREAL: 7AM-8PM auto 88%+ signals\n📅 Max: 30 trades/day\n💰 Martingale: 1 Real + 3 Marti (1-2-4-8) MANUAL\n🧠 Brain: Learns best/bad pairs, blocks bad 2h\n⏭️ Skip: Available on all signals\n📊 Daily Summary: Auto at 8PM\n🔥 Trailblazer Market Good: Auto alert when market hot\n🌅 Greeting: By time + 7AM wake up\n📰 News: Forex Factory High Impact - Blocks news pairs 30min before news")
 
 threading.Thread(target=background_iq, daemon=True).start()
 threading.Thread(target=real_signal_scanner,daemon=True).start()
 threading.Thread(target=daily_summary_loop,daemon=True).start()
+threading.Thread(target=trailblazer_market_scanner,daemon=True).start()
+threading.Thread(target=morning_greet_loop,daemon=True).start()
 
 if __name__ == "__main__":
     try:
         url=os.getenv("RENDER_EXTERNAL_URL")
         if url and BOT_TOKEN: requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={url}/{BOT_TOKEN}", timeout=5); print(f"Webhook set {url}")
     except: pass
-    port=int(os.getenv("PORT",10000)); print(f"Starting Flask on 0.0.0.0:{port} - V14 BRAIN+SKIP - OTC DISABLED - MANUAL"); app.run(host="0.0.0.0", port=port, threaded=True)
+    port=int(os.getenv("PORT",10000)); print(f"Starting Flask on 0.0.0.0:{port} - V16 TRAILBLAZER+NEWS - OTC DISABLED - MANUAL"); app.run(host="0.0.0.0", port=port, threaded=True)
