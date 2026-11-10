@@ -639,4 +639,4 @@ if __name__ == "__main__":
     except: pass
     port=int(os.getenv("PORT",10000))
     print(f"Starting Flask on 0.0.0.0:{port} - FREE WEB SERVICE - OTC DISABLED - V12")
-    app.run(host="0.0.0.0", port=port, threaded=True
+    app.run(host="0.0.0.0", port=port, threaded=True)
