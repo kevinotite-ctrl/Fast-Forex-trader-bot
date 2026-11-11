@@ -20,7 +20,7 @@ bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 app = Flask(__name__)
 ENABLE_OTC = False
 
-# JPY REMOVED - NO JPY PAIRS
+# JPY REMOVED - NO JPY PAIRS ANYWHERE
 REAL_PAIRS = ["EURUSD","GBPUSD","EURGBP","AUDUSD","USDCAD","USDCHF","EURAUD","GBPCHF","EURCHF","NZDUSD","GBPAUD","EURCAD","AUDCAD","GBPCAD","AUDNZD",]
 OTC_PAIRS = ["EURUSD-OTC","GBPUSD-OTC","AUDUSD-OTC","USDCAD-OTC","EURGBP-OTC","EURAUD-OTC","GBPAUD-OTC","NZDUSD-OTC","GBPCHF-OTC","EURCHF-OTC","USDCHF-OTC","AUDCAD-OTC","EURCAD-OTC"]
 PAIR_EMOJI = {"EURUSD":"🇪🇺 EUR/USD REAL","GBPUSD":"🇬🇧 GBP/USD REAL","EURGBP":"🇪🇺 EUR/GBP REAL","AUDUSD":"🇦🇺 AUD/USD REAL","USDCAD":"🇺🇸 USD/CAD REAL","USDCHF":"🇺🇸 USD/CHF REAL","EURAUD":"🇪🇺 EUR/AUD REAL","GBPCHF":"🇬🇧 GBP/CHF REAL","EURCHF":"🇪🇺 EUR/CHF REAL","NZDUSD":"🇳🇿 NZD/USD REAL","GBPAUD":"🇬🇧 GBP/AUD REAL","EURCAD":"🇪🇺 EUR/CAD REAL","AUDCAD":"🇦🇺 AUD/CAD REAL","GBPCAD":"🇬🇧 GBP/CAD REAL","AUDNZD":"🇦🇺 AUD/NZD REAL","EURUSD-OTC":"🇪🇺 EUR/USD OTC","GBPUSD-OTC":"🇬🇧 GBP/USD OTC","EURGBP-OTC":"🇪🇺 EUR/GBP OTC","AUDUSD-OTC":"🇦🇺 AUD/USD OTC","USDCHF-OTC":"🇺🇸 USD/CHF OTC","EURAUD-OTC":"🇪🇺 EUR/AUD OTC","GBPAUD-OTC":"🇬🇧 GBP/AUD OTC","NZDUSD-OTC":"🇳🇿 NZD/USD OTC","GBPCHF-OTC":"🇬🇧 GBP/CHF OTC","EURCHF-OTC":"🇪🇺 EUR/CHF OTC","USDCAD-OTC":"🇺🇸 USD/CAD OTC","AUDCAD-OTC":"🇦🇺 AUD/CAD OTC","EURCAD-OTC":"🇪🇺 EUR/CAD OTC"}
@@ -30,11 +30,6 @@ user_states = {}; AUTO_STATE = {}; IQ_LOCK = threading.Lock()
 IQ_CONNECTED=False; iq=None; PAYOUT_CACHE={}; PAYOUT_TIME=0
 OTC_SESSION_RESULTS = []
 OTC_MARTI = {"loss_streak":0, "base":1.0, "bal":"PRACTICE", "levels":[1,2,4,8]}
-# ===== AUTO TRADE SETTINGS =====
-AUTO_TRADE = True
-AUTO_MIN_CONF = 94
-AUTO_BALANCE = "PRACTICE"
-AUTO_MAX_CHAIN = 4
 PULLBACK_STATE = {}
 ACTIVE_SIGNAL = {"active": False, "pair": None, "dir": None, "conf":0, "rsi":0, "adx":0, "started": 0}
 LAST_GLOBAL_SIGNAL = {"time": 0}
@@ -45,6 +40,7 @@ MARKET_GOOD_SENT = {"date": "", "last_alert": 0}
 MORNING_GREET_SENT = ""
 NEWS_CACHE = {"data": [], "time": 0}
 
+# ===== GREETING =====
 def get_greeting():
     tz = pytz.timezone("Africa/Lagos"); hour = datetime.now(tz).hour
     if 5 <= hour < 12: return "🌅 GOOD MORNING TRAILBLAZER ☀️"
@@ -58,6 +54,7 @@ def get_greeting_msg():
     elif 17 <= hour < 21: return "🌇 Evening session! Last chance to stack up before market closes 🌙\n🎯 Let's finish strong!"
     else: return "🌙 Market is sleeping. Rest your mind, Trailblazer 💤\n💰 Tomorrow we stack again!"
 
+# ===== SESSION BOOST =====
 def get_session_boost(pair):
     tz = pytz.timezone("Africa/Lagos"); now = datetime.now(tz); hour = now.hour + now.minute / 60
     if 8 <= hour < 11:
@@ -71,6 +68,7 @@ def get_session_boost(pair):
     elif 17 <= hour < 18: return 2, "🇺🇸 NY AFTERNOON"
     else: return 0, "🌍 NORMAL"
 
+# ===== NEWS SCANNER =====
 def get_upcoming_news():
     try:
         if time.time() - NEWS_CACHE["time"] < 300: return NEWS_CACHE["data"]
@@ -112,6 +110,7 @@ def format_news_alert(news_list):
         txt += f"🔴 {flag} {n['country']} - {n['title']}\n⏰ {when}\n\n"
     return txt
 
+# ===== AI BRAIN V17 - HOUR + PAIR RSI =====
 PAIR_BRAIN = {}
 def load_brain():
     global PAIR_BRAIN
@@ -448,97 +447,6 @@ def pullback_scanner_loop(cid, pair, original_dir):
         time.sleep(10)
     PULLBACK_STATE[cid] = {"active":False}; bot.send_message(cid, "⏱️ Pullback scan timeout (5 min) - No safe entry. Waiting for next signal.")
 
-# ===== AUTO TRADE ENGINE =====
-def auto_place_one_trade(pair, direction, amount, expiry=2):
-    try:
-        if not IQ_CONNECTED:
-            print(f"[AUTO] Not connected, cannot trade {pair}")
-            return None
-        with IQ_LOCK:
-            logging.disable(logging.CRITICAL)
-            try: iq.change_balance(AUTO_BALANCE)
-            except: pass
-            dir_low = direction.lower()
-            print(f"[AUTO] Placing ${amount} {pair} {dir_low} expiry {expiry}min")
-            check, order_id = iq.buy(amount, pair, dir_low, expiry)
-            if not check:
-                print(f"[AUTO] Buy failed {pair} {order_id}")
-                return None
-            print(f"[AUTO] Order placed ID {order_id}, waiting {expiry}min...")
-            time.sleep(expiry * 60 + 5)
-            try:
-                win_status = iq.check_win_v3(order_id)
-                print(f"[AUTO] Result for {order_id}: {win_status}")
-                if isinstance(win_status, (int, float)):
-                    return True if win_status > 0 else False
-                if isinstance(win_status, tuple):
-                    return True if win_status[0] > 0 else False
-                return False
-            except Exception as e:
-                print(f"[AUTO] Check win error {e}")
-                return False
-    except Exception as e:
-        print(f"[AUTO] Trade error {pair} {e}")
-        return None
-
-def auto_trade_chain(cid, pair, direction, conf, rsi, adx_val):
-    levels = OTC_MARTI["levels"]
-    base = OTC_MARTI["base"]
-    current_dir = direction
-    for level_idx in range(AUTO_MAX_CHAIN):
-        amt = base * levels[level_idx]
-        names = ["Real Entry", "Martingale 1", "Martingale 2", "Martingale 3"]
-        is_pullback = level_idx > 0
-        if is_pullback:
-            bot.send_message(cid, f"⏳ **AUTO: Waiting Pullback for {names[level_idx]}**\n\n💱 {pair} | Next ${amt:.2f}\n🔍 Scanning every 10 sec for pullback...\n📍 RSI safe + Price at EMA + No News\n⏳ Timeout 5 min")
-            found = False
-            start = time.time()
-            while time.time() - start < 300:
-                if is_news_blocking_pair(pair, minutes=30):
-                    time.sleep(10)
-                    continue
-                d = check_pullback_entry(pair, current_dir)
-                if d:
-                    current_dir = d['dir']
-                    found = True
-                    bot.send_message(cid, f"🎯 **AUTO PULLBACK FOUND**\n\n💱 {pair} {current_dir}\n📊 {d['reason']}\n💰 Placing {names[level_idx]} ${amt:.2f} NOW")
-                    break
-                time.sleep(10)
-            if not found:
-                bot.send_message(cid, f"⏱️ **AUTO: No Pullback for {names[level_idx]}**\n\n💱 {pair} - Chain stopped. Waiting next signal.")
-                clear_signal()
-                OTC_MARTI["loss_streak"] = 0
-                return
-        bot.send_message(cid, f"🤖 **AUTO PLACING {names[level_idx].upper()}**\n\n💱 {pair} | {'🟢 CALL ⬆️' if current_dir=='CALL' else '🔴 PUT ⬇️'}\n💰 Amount: ${amt:.2f} | Level {level_idx+1}/4\n🎯 Conf: {conf:.0f}% | RSI {rsi:.0f}\n⏱️ Expiry: 2 Min | Balance: {AUTO_BALANCE}\n\nBot go wait 2 mins for result...")
-        result = auto_place_one_trade(pair, current_dir, amt, expiry=2)
-        if result is None:
-            bot.send_message(cid, f"⚠️ **AUTO ERROR**\n\n💱 {pair} - Trade failed to place. Chain stopped. Check IQ connection.")
-            clear_signal()
-            return
-        if result is True:
-            record_brain(pair, True, conf, rsi, adx_val)
-            OTC_MARTI["loss_streak"] = 0
-            STATS['wins'] += 1
-            count_trade()
-            clear_signal()
-            LAST_GLOBAL_SIGNAL["time"] = time.time()
-            profit = amt * get_payout(pair)
-            bot.send_message(cid, f"✅ **AUTO WIN!** 🎉\n\n💱 {pair} | {names[level_idx]} ${amt:.2f}\n💰 Profit: +${profit:.2f}\n♻️ Reset to Real Entry $1\n📅 Today: {STATS['daily_trades']}/30\n✅ Next signal in 15 mins")
-            return
-        else:
-            record_brain(pair, False, conf, rsi, adx_val)
-            OTC_MARTI["loss_streak"] = level_idx + 1
-            STATS['loss'] += 1
-            count_trade()
-            bot.send_message(cid, f"❌ **AUTO LOSS - {names[level_idx]}**\n\n💱 {pair} | Lost ${amt:.2f}\n👉 Next: {names[level_idx+1] if level_idx+1 < 4 else 'CHAIN FINISHED'}")
-            if level_idx == AUTO_MAX_CHAIN - 1:
-                bot.send_message(cid, f"⛔ **AUTO CHAIN FINISHED**\n\n💱 {pair}\n❌ Lost: $1 + $2 + $4 + $8 = -$15\n♻️ Reset to $1\n💪 Next signal in 15 mins")
-                OTC_MARTI["loss_streak"] = 0
-                clear_signal()
-                LAST_GLOBAL_SIGNAL["time"] = time.time()
-                return
-            continue
-
 def daily_summary_loop():
     global DAILY_SUMMARY_SENT
     tz = pytz.timezone("Africa/Lagos")
@@ -665,10 +573,10 @@ def morning_greet_loop():
 
 📊 **Today's Plan:**
 ✅ Bot is now scanning 15 REAL pairs (No JPY)
-✅ 94-96% AUTO trade, 88-93% MANUAL
+✅ Only 88%+ SNIPER signals
 ✅ Max 30 trades - No overtrading
 🧠 Brain is ready - It remembers your best pairs + best hours + best RSI
-⏭️ SKIP button if you don't like a signal - Next in 5 mins
+⏭️ SKIP button if you don't like a signal
 📰 News scanner ON - Will warn you before big news
 ⏰ Session boost ON - London + NY Overlap = Best signals
 
@@ -684,6 +592,7 @@ def morning_greet_loop():
             time.sleep(60)
         except: time.sleep(60)
 
+# ===== FIXED: ONLY 1 SIGNAL AT A TIME - STRONGEST PAIR WINS =====
 def real_signal_scanner():
     last_signal = {}
     tz = pytz.timezone("Africa/Lagos")
@@ -738,26 +647,14 @@ def real_signal_scanner():
 
 ⚠️ MANUAL - Press WIN / LOSS / SKIP
 """
-                    is_auto = AUTO_TRADE and d['conf'] >= AUTO_MIN_CONF and d['conf'] <= 96
-                    if is_auto:
-                        try:
-                            bot.send_message(OWNER_ID, f"🤖 **AUTO SIGNAL DETECTED 94%+**\n\n💱 {PAIR_EMOJI.get(pair,pair)}\n📊 {'🟢 CALL ⬆️' if d['dir']=='CALL' else '🔴 PUT ⬇️'} | 🎯 {d['conf']:.0f}% SNIPER{wr_txt}\n📈 {d['reason']} | RSI {d['rsi']:.1f}\n💸 {int(d['payout']*100)}% | Balance: {AUTO_BALANCE}\n\n🤖 Bot go place trade itself NOW. No need press anything.\n⏳ If loss, bot go wait pullback + do Martingale automatically.", parse_mode="Markdown")
-                            last_signal[pair] = time.time()
-                            LAST_GLOBAL_SIGNAL["time"] = time.time()
-                            start_signal(pair, d['dir'], d['conf'], d['rsi'], d.get('adx', 30))
-                            threading.Thread(target=auto_trade_chain, args=(OWNER_ID, pair, d['dir'], d['conf'], d['rsi'], d.get('adx',30)), daemon=True).start()
-                            print(f"AUTO STARTED: {pair} {d['conf']}% {d['dir']}")
-                        except Exception as e:
-                            print(f"Auto send err {e}")
-                    else:
-                        try:
-                            bot.send_message(OWNER_ID, msg, parse_mode="Markdown", reply_markup=mk)
-                            last_signal[pair] = time.time()
-                            LAST_GLOBAL_SIGNAL["time"] = time.time()
-                            start_signal(pair, d['dir'], d['conf'], d['rsi'], d.get('adx', 30))
-                            print(f"SENT MANUAL: {pair} {d['conf']}%")
-                        except Exception as e:
-                            print(f"Send err {e}")
+                    try:
+                        bot.send_message(OWNER_ID, msg, parse_mode="Markdown", reply_markup=mk)
+                        last_signal[pair] = time.time()
+                        LAST_GLOBAL_SIGNAL["time"] = time.time()
+                        start_signal(pair, d['dir'], d['conf'], d['rsi'], d.get('adx', 30))
+                        print(f"SENT BEST ONLY: {pair} {d['conf']}% - Skipped {len(candidates)-1} others: {[c[0] for c in candidates[1:]]}")
+                    except Exception as e:
+                        print(f"Send err {e}")
             time.sleep(25)
         except:
             time.sleep(30)
@@ -814,7 +711,6 @@ def start(m):
 📰 News: {len(get_upcoming_news())} high impact in next 2h
 ⏳ Active Signal: {ACTIVE_SIGNAL['pair'] if is_signal_active() else 'None'}
 OTC: {'✅ ON' if ENABLE_OTC else '⛔ DISABLED - REAL only'}
-🤖 AUTO: {'ON 94-96% ' + AUTO_BALANCE if AUTO_TRADE else 'OFF - Manual only'}
 """
         bot.send_message(m.chat.id,txt,parse_mode="Markdown"); return
     if m.text.startswith('/balance'):
@@ -831,7 +727,7 @@ OTC: {'✅ ON' if ENABLE_OTC else '⛔ DISABLED - REAL only'}
 
 {greet_msg}
 
-🤖 **Z-BOT V17 TRAILBLAZER - AUTO 94%+** 🤖
+🤖 **Z-BOT V17 TRAILBLAZER - MANUAL** 🤖
 
 💎 IQ: {'✅' if IQ_CONNECTED else '❌ False - Retrying...'} | 💰 DEMO ${bal_demo:.2f}
 🏆 W:{STATS['wins']} L:{STATS['loss']} | 🔥 {STATS['streak']}
@@ -840,7 +736,6 @@ OTC: {'✅ ON' if ENABLE_OTC else '⛔ DISABLED - REAL only'}
 ⏰ Session: {sn} ({sb:+d})
 📰 News: Auto scanner ON
 📍 {get_mode_text()}
-🤖 AUTO: 94-96% auto on {AUTO_BALANCE} | 88-93% manual
 ⛔ OTC Disabled - REAL signals start 7AM
 
 👇 **Select:**
@@ -980,8 +875,8 @@ def cb(c):
     if data=="stop_auto":
         if cid in AUTO_STATE: AUTO_STATE[cid]['running']=False; bot.send_message(cid,"🛑 Stopping..."); return
     if data=="stats":
-        total=STATS['wins']+STATS['loss']; wr=(STATS['wins']/total*100) if total else 0; bal=get_real_balance("PRACTICE"); sb,sn=get_session_boost("EURUSD"); bot.send_message(cid,f"📊 **STATS V17**\n📍 {get_mode_text()}\n{get_greeting()}\n⏰ Session: {sn} ({sb:+d})\n🏆 Wins: {STATS['wins']}\n❌ Loss: {STATS['loss']}\n📈 Winrate: {wr:.1f}%\n🔥 Streak: {STATS['streak']}\n💰 Bal: ${bal:.2f}\n📅 Today: {STATS['daily_trades']}/30\n🧠 Brain pairs: {len(PAIR_BRAIN)}\n📰 News in 2h: {len(get_upcoming_news())}\n📦 OTC: DISABLED | REAL only | 🤖 AUTO: {'ON '+AUTO_BALANCE if AUTO_TRADE else 'OFF'}",parse_mode="Markdown")
-    if data=="settings": bot.send_message(cid,f"⚙️ **SETTINGS V17 TRAILBLAZER**\n\n🛡️ V17: 5M Trend + ADX 25+ + MACD + Stochastic + BB + Payout 80%+\n⏱️ Expiry: 2 Min\n📊 OTC: DISABLED\nREAL: 7AM-8PM auto 88%+ signals\n🤖 AUTO: 94-96% auto place on {AUTO_BALANCE} | 88-93% manual\n📅 Max: 30 trades/day\n💰 Martingale: 1 Real + 3 Marti (1-2-4-8) AUTO pullback\n🧠 Brain V17: Best pairs + Best hours + Sweet RSI\n⏰ Session: London +8, Overlap +10, Lunch -10, Evening -5\n⏭️ Skip: Available on manual signals - Next in 5 mins\n📊 Daily Summary: Auto at 8PM\n🔥 Trailblazer Market Good: Auto alert when market hot\n🌅 Greeting: By time + 7AM wake up\n📰 News: Forex Factory High Impact - Blocks news pairs 30min before news")
+        total=STATS['wins']+STATS['loss']; wr=(STATS['wins']/total*100) if total else 0; bal=get_real_balance("PRACTICE"); sb,sn=get_session_boost("EURUSD"); bot.send_message(cid,f"📊 **STATS V17**\n📍 {get_mode_text()}\n{get_greeting()}\n⏰ Session: {sn} ({sb:+d})\n🏆 Wins: {STATS['wins']}\n❌ Loss: {STATS['loss']}\n📈 Winrate: {wr:.1f}%\n🔥 Streak: {STATS['streak']}\n💰 Bal: ${bal:.2f}\n📅 Today: {STATS['daily_trades']}/30\n🧠 Brain pairs: {len(PAIR_BRAIN)}\n📰 News in 2h: {len(get_upcoming_news())}\n📦 OTC: DISABLED | REAL only",parse_mode="Markdown")
+    if data=="settings": bot.send_message(cid,f"⚙️ **SETTINGS V17 TRAILBLAZER MANUAL**\n\n🛡️ V17: 5M Trend + ADX 25+ + MACD + Stochastic + BB + Payout 80%+\n⏱️ Expiry: 2 Min\n📊 OTC: DISABLED\nREAL: 7AM-8PM auto 88%+ signals\n📅 Max: 30 trades/day\n💰 Martingale: 1 Real + 3 Marti (1-2-4-8) MANUAL\n🧠 Brain V17: Best pairs + Best hours + Sweet RSI\n⏰ Session: London +8, Overlap +10, Lunch -10, Evening -5\n⏭️ Skip: Available on all signals - Next in 5 mins\n📊 Daily Summary: Auto at 8PM\n🔥 Trailblazer Market Good: Auto alert when market hot\n🌅 Greeting: By time + 7AM wake up\n📰 News: Forex Factory High Impact - Blocks news pairs 30min before news")
 
 threading.Thread(target=background_iq, daemon=True).start()
 threading.Thread(target=real_signal_scanner,daemon=True).start()
@@ -994,4 +889,4 @@ if __name__ == "__main__":
         url=os.getenv("RENDER_EXTERNAL_URL")
         if url and BOT_TOKEN: requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={url}/{BOT_TOKEN}", timeout=5); print(f"Webhook set {url}")
     except: pass
-    port=int(os.getenv("PORT",10000)); print(f"Starting Flask on 0.0.0.0:{port} - V17 TRAILBLAZER+SESSION+SMARTBRAIN+AUTO94 - OTC DISABLED"); app.run(host="0.0.0.0", port=port, threaded=True)
+    port=int(os.getenv("PORT",10000)); print(f"Starting Flask on 0.0.0.0:{port} - V17 TRAILBLAZER+SESSION+SMARTBRAIN - OTC DISABLED - MANUAL - NO JPY"); app.run(host="0.0.0.0", port=port, threaded=True)
