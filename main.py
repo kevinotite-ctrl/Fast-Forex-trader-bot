@@ -31,7 +31,7 @@ IQ_CONNECTED=False; iq=None; PAYOUT_CACHE={}; PAYOUT_TIME=0
 OTC_SESSION_RESULTS = []
 OTC_MARTI = {"loss_streak":0, "base":1.0, "bal":"PRACTICE", "levels":[1,2,4,8]}
 PULLBACK_STATE = {}
-ACTIVE_SIGNAL = {"active": False, "pair": None, "dir": None, "conf":0, "rsi":0, "adx":0, "started": 0}
+ACTIVE_SIGNAL = {"active": False, "pair": None, "dir": None, "conf":0, "rsi":0, "adx":0, "started": 0, "day": ""}
 LAST_GLOBAL_SIGNAL = {"time": 0}
 GLOBAL_COOLDOWN = 360
 SKIP_COOLDOWN = 120
@@ -39,6 +39,28 @@ DAILY_SUMMARY_SENT = ""
 MARKET_GOOD_SENT = {"date": "", "last_alert": 0}
 MORNING_GREET_SENT = ""
 NEWS_CACHE = {"data": [], "time": 0}
+
+# ===== NEW DAY RESET - RESET MAX TRADE + SKIP OLD SIGNAL =====
+def get_lagos_day():
+    return datetime.now(pytz.timezone("Africa/Lagos")).strftime("%Y-%m-%d")
+
+def check_and_reset_new_day():
+    today = get_lagos_day()
+    if STATS["daily_date"] != today:
+        print(f"🔄 NEW DAY {today} - Resetting daily trades & clearing old signal")
+        STATS["daily_date"] = today
+        STATS["daily_trades"] = 0
+        ACTIVE_SIGNAL.update({"active": False, "pair": None, "dir": None, "conf": 0, "rsi": 0, "adx": 0, "started": 0, "day": ""})
+        PULLBACK_STATE.clear()
+        OTC_MARTI["loss_streak"] = 0
+        return True
+    if ACTIVE_SIGNAL["active"] and ACTIVE_SIGNAL.get("day") and ACTIVE_SIGNAL["day"] != today:
+        print(f"⏭️ Skipping old signal {ACTIVE_SIGNAL['pair']} from {ACTIVE_SIGNAL['day']} - clearing")
+        ACTIVE_SIGNAL.update({"active": False, "pair": None, "dir": None, "conf": 0, "rsi": 0, "adx": 0, "started": 0, "day": ""})
+        PULLBACK_STATE.clear()
+        OTC_MARTI["loss_streak"] = 0
+        return True
+    return False
 
 # ===== GREETING =====
 def get_greeting():
@@ -186,9 +208,13 @@ def get_pair_rsi_boost(pair, current_rsi, is_call):
     return 0, ""
 load_brain()
 
-def is_signal_active(): return ACTIVE_SIGNAL["active"]
-def start_signal(pair, dir_, conf=0, rsi=0, adx=0): ACTIVE_SIGNAL.update({"active":True,"pair":pair,"dir":dir_,"conf":conf,"rsi":rsi,"adx":adx,"started":time.time()})
-def clear_signal(): ACTIVE_SIGNAL.update({"active":False,"pair":None,"dir":None,"conf":0,"rsi":0,"adx":0,"started":0})
+def is_signal_active():
+    check_and_reset_new_day()
+    return ACTIVE_SIGNAL["active"]
+def start_signal(pair, dir_, conf=0, rsi=0, adx=0):
+    check_and_reset_new_day()
+    ACTIVE_SIGNAL.update({"active":True,"pair":pair,"dir":dir_,"conf":conf,"rsi":rsi,"adx":adx,"started":time.time(),"day":get_lagos_day()})
+def clear_signal(): ACTIVE_SIGNAL.update({"active":False,"pair":None,"dir":None,"conf":0,"rsi":0,"adx":0,"started":0,"day":""})
 def is_allowed(uid): return uid == OWNER_ID
 def is_real_hours():
     try:
@@ -201,13 +227,12 @@ def is_real_hours():
         return 7 <= now.hour < 20
 def get_mode_text(): return "REAL SIGNAL (7AM-8PM)" if is_real_hours() else "OTC DISABLED - Waiting for REAL 7AM"
 def can_trade_today():
-    today = datetime.now(pytz.timezone("Africa/Lagos")).strftime("%Y-%m-%d")
-    if STATS["daily_date"] != today: STATS["daily_date"] = today; STATS["daily_trades"] = 0
+    check_and_reset_new_day()
     return STATS["daily_trades"] < 30
 def count_trade(): STATS["daily_trades"] += 1
 
 @app.route("/")
-def home(): return f"V17 TRAILBLAZER+SESSION+SMARTBRAIN RUNNING IQ:{IQ_CONNECTED} {datetime.now(pytz.timezone('Africa/Lagos')).strftime('%H:%M:%S')}"
+def home(): return f"V18 TRAILBLAZER+MULTI-TREND+SMART-EXPIRY RUNNING IQ:{IQ_CONNECTED} {datetime.now(pytz.timezone('Africa/Lagos')).strftime('%H:%M:%S')}"
 @app.route(f"/{BOT_TOKEN}",methods=['POST'])
 def wh():
     bot.process_new_updates([telebot.types.Update.de_json(request.get_data().decode("utf-8"))]); return "ok"
@@ -287,12 +312,12 @@ def calc_atr(df, period=14):
         high=df['max']; low=df['min']; close=df['close']; tr1=high-low; tr2=(high-close.shift()).abs(); tr3=(low-close.shift()).abs(); tr=pd.concat([tr1,tr2,tr3],axis=1).max(axis=1); return tr.rolling(period).mean().iloc[-1]
     except: return 0.0005
 def legit_live_scan(cid, mid, pair):
-    steps = [(0,"🚀 V17 Trailblazer Init...",0.15),(20,f"🔌 Checking {pair}...",0.2),(40,"📊 ADX + ATR + Brain + News + Session...",0.25),(60,"📈 EMA + MACD + 5M Trend...",0.2),(80,"💹 RSI + Stochastic + BB...",0.2),(100,"🔒 SNIPER LOCKED!",0.3)]
+    steps = [(0,"🚀 V18 Trailblazer Init...",0.15),(20,f"🔌 Checking {pair}...",0.2),(40,"📊 ADX + ATR + Brain + News + Session...",0.25),(60,"📈 EMA + MACD + 5M Trend...",0.2),(80,"💹 RSI + Stochastic + BB + Multi-Trend...",0.2),(100,"🔒 SNIPER LOCKED!",0.3)]
     last_pct=-1
     for pct, text, delay in steps:
         if pct==last_pct: time.sleep(delay); continue
         last_pct=pct; filled=int(pct//5); bar="█"*filled+"░"*(20-filled); color="🟥" if pct<40 else "🟨" if pct<80 else "🟩" if pct<100 else "💎"
-        txt=f"""{color} **Z-BOT V17 TRAILBLAZER** {color}\n\n💱 {PAIR_EMOJI.get(pair,pair)}\n💎 IQ: {'✅' if IQ_CONNECTED else '❌'}\n\n{bar} {pct}%\n\n🔍 {text}\n⏳ V17"""
+        txt=f"""{color} **Z-BOT V18 TRAILBLAZER** {color}\n\n💱 {PAIR_EMOJI.get(pair,pair)}\n💎 IQ: {'✅' if IQ_CONNECTED else '❌'}\n\n{bar} {pct}%\n\n🔍 {text}\n⏳ V18"""
         try: bot.edit_message_text(txt,cid,mid,parse_mode="Markdown")
         except: pass
         time.sleep(delay)
@@ -307,6 +332,52 @@ def calc_adx_v12(df, period=14):
         dx=100*((plus_di-minus_di).abs()/(plus_di+minus_di)); adx=dx.rolling(period).mean().iloc[-1]
         return float(adx), float(plus_di.iloc[-1]), float(minus_di.iloc[-1])
     except: return 0, 0, 0
+
+# ===== V18 - MULTI-TREND + SMART EXPIRY =====
+def get_trend_and_expiry(df, df5, close, r7, r14, adx, macd_val, sig_val, mom1, mom3, stoch_val, c_now, upper, lower, is_green):
+    trends = []
+    trend_score = 0
+    e9 = float(close.ewm(9).mean().iloc[-1]); e21 = float(close.ewm(21).mean().iloc[-1]); e50 = float(close.ewm(50).mean().iloc[-1])
+    if e9 > e21 > e50: trends.append("📈 EMA Strong Uptrend"); trend_score += 2
+    elif e9 < e21 < e50: trends.append("📉 EMA Strong Downtrend"); trend_score += 2
+    elif e9 > e21: trends.append("↗️ EMA Weak Uptrend"); trend_score += 1
+    elif e9 < e21: trends.append("↘️ EMA Weak Downtrend"); trend_score += 1
+    else: trends.append("➡️ EMA Flat / Ranging")
+    if df5 is not None:
+        c5 = df5['close']; e9_5 = float(c5.ewm(9).mean().iloc[-1]); e21_5 = float(c5.ewm(21).mean().iloc[-1])
+        if e9_5 > e21_5: trends.append("📈 5M Uptrend")
+        else: trends.append("📉 5M Downtrend")
+        if (is_green and e9_5 > e21_5) or (not is_green and e9_5 < e21_5):
+            trends.append("✅ 1M + 5M AGREE = Strong Trend"); trend_score += 3
+        else:
+            trends.append("⚠️ 1M vs 5M CONFLICT"); trend_score -= 2
+    if adx >= 35: trends.append(f"💪 ADX Very Strong {adx:.0f}"); trend_score += 3
+    elif adx >= 28: trends.append(f"🔥 ADX Strong {adx:.0f}"); trend_score += 2
+    elif adx >= 25: trends.append(f"👍 ADX OK {adx:.0f}"); trend_score += 1
+    else: trends.append(f"😴 ADX Weak {adx:.0f} - Ranging")
+    if macd_val > sig_val: trends.append("📈 MACD Bullish"); trend_score += 1
+    else: trends.append("📉 MACD Bearish"); trend_score += 1
+    if mom1 > 0.05: trends.append(f"🚀 Momentum Accelerating +{mom1:.3f}%")
+    elif mom1 < -0.05: trends.append(f"📉 Momentum Accelerating {mom1:.3f}%")
+    else: trends.append(f"🐢 Momentum Slow {mom1:.3f}%")
+    if r7 > 70: trends.append(f"🔥 RSI Overbought {r7:.0f} - Reversal Soon")
+    elif r7 < 30: trends.append(f"❄️ RSI Oversold {r7:.0f} - Reversal Soon")
+    else: trends.append(f"✅ RSI Safe Zone {r7:.0f}")
+    if c_now > upper: trends.append("💥 BB Breakout Up - Strong Move")
+    elif c_now < lower: trends.append("💥 BB Breakout Down - Strong Move")
+    elif upper - lower < 0.0005: trends.append("😴 BB Squeeze - No Move Yet")
+    else: trends.append("➡️ BB Inside - Normal Range")
+    if trend_score >= 7:
+        expiry = 300; expiry_txt = "5 Min - STRONG TREND, ride am"; trend_type = "🔥 STRONG TREND"
+    elif trend_score >= 5:
+        expiry = 180; expiry_txt = "3 Min - GOOD TREND"; trend_type = "📈 GOOD TREND"
+    elif trend_score >= 3:
+        expiry = 120; expiry_txt = "2 Min - NORMAL TREND"; trend_type = "➡️ NORMAL TREND"
+    elif trend_score >= 1:
+        expiry = 60; expiry_txt = "1 Min - WEAK / RANGING, quick only"; trend_type = "😴 WEAK / RANGING"
+    else:
+        expiry = 60; expiry_txt = "1 Min - CONFLICT, very careful"; trend_type = "⚠️ CONFLICT TREND"
+    return {"trends": trends, "trend_score": trend_score, "expiry": expiry, "expiry_txt": expiry_txt, "trend_type": trend_type}
 
 def analyze_sniper_v12(pair, sniper_mode=False):
     df = get_candles(pair)
@@ -407,8 +478,11 @@ def analyze_sniper_v12(pair, sniper_mode=False):
         if boost <= -8 and sniper_mode and score < 92: return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":r7,"reason":f"🧠 Weak pair {pair} needs 92%","payout":payout,"expiry":120,"atr":atr,"rejected":True}
         score = max(40, min(96, score)); reason = " + ".join(reasons) if reasons else "Weak PA"
         if sniper_mode and score < 88: return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":r7,"reason":reason,"payout":payout,"expiry":120,"atr":atr,"rejected":True}
-        return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":r7,"reason":reason,"payout":payout,"expiry":120,"atr":atr,"rejected":False,"adx":adx}
-    except Exception as e: print(f"V17 err {pair} {e}"); return None
+        # V18 Smart Expiry
+        trend_info = get_trend_and_expiry(df, df5, close, r7, r14, adx, macd_val, sig_val, mom1, mom3, stoch_val, c_now, upper, lower, is_green)
+        reason = reason + f" | {trend_info['trend_type']} | ⏱️ {trend_info['expiry_txt']}"
+        return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":r7,"reason":reason,"payout":payout,"expiry":trend_info['expiry'],"atr":atr,"rejected":False,"adx":adx,"trend_info":trend_info}
+    except Exception as e: print(f"V18 err {pair} {e}"); return None
 
 def check_pullback_entry(pair, original_dir):
     if is_news_blocking_pair(pair, minutes=30): return None
@@ -434,6 +508,9 @@ def pullback_scanner_loop(cid, pair, original_dir):
     start = time.time(); PULLBACK_STATE[cid] = {"pair":pair,"dir":original_dir,"active":True}
     bot.send_message(cid, f"🔍 **Pullback Scan ON**\n\n💱 {pair} looking for {original_dir} pullback\n📊 Scanning every 10 sec...\n📍 RSI7 + RSI14 both safe + RSI turning + Price at EMA\n📰 News check ON - will skip if news coming\n⏳ Timeout 5 min\n\nPress ✅ WIN / ❌ LOSS / ⏭️ SKIP")
     while PULLBACK_STATE.get(cid, {}).get("active") and time.time() - start < 300:
+        if check_and_reset_new_day():
+            bot.send_message(cid, "🔄 New day started - Yesterday pullback scan stopped. Fresh signals go come today 7AM.")
+            PULLBACK_STATE[cid]["active"] = False; return
         if not can_trade_today(): bot.send_message(cid, "⛔ Max 30 trades reached today. Pullback scan stopped."); PULLBACK_STATE[cid]["active"] = False; return
         d = check_pullback_entry(pair, original_dir)
         if d:
@@ -598,6 +675,7 @@ def real_signal_scanner():
     tz = pytz.timezone("Africa/Lagos")
     while True:
         try:
+            check_and_reset_new_day()
             if is_signal_active():
                 time.sleep(15)
                 continue
@@ -629,12 +707,15 @@ def real_signal_scanner():
                     mk.add(types.InlineKeyboardButton("✅ WIN - Reset", callback_data=f"manual_win_{pair}"), types.InlineKeyboardButton("❌ LOSS - Pullback Scan", callback_data=f"manual_loss_{pair}_{d['dir']}"))
                     mk.add(types.InlineKeyboardButton("⏭️ SKIP THIS TRADE", callback_data=f"skip_{pair}"))
                     brain = get_pair_stats(pair); wr = get_pair_winrate(pair); wr_txt = f" | 🧠 Brain WR {wr:.0f}%" if wr is not None else ""
-                    msg = f"""📡 **REAL SIGNAL V17 TRAILBLAZER - MANUAL** 📡
+                    ti = d.get('trend_info', {}); expiry_min = ti.get('expiry', 120)//60; trend_type_txt = ti.get('trend_type','➡️ NORMAL TREND'); trends_txt = " | ".join(ti.get('trends', [])[:4])
+                    msg = f"""📡 **REAL SIGNAL V18 TRAILBLAZER - MANUAL** 📡
 
 💱 {PAIR_EMOJI.get(pair,pair)}
 📊 {dir_e} | 🎯 {d['conf']:.0f}% SNIPER{wr_txt}
 📈 {d['reason']} | RSI {d['rsi']:.1f} | ATR {d['atr']:.5f}
-💸 {int(d['payout']*100)}% | 2 Min
+📊 Trend: {trend_type_txt}
+🔍 Trends: {trends_txt}
+💸 {int(d['payout']*100)}% | ⏱️ Suggested: {expiry_min} Min
 📅 Today: {STATS['daily_trades']}/30
 📰 News: ✅ Checked - No blocking news
 
@@ -698,7 +779,7 @@ def start(m):
         bot.send_message(m.chat.id,txt,parse_mode="Markdown"); return
     if m.text.startswith('/mode'):
         tz=pytz.timezone("Africa/Lagos"); now=datetime.now(tz); sb, sn = get_session_boost("EURUSD")
-        txt=f"""📍 **MODE CHECK V17 TRAILBLAZER**
+        txt=f"""📍 **MODE CHECK V18 TRAILBLAZER**
 
 {get_greeting()}
 ⏰ Now: {now.strftime('%A %H:%M:%S WAT')}
@@ -727,7 +808,7 @@ OTC: {'✅ ON' if ENABLE_OTC else '⛔ DISABLED - REAL only'}
 
 {greet_msg}
 
-🤖 **Z-BOT V17 TRAILBLAZER - MANUAL** 🤖
+🤖 **Z-BOT V18 TRAILBLAZER - MANUAL** 🤖
 
 💎 IQ: {'✅' if IQ_CONNECTED else '❌ False - Retrying...'} | 💰 DEMO ${bal_demo:.2f}
 🏆 W:{STATS['wins']} L:{STATS['loss']} | 🔥 {STATS['streak']}
@@ -775,7 +856,7 @@ def cb(c):
         bot.answer_callback_query(c.id,f"LOSS - Next {names[idx]} ${next_amt}"); bot.send_message(cid,f"❌ **LOSS Recorded**\n\n💱 {pair}\n👉 Next: **{names[idx]} - ${next_amt:.2f} Level {idx+1}/4 ({mult}x)**{wr_txt}\n🔍 Scanning every 10 sec for pullback entry...\n📍 RSI7 + RSI14 safe + RSI turning + Price at EMA\n📰 News check ON\n\nPress ✅ WIN / ❌ LOSS / ⏭️ SKIP after you trade it manually.")
         threading.Thread(target=pullback_scanner_loop, args=(cid, pair, orig_dir), daemon=True).start(); return
     if data=="brain_btn":
-        txt="🧠 **AI BRAIN V17**\n\n"; best=[]; bad=[]
+        txt="🧠 **AI BRAIN V18**\n\n"; best=[]; bad=[]
         for pair,s in PAIR_BRAIN.items():
             total=s["wins"]+s["loss"]
             if total>=3:
@@ -793,11 +874,11 @@ def cb(c):
     if data=="trade_real":
         mk=types.InlineKeyboardMarkup(row_width=1); mk.add(types.InlineKeyboardButton("🔍 📊 SCAN ALL REAL NOW (15 PAIRS)",callback_data="scan_all_real"))
         for p in REAL_PAIRS: mk.add(types.InlineKeyboardButton(f"{PAIR_EMOJI.get(p,p)}",callback_data=f"real_pair_{p}"))
-        bot.send_message(cid,f"📈 **TRADE REAL V17 TRAILBLAZER MANUAL**\n📍 {get_mode_text()}\n📅 Today: {STATS['daily_trades']}/30",reply_markup=mk,parse_mode="Markdown"); return
+        bot.send_message(cid,f"📈 **TRADE REAL V18 TRAILBLAZER MANUAL**\n📍 {get_mode_text()}\n📅 Today: {STATS['daily_trades']}/30",reply_markup=mk,parse_mode="Markdown"); return
     if data=="scan_all_real":
         if is_signal_active(): bot.send_message(cid,f"⏳ **One signal already active**\n\n💱 {ACTIVE_SIGNAL['pair']} {ACTIVE_SIGNAL['dir']}\nFinish it first - Press ✅ WIN / ❌ LOSS / ⏭️ SKIP\nNo new signal until that chain ends."); return
         if not can_trade_today(): bot.send_message(cid,"⛔ Max 30 trades reached today. Come back tomorrow 7AM."); return
-        bot.answer_callback_query(c.id,"Scanning 15 REAL pairs V17..."); scan_msg=bot.send_message(cid,"🔍 **SCANNING ALL 15 REAL PAIRS V17 TRAILBLAZER...**\n\n⏳ ~12 sec"); results=[]; datas={}
+        bot.answer_callback_query(c.id,"Scanning 15 REAL pairs V18..."); scan_msg=bot.send_message(cid,"🔍 **SCANNING ALL 15 REAL PAIRS V18 TRAILBLAZER...**\n\n⏳ ~12 sec"); results=[]; datas={}
         for pair in REAL_PAIRS:
             if is_pair_blocked(pair): results.append((pair,0,"-","🧠 Blocked","🔴 BLOCKED",120)); continue
             nb = is_news_blocking_pair(pair, minutes=30)
@@ -809,10 +890,10 @@ def cb(c):
             elif conf>=65: status="🟡 WAIT"
             else: status="🔴 NO TRADE"
             results.append((pair,conf,dir_,reason,status,exp)); datas[pair]=d
-            try: bot.edit_message_text(f"🔍 Scanning V17... {pair} {conf:.0f}%",cid,scan_msg.message_id)
+            try: bot.edit_message_text(f"🔍 Scanning V18... {pair} {conf:.0f}%",cid,scan_msg.message_id)
             except: pass
             time.sleep(0.3)
-        results.sort(key=lambda x: x[1], reverse=True); txt="📊 **REAL V17 TRAILBLAZER READINESS** 📊\n"; txt+=f"📍 {get_mode_text()}\n⏰ {datetime.now(pytz.timezone('Africa/Lagos')).strftime('%H:%M:%S WAT')}\n📅 Today: {STATS['daily_trades']}/30\n📰 News: {len(get_upcoming_news())} high impact in next 2h\n\n"
+        results.sort(key=lambda x: x[1], reverse=True); txt="📊 **REAL V18 TRAILBLAZER READINESS** 📊\n"; txt+=f"📍 {get_mode_text()}\n⏰ {datetime.now(pytz.timezone('Africa/Lagos')).strftime('%H:%M:%S WAT')}\n📅 Today: {STATS['daily_trades']}/30\n📰 News: {len(get_upcoming_news())} high impact in next 2h\n\n"
         for pair,conf,dir_,reason,status,exp in results:
             emoji=PAIR_EMOJI.get(pair,pair)
             if conf>=65: txt+=f"{status} {emoji}: {conf:.0f}% {dir_} - {reason}\n"
@@ -825,12 +906,14 @@ def cb(c):
         if best and best[1]>=88 and best[0] in datas:
             time.sleep(0.5); best_data=datas[best[0]]; tz=pytz.timezone("Africa/Lagos"); now=datetime.now(tz); entry=now+timedelta(seconds=45); dir_e="🟢 CALL ⬆️" if best_data['dir']=="CALL" else "🔴 PUT ⬇️"; base=OTC_MARTI["base"]
             mk2=types.InlineKeyboardMarkup(row_width=2); mk2.add(types.InlineKeyboardButton("✅ WIN - Reset",callback_data=f"manual_win_{best_data['pair']}"),types.InlineKeyboardButton("❌ LOSS - Pullback Scan",callback_data=f"manual_loss_{best_data['pair']}_{best_data['dir']}")); mk2.add(types.InlineKeyboardButton("⏭️ SKIP THIS TRADE",callback_data=f"skip_{best_data['pair']}"))
-            signal_txt=f"""📡 **REAL TOP SIGNAL V17 - MANUAL** 📡
+            ti2 = best_data.get('trend_info', {}); exp_min2 = ti2.get('expiry',120)//60
+            signal_txt=f"""📡 **REAL TOP SIGNAL V18 - MANUAL** 📡
 
 💱 {PAIR_EMOJI.get(best_data['pair'],best_data['pair'])}
 📊 {dir_e} | 🎯 {best_data['conf']:.0f}% SNIPER
 📈 {best_data['reason']} | RSI {best_data['rsi']:.1f}
-💸 {int(best_data['payout']*100)}% | 💰 {best_data['price']:.5f}
+💸 {int(best_data['payout']*100)}% | 💰 {best_data['price']:.5f} | ⏱️ Suggested: {exp_min2} Min
+📊 Trend: {ti2.get('trend_type','➡️ NORMAL TREND')}
 📰 News: ✅ Checked - No blocking news
 
 ⏰ ENTRY: {entry.strftime('%H:%M:%S WAT')} (in 45s)
@@ -848,20 +931,23 @@ def cb(c):
         if is_pair_blocked(pair): bot.send_message(cid,f"🧠 **{pair} Blocked by Brain**\n\nThis pair has been losing for you. Brain blocked it for 2h.\nTry another pair or /brain"); return
         nb = is_news_blocking_pair(pair, minutes=30)
         if nb: bot.send_message(cid,f"📰 **{pair} Blocked by NEWS**\n\n🔴 {nb['country']} - {nb['title']}\n⏰ In {nb['in_min']} min\n\nWait 15 min after news, then try again."); return
-        bot.answer_callback_query(c.id,f"Scanning {pair} V17..."); scan_msg=bot.send_message(cid,f"🔍 **V17 TRAILBLAZER SCAN {PAIR_EMOJI.get(pair,pair)}**\n\n0%\n🚀 Sniper..."); legit_live_scan(cid,scan_msg.message_id,pair); d=analyze_sniper_v12(pair,sniper_mode=False)
+        bot.answer_callback_query(c.id,f"Scanning {pair} V18..."); scan_msg=bot.send_message(cid,f"🔍 **V18 TRAILBLAZER SCAN {PAIR_EMOJI.get(pair,pair)}**\n\n0%\n🚀 Sniper..."); legit_live_scan(cid,scan_msg.message_id,pair); d=analyze_sniper_v12(pair,sniper_mode=False)
         if not d or d['conf']<88:
             mk=types.InlineKeyboardMarkup(); mk.add(types.InlineKeyboardButton("🔄 RETRY",callback_data=f"real_pair_{pair}"),types.InlineKeyboardButton("📈 SCAN ALL",callback_data="scan_all_real")); bot.send_message(cid,f"⚠️ **No safe trade now for {pair}**\n\n📊 Conf: {d['conf'] if d else 0}% < 88%\n🛡️ {d['reason'] if d else 'No data'}",reply_markup=mk); return
         tz=pytz.timezone("Africa/Lagos"); now=datetime.now(tz); entry=now+timedelta(seconds=45); dir_e="🟢 CALL ⬆️" if d['dir']=="CALL" else "🔴 PUT ⬇️"; base=OTC_MARTI["base"]
-        signal_txt=f"""📡 **REAL SIGNAL V17 TRAILBLAZER - MANUAL** 📡
+        ti3 = d.get('trend_info', {}); exp_min3 = ti3.get('expiry',120)//60
+        signal_txt=f"""📡 **REAL SIGNAL V18 TRAILBLAZER - MANUAL** 📡
 
 💱 {PAIR_EMOJI.get(pair,pair)}
 📊 {dir_e} | 🎯 {d['conf']:.0f}% SNIPER
 📈 {d['reason']} | RSI {d['rsi']:.1f} | ATR {d['atr']:.5f}
-💸 {int(d['payout']*100)}% | 💰 {d['price']:.5f}
+📊 Trend: {ti3.get('trend_type','➡️ NORMAL TREND')}
+🔍 Trends: {" | ".join(ti3.get('trends', [])[:4])}
+💸 {int(d['payout']*100)}% | 💰 {d['price']:.5f} | ⏱️ Suggested: {exp_min3} Min
 📰 News: ✅ Checked - No blocking news
 
 ⏰ ENTRY: {entry.strftime('%H:%M:%S WAT')} (in 45s)
-⏱️ EXPIRY: 2 Min
+⏱️ EXPIRY: {exp_min3} Min Suggested
 
 **Real Entry:** ${base:.2f}
 **Marti 1:** ${base*2:.2f} | **Marti 2:** ${base*4:.2f} | **Marti 3:** ${base*8:.2f}
@@ -875,8 +961,8 @@ def cb(c):
     if data=="stop_auto":
         if cid in AUTO_STATE: AUTO_STATE[cid]['running']=False; bot.send_message(cid,"🛑 Stopping..."); return
     if data=="stats":
-        total=STATS['wins']+STATS['loss']; wr=(STATS['wins']/total*100) if total else 0; bal=get_real_balance("PRACTICE"); sb,sn=get_session_boost("EURUSD"); bot.send_message(cid,f"📊 **STATS V17**\n📍 {get_mode_text()}\n{get_greeting()}\n⏰ Session: {sn} ({sb:+d})\n🏆 Wins: {STATS['wins']}\n❌ Loss: {STATS['loss']}\n📈 Winrate: {wr:.1f}%\n🔥 Streak: {STATS['streak']}\n💰 Bal: ${bal:.2f}\n📅 Today: {STATS['daily_trades']}/30\n🧠 Brain pairs: {len(PAIR_BRAIN)}\n📰 News in 2h: {len(get_upcoming_news())}\n📦 OTC: DISABLED | REAL only",parse_mode="Markdown")
-    if data=="settings": bot.send_message(cid,f"⚙️ **SETTINGS V17 TRAILBLAZER MANUAL**\n\n🛡️ V17: 5M Trend + ADX 25+ + MACD + Stochastic + BB + Payout 80%+\n⏱️ Expiry: 2 Min\n📊 OTC: DISABLED\nREAL: 7AM-8PM auto 88%+ signals\n📅 Max: 30 trades/day\n💰 Martingale: 1 Real + 3 Marti (1-2-4-8) MANUAL\n🧠 Brain V17: Best pairs + Best hours + Sweet RSI\n⏰ Session: London +8, Overlap +10, Lunch -10, Evening -5\n⏭️ Skip: Available on all signals - Next in 5 mins\n📊 Daily Summary: Auto at 8PM\n🔥 Trailblazer Market Good: Auto alert when market hot\n🌅 Greeting: By time + 7AM wake up\n📰 News: Forex Factory High Impact - Blocks news pairs 30min before news")
+        total=STATS['wins']+STATS['loss']; wr=(STATS['wins']/total*100) if total else 0; bal=get_real_balance("PRACTICE"); sb,sn=get_session_boost("EURUSD"); bot.send_message(cid,f"📊 **STATS V18**\n📍 {get_mode_text()}\n{get_greeting()}\n⏰ Session: {sn} ({sb:+d})\n🏆 Wins: {STATS['wins']}\n❌ Loss: {STATS['loss']}\n📈 Winrate: {wr:.1f}%\n🔥 Streak: {STATS['streak']}\n💰 Bal: ${bal:.2f}\n📅 Today: {STATS['daily_trades']}/30\n🧠 Brain pairs: {len(PAIR_BRAIN)}\n📰 News in 2h: {len(get_upcoming_news())}\n📦 OTC: DISABLED | REAL only",parse_mode="Markdown")
+    if data=="settings": bot.send_message(cid,f"⚙️ **SETTINGS V18 TRAILBLAZER MANUAL**\n\n🛡️ V18: 5M Trend + ADX 25+ + MACD + Stochastic + BB + Payout 80% + Multi-Trend\n⏱️ Expiry: SMART - 1/2/3/5 Min suggested by bot\n📊 OTC: DISABLED\nREAL: 7AM-8PM auto 88%+ signals\n📅 Max: 30 trades/day - Auto reset new day + Old signal cleared\n💰 Martingale: 1 Real + 3 Marti (1-2-4-8) MANUAL\n🧠 Brain V18: Best pairs + Best hours + Sweet RSI\n⏰ Session: London +8, Overlap +10, Lunch -10, Evening -5\n⏭️ Skip: Available on all signals - Next in 5 mins\n📊 Daily Summary: Auto at 8PM\n🔥 Trailblazer Market Good: Auto alert when market hot\n🌅 Greeting: By time + 7AM wake up\n📰 News: Forex Factory High Impact - Blocks news pairs 30min before news")
 
 threading.Thread(target=background_iq, daemon=True).start()
 threading.Thread(target=real_signal_scanner,daemon=True).start()
@@ -889,4 +975,4 @@ if __name__ == "__main__":
         url=os.getenv("RENDER_EXTERNAL_URL")
         if url and BOT_TOKEN: requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={url}/{BOT_TOKEN}", timeout=5); print(f"Webhook set {url}")
     except: pass
-    port=int(os.getenv("PORT",10000)); print(f"Starting Flask on 0.0.0.0:{port} - V17 TRAILBLAZER+SESSION+SMARTBRAIN - OTC DISABLED - MANUAL - NO JPY"); app.run(host="0.0.0.0", port=port, threaded=True)
+    port=int(os.getenv("PORT",10000)); print(f"Starting Flask on 0.0.0.0:{port} - V18 TRAILBLAZER+MULTI-TREND+SMART-EXPIRY - OTC DISABLED - MANUAL - NO JPY"); app.run(host="0.0.0.0", port=port, threaded=True)
