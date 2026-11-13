@@ -132,7 +132,7 @@ def format_news_alert(news_list):
         txt += f"🔴 {flag} {n['country']} - {n['title']}\n⏰ {when}\n\n"
     return txt
 
-# ===== AI BRAIN V17 - HOUR + PAIR RSI =====
+# ===== AI BRAIN V19 - HOUR + PAIR RSI =====
 PAIR_BRAIN = {}
 def load_brain():
     global PAIR_BRAIN
@@ -232,7 +232,7 @@ def can_trade_today():
 def count_trade(): STATS["daily_trades"] += 1
 
 @app.route("/")
-def home(): return f"V18 TRAILBLAZER+MULTI-TREND+SMART-EXPIRY RUNNING IQ:{IQ_CONNECTED} {datetime.now(pytz.timezone('Africa/Lagos')).strftime('%H:%M:%S')}"
+def home(): return f"V19 TRAILBLAZER+SR30+CANDLE+VOL RUNNING IQ:{IQ_CONNECTED} {datetime.now(pytz.timezone('Africa/Lagos')).strftime('%H:%M:%S')}"
 @app.route(f"/{BOT_TOKEN}",methods=['POST'])
 def wh():
     bot.process_new_updates([telebot.types.Update.de_json(request.get_data().decode("utf-8"))]); return "ok"
@@ -312,12 +312,12 @@ def calc_atr(df, period=14):
         high=df['max']; low=df['min']; close=df['close']; tr1=high-low; tr2=(high-close.shift()).abs(); tr3=(low-close.shift()).abs(); tr=pd.concat([tr1,tr2,tr3],axis=1).max(axis=1); return tr.rolling(period).mean().iloc[-1]
     except: return 0.0005
 def legit_live_scan(cid, mid, pair):
-    steps = [(0,"🚀 V18 Trailblazer Init...",0.15),(20,f"🔌 Checking {pair}...",0.2),(40,"📊 ADX + ATR + Brain + News + Session...",0.25),(60,"📈 EMA + MACD + 5M Trend...",0.2),(80,"💹 RSI + Stochastic + BB + Multi-Trend...",0.2),(100,"🔒 SNIPER LOCKED!",0.3)]
+    steps = [(0,"🚀 V19 Trailblazer Init...",0.15),(20,f"🔌 Checking {pair}...",0.2),(40,"📊 ADX + ATR + Brain + News + Session...",0.25),(60,"📈 EMA + MACD + 5M Trend + S/R 30...",0.2),(80,"💹 RSI + Stochastic + BB + Candle Confirm...",0.2),(100,"🔒 SNIPER LOCKED!",0.3)]
     last_pct=-1
     for pct, text, delay in steps:
         if pct==last_pct: time.sleep(delay); continue
         last_pct=pct; filled=int(pct//5); bar="█"*filled+"░"*(20-filled); color="🟥" if pct<40 else "🟨" if pct<80 else "🟩" if pct<100 else "💎"
-        txt=f"""{color} **Z-BOT V18 TRAILBLAZER** {color}\n\n💱 {PAIR_EMOJI.get(pair,pair)}\n💎 IQ: {'✅' if IQ_CONNECTED else '❌'}\n\n{bar} {pct}%\n\n🔍 {text}\n⏳ V18"""
+        txt=f"""{color} **Z-BOT V19 TRAILBLAZER** {color}\n\n💱 {PAIR_EMOJI.get(pair,pair)}\n💎 IQ: {'✅' if IQ_CONNECTED else '❌'}\n\n{bar} {pct}%\n\n🔍 {text}\n⏳ V19"""
         try: bot.edit_message_text(txt,cid,mid,parse_mode="Markdown")
         except: pass
         time.sleep(delay)
@@ -333,7 +333,22 @@ def calc_adx_v12(df, period=14):
         return float(adx), float(plus_di.iloc[-1]), float(minus_di.iloc[-1])
     except: return 0, 0, 0
 
-# ===== V18 - MULTI-TREND + SMART EXPIRY =====
+# ===== V19 NEW: SUPPORT / RESISTANCE - 30 CANDLES =====
+def get_support_resistance(df, lookback=30):
+    try:
+        recent = df.tail(lookback)
+        resistance = float(recent['max'].max())
+        support = float(recent['min'].min())
+        price = float(df['close'].iloc[-1])
+        atr = calc_atr(df, 14)
+        if not atr or atr == 0: atr = 0.0005
+        dist_to_res = abs(resistance - price) / atr
+        dist_to_sup = abs(price - support) / atr
+        return support, resistance, dist_to_sup, dist_to_res
+    except:
+        return 0, 999999, 999, 999
+
+# ===== V19 - MULTI-TREND + SMART EXPIRY =====
 def get_trend_and_expiry(df, df5, close, r7, r14, adx, macd_val, sig_val, mom1, mom3, stoch_val, c_now, upper, lower, is_green):
     trends = []
     trend_score = 0
@@ -407,6 +422,32 @@ def analyze_sniper_v12(pair, sniper_mode=False):
         if adx < 25: return {"pair":pair,"dir":sig,"conf":42,"price":c_now,"rsi":r7,"reason":"Choppy - ADX Low","payout":payout,"expiry":120,"atr":atr,"rejected":True}
         if body < atr*0.30: return {"pair":pair,"dir":sig,"conf":48,"price":c_now,"rsi":r7,"reason":"Doji - No Body","payout":payout,"expiry":120,"atr":atr,"rejected":True}
         if payout < 0.80: return {"pair":pair,"dir":sig,"conf":52,"price":c_now,"rsi":r7,"reason":f"Low Payout {int(payout*100)}%","payout":payout,"expiry":120,"atr":atr,"rejected":True}
+
+        # ===== V19 NEW 1: SUPPORT / RESISTANCE FILTER - 30 CANDLES =====
+        support, resistance, dist_sup, dist_res = get_support_resistance(df)
+        if not is_green and dist_sup < 0.5:
+            return {"pair":pair,"dir":sig,"conf":45,"price":c_now,"rsi":r7,"reason":"On Support - No room to fall - REJECT","payout":payout,"expiry":120,"atr":atr,"rejected":True}
+        if is_green and dist_res < 0.5:
+            return {"pair":pair,"dir":sig,"conf":45,"price":c_now,"rsi":r7,"reason":"On Resistance - No room to rise - REJECT","payout":payout,"expiry":120,"atr":atr,"rejected":True}
+
+        # ===== V19 NEW 2: CANDLE CONFIRMATION FILTER =====
+        prev_green = c_prev > o_prev
+        if is_green and not prev_green:
+            return {"pair":pair,"dir":sig,"conf":48,"price":c_now,"rsi":r7,"reason":"Prev candle RED - No confirmation - REJECT","payout":payout,"expiry":120,"atr":atr,"rejected":True}
+        if not is_green and prev_green:
+            return {"pair":pair,"dir":sig,"conf":48,"price":c_now,"rsi":r7,"reason":"Prev candle GREEN - No confirmation - REJECT","payout":payout,"expiry":120,"atr":atr,"rejected":True}
+        if is_green and upper_wick > body * 1.5 and body > 0:
+            return {"pair":pair,"dir":sig,"conf":48,"price":c_now,"rsi":r7,"reason":"Big upper wick - Sellers pushing - REJECT","payout":payout,"expiry":120,"atr":atr,"rejected":True}
+        if not is_green and lower_wick > body * 1.5 and body > 0:
+            return {"pair":pair,"dir":sig,"conf":48,"price":c_now,"rsi":r7,"reason":"Big lower wick - Buyers pushing - REJECT","payout":payout,"expiry":120,"atr":atr,"rejected":True}
+
+        # ===== V19 NEW 3: VOLATILITY FILTER =====
+        try:
+            avg_body = float(abs(close - open_).tail(20).mean())
+            if body < avg_body * 0.5:
+                return {"pair":pair,"dir":sig,"conf":48,"price":c_now,"rsi":r7,"reason":"Low Volatility - Small body - REJECT","payout":payout,"expiry":120,"atr":atr,"rejected":True}
+        except: pass
+
         score=30; reasons=[]
         if df5 is not None:
             c5=df5['close']; e9_5=c5.ewm(9).mean(); e21_5=c5.ewm(21).mean(); trend_5m = 1 if float(e9_5.iloc[-1]) > float(e21_5.iloc[-1]) else -1
@@ -466,7 +507,10 @@ def analyze_sniper_v12(pair, sniper_mode=False):
         session_boost, session_name = get_session_boost(pair)
         score += session_boost
         if session_boost != 0: reasons.append(f"{session_name} {session_boost:+d}")
-        if session_boost <= -10 and sniper_mode and score < 92: return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":r7,"reason":f"{session_name} - Needs 92% - REJECT","payout":payout,"expiry":120,"atr":atr,"rejected":True}
+        # V19 NEW: Smart Session Threshold - 93% needed in bad sessions
+        required_score = 93 if session_boost <= -5 else 88
+        if sniper_mode and score < required_score:
+            return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":r7,"reason":f"{session_name} - Needs {required_score}% - REJECT","payout":payout,"expiry":120,"atr":atr,"rejected":True}
         hour_boost, hour_txt = get_hour_boost(pair)
         if hour_boost != 0:
             score += hour_boost; reasons.append(f"{hour_txt} {hour_boost:+d}")
@@ -477,12 +521,14 @@ def analyze_sniper_v12(pair, sniper_mode=False):
         if boost != 0: reasons.append(f"🧠 Brain {boost:+d}")
         if boost <= -8 and sniper_mode and score < 92: return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":r7,"reason":f"🧠 Weak pair {pair} needs 92%","payout":payout,"expiry":120,"atr":atr,"rejected":True}
         score = max(40, min(96, score)); reason = " + ".join(reasons) if reasons else "Weak PA"
+        # V19: Final S/R bonus in reason
+        reason += f" | S/R Clear {dist_sup:.1f} ATR to Sup, {dist_res:.1f} ATR to Res"
         if sniper_mode and score < 88: return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":r7,"reason":reason,"payout":payout,"expiry":120,"atr":atr,"rejected":True}
-        # V18 Smart Expiry
+        # V19 Smart Expiry
         trend_info = get_trend_and_expiry(df, df5, close, r7, r14, adx, macd_val, sig_val, mom1, mom3, stoch_val, c_now, upper, lower, is_green)
         reason = reason + f" | {trend_info['trend_type']} | ⏱️ {trend_info['expiry_txt']}"
         return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":r7,"reason":reason,"payout":payout,"expiry":trend_info['expiry'],"atr":atr,"rejected":False,"adx":adx,"trend_info":trend_info}
-    except Exception as e: print(f"V18 err {pair} {e}"); return None
+    except Exception as e: print(f"V19 err {pair} {e}"); return None
 
 def check_pullback_entry(pair, original_dir):
     if is_news_blocking_pair(pair, minutes=30): return None
@@ -708,7 +754,7 @@ def real_signal_scanner():
                     mk.add(types.InlineKeyboardButton("⏭️ SKIP THIS TRADE", callback_data=f"skip_{pair}"))
                     brain = get_pair_stats(pair); wr = get_pair_winrate(pair); wr_txt = f" | 🧠 Brain WR {wr:.0f}%" if wr is not None else ""
                     ti = d.get('trend_info', {}); expiry_min = ti.get('expiry', 120)//60; trend_type_txt = ti.get('trend_type','➡️ NORMAL TREND'); trends_txt = " | ".join(ti.get('trends', [])[:4])
-                    msg = f"""📡 **REAL SIGNAL V18 TRAILBLAZER - MANUAL** 📡
+                    msg = f"""📡 **REAL SIGNAL V19 TRAILBLAZER - MANUAL** 📡
 
 💱 {PAIR_EMOJI.get(pair,pair)}
 📊 {dir_e} | 🎯 {d['conf']:.0f}% SNIPER{wr_txt}
@@ -749,7 +795,7 @@ def start(m):
         txt = "📰 **UPCOMING NEWS - NEXT 2H**\n\n" + format_news_alert(news) + "⚠️ Bot is blocking these currencies for 30 min before news."
         bot.send_message(m.chat.id, txt, parse_mode="Markdown"); return
     if m.text.startswith('/brain'):
-        txt="🧠 **AI BRAIN V17 - PAIR LEARNING**\n\n"; best=[]; bad=[]
+        txt="🧠 **AI BRAIN V19 - PAIR LEARNING**\n\n"; best=[]; bad=[]
         for pair, s in PAIR_BRAIN.items():
             total=s["wins"]+s["loss"]
             if total>=3:
@@ -779,7 +825,7 @@ def start(m):
         bot.send_message(m.chat.id,txt,parse_mode="Markdown"); return
     if m.text.startswith('/mode'):
         tz=pytz.timezone("Africa/Lagos"); now=datetime.now(tz); sb, sn = get_session_boost("EURUSD")
-        txt=f"""📍 **MODE CHECK V18 TRAILBLAZER**
+        txt=f"""📍 **MODE CHECK V19 TRAILBLAZER**
 
 {get_greeting()}
 ⏰ Now: {now.strftime('%A %H:%M:%S WAT')}
@@ -808,7 +854,7 @@ OTC: {'✅ ON' if ENABLE_OTC else '⛔ DISABLED - REAL only'}
 
 {greet_msg}
 
-🤖 **Z-BOT V18 TRAILBLAZER - MANUAL** 🤖
+🤖 **Z-BOT V19 TRAILBLAZER - MANUAL** 🤖
 
 💎 IQ: {'✅' if IQ_CONNECTED else '❌ False - Retrying...'} | 💰 DEMO ${bal_demo:.2f}
 🏆 W:{STATS['wins']} L:{STATS['loss']} | 🔥 {STATS['streak']}
@@ -856,7 +902,7 @@ def cb(c):
         bot.answer_callback_query(c.id,f"LOSS - Next {names[idx]} ${next_amt}"); bot.send_message(cid,f"❌ **LOSS Recorded**\n\n💱 {pair}\n👉 Next: **{names[idx]} - ${next_amt:.2f} Level {idx+1}/4 ({mult}x)**{wr_txt}\n🔍 Scanning every 10 sec for pullback entry...\n📍 RSI7 + RSI14 safe + RSI turning + Price at EMA\n📰 News check ON\n\nPress ✅ WIN / ❌ LOSS / ⏭️ SKIP after you trade it manually.")
         threading.Thread(target=pullback_scanner_loop, args=(cid, pair, orig_dir), daemon=True).start(); return
     if data=="brain_btn":
-        txt="🧠 **AI BRAIN V18**\n\n"; best=[]; bad=[]
+        txt="🧠 **AI BRAIN V19**\n\n"; best=[]; bad=[]
         for pair,s in PAIR_BRAIN.items():
             total=s["wins"]+s["loss"]
             if total>=3:
@@ -874,11 +920,11 @@ def cb(c):
     if data=="trade_real":
         mk=types.InlineKeyboardMarkup(row_width=1); mk.add(types.InlineKeyboardButton("🔍 📊 SCAN ALL REAL NOW (15 PAIRS)",callback_data="scan_all_real"))
         for p in REAL_PAIRS: mk.add(types.InlineKeyboardButton(f"{PAIR_EMOJI.get(p,p)}",callback_data=f"real_pair_{p}"))
-        bot.send_message(cid,f"📈 **TRADE REAL V18 TRAILBLAZER MANUAL**\n📍 {get_mode_text()}\n📅 Today: {STATS['daily_trades']}/30",reply_markup=mk,parse_mode="Markdown"); return
+        bot.send_message(cid,f"📈 **TRADE REAL V19 TRAILBLAZER MANUAL**\n📍 {get_mode_text()}\n📅 Today: {STATS['daily_trades']}/30",reply_markup=mk,parse_mode="Markdown"); return
     if data=="scan_all_real":
         if is_signal_active(): bot.send_message(cid,f"⏳ **One signal already active**\n\n💱 {ACTIVE_SIGNAL['pair']} {ACTIVE_SIGNAL['dir']}\nFinish it first - Press ✅ WIN / ❌ LOSS / ⏭️ SKIP\nNo new signal until that chain ends."); return
         if not can_trade_today(): bot.send_message(cid,"⛔ Max 30 trades reached today. Come back tomorrow 7AM."); return
-        bot.answer_callback_query(c.id,"Scanning 15 REAL pairs V18..."); scan_msg=bot.send_message(cid,"🔍 **SCANNING ALL 15 REAL PAIRS V18 TRAILBLAZER...**\n\n⏳ ~12 sec"); results=[]; datas={}
+        bot.answer_callback_query(c.id,"Scanning 15 REAL pairs V19..."); scan_msg=bot.send_message(cid,"🔍 **SCANNING ALL 15 REAL PAIRS V19 TRAILBLAZER...**\n\n⏳ ~12 sec"); results=[]; datas={}
         for pair in REAL_PAIRS:
             if is_pair_blocked(pair): results.append((pair,0,"-","🧠 Blocked","🔴 BLOCKED",120)); continue
             nb = is_news_blocking_pair(pair, minutes=30)
@@ -890,10 +936,10 @@ def cb(c):
             elif conf>=65: status="🟡 WAIT"
             else: status="🔴 NO TRADE"
             results.append((pair,conf,dir_,reason,status,exp)); datas[pair]=d
-            try: bot.edit_message_text(f"🔍 Scanning V18... {pair} {conf:.0f}%",cid,scan_msg.message_id)
+            try: bot.edit_message_text(f"🔍 Scanning V19... {pair} {conf:.0f}%",cid,scan_msg.message_id)
             except: pass
             time.sleep(0.3)
-        results.sort(key=lambda x: x[1], reverse=True); txt="📊 **REAL V18 TRAILBLAZER READINESS** 📊\n"; txt+=f"📍 {get_mode_text()}\n⏰ {datetime.now(pytz.timezone('Africa/Lagos')).strftime('%H:%M:%S WAT')}\n📅 Today: {STATS['daily_trades']}/30\n📰 News: {len(get_upcoming_news())} high impact in next 2h\n\n"
+        results.sort(key=lambda x: x[1], reverse=True); txt="📊 **REAL V19 TRAILBLAZER READINESS** 📊\n"; txt+=f"📍 {get_mode_text()}\n⏰ {datetime.now(pytz.timezone('Africa/Lagos')).strftime('%H:%M:%S WAT')}\n📅 Today: {STATS['daily_trades']}/30\n📰 News: {len(get_upcoming_news())} high impact in next 2h\n\n"
         for pair,conf,dir_,reason,status,exp in results:
             emoji=PAIR_EMOJI.get(pair,pair)
             if conf>=65: txt+=f"{status} {emoji}: {conf:.0f}% {dir_} - {reason}\n"
@@ -907,7 +953,7 @@ def cb(c):
             time.sleep(0.5); best_data=datas[best[0]]; tz=pytz.timezone("Africa/Lagos"); now=datetime.now(tz); entry=now+timedelta(seconds=45); dir_e="🟢 CALL ⬆️" if best_data['dir']=="CALL" else "🔴 PUT ⬇️"; base=OTC_MARTI["base"]
             mk2=types.InlineKeyboardMarkup(row_width=2); mk2.add(types.InlineKeyboardButton("✅ WIN - Reset",callback_data=f"manual_win_{best_data['pair']}"),types.InlineKeyboardButton("❌ LOSS - Pullback Scan",callback_data=f"manual_loss_{best_data['pair']}_{best_data['dir']}")); mk2.add(types.InlineKeyboardButton("⏭️ SKIP THIS TRADE",callback_data=f"skip_{best_data['pair']}"))
             ti2 = best_data.get('trend_info', {}); exp_min2 = ti2.get('expiry',120)//60
-            signal_txt=f"""📡 **REAL TOP SIGNAL V18 - MANUAL** 📡
+            signal_txt=f"""📡 **REAL TOP SIGNAL V19 - MANUAL** 📡
 
 💱 {PAIR_EMOJI.get(best_data['pair'],best_data['pair'])}
 📊 {dir_e} | 🎯 {best_data['conf']:.0f}% SNIPER
@@ -931,12 +977,12 @@ def cb(c):
         if is_pair_blocked(pair): bot.send_message(cid,f"🧠 **{pair} Blocked by Brain**\n\nThis pair has been losing for you. Brain blocked it for 2h.\nTry another pair or /brain"); return
         nb = is_news_blocking_pair(pair, minutes=30)
         if nb: bot.send_message(cid,f"📰 **{pair} Blocked by NEWS**\n\n🔴 {nb['country']} - {nb['title']}\n⏰ In {nb['in_min']} min\n\nWait 15 min after news, then try again."); return
-        bot.answer_callback_query(c.id,f"Scanning {pair} V18..."); scan_msg=bot.send_message(cid,f"🔍 **V18 TRAILBLAZER SCAN {PAIR_EMOJI.get(pair,pair)}**\n\n0%\n🚀 Sniper..."); legit_live_scan(cid,scan_msg.message_id,pair); d=analyze_sniper_v12(pair,sniper_mode=False)
+        bot.answer_callback_query(c.id,f"Scanning {pair} V19..."); scan_msg=bot.send_message(cid,f"🔍 **V19 TRAILBLAZER SCAN {PAIR_EMOJI.get(pair,pair)}**\n\n0%\n🚀 Sniper..."); legit_live_scan(cid,scan_msg.message_id,pair); d=analyze_sniper_v12(pair,sniper_mode=False)
         if not d or d['conf']<88:
             mk=types.InlineKeyboardMarkup(); mk.add(types.InlineKeyboardButton("🔄 RETRY",callback_data=f"real_pair_{pair}"),types.InlineKeyboardButton("📈 SCAN ALL",callback_data="scan_all_real")); bot.send_message(cid,f"⚠️ **No safe trade now for {pair}**\n\n📊 Conf: {d['conf'] if d else 0}% < 88%\n🛡️ {d['reason'] if d else 'No data'}",reply_markup=mk); return
         tz=pytz.timezone("Africa/Lagos"); now=datetime.now(tz); entry=now+timedelta(seconds=45); dir_e="🟢 CALL ⬆️" if d['dir']=="CALL" else "🔴 PUT ⬇️"; base=OTC_MARTI["base"]
         ti3 = d.get('trend_info', {}); exp_min3 = ti3.get('expiry',120)//60
-        signal_txt=f"""📡 **REAL SIGNAL V18 TRAILBLAZER - MANUAL** 📡
+        signal_txt=f"""📡 **REAL SIGNAL V19 TRAILBLAZER - MANUAL** 📡
 
 💱 {PAIR_EMOJI.get(pair,pair)}
 📊 {dir_e} | 🎯 {d['conf']:.0f}% SNIPER
@@ -961,8 +1007,8 @@ def cb(c):
     if data=="stop_auto":
         if cid in AUTO_STATE: AUTO_STATE[cid]['running']=False; bot.send_message(cid,"🛑 Stopping..."); return
     if data=="stats":
-        total=STATS['wins']+STATS['loss']; wr=(STATS['wins']/total*100) if total else 0; bal=get_real_balance("PRACTICE"); sb,sn=get_session_boost("EURUSD"); bot.send_message(cid,f"📊 **STATS V18**\n📍 {get_mode_text()}\n{get_greeting()}\n⏰ Session: {sn} ({sb:+d})\n🏆 Wins: {STATS['wins']}\n❌ Loss: {STATS['loss']}\n📈 Winrate: {wr:.1f}%\n🔥 Streak: {STATS['streak']}\n💰 Bal: ${bal:.2f}\n📅 Today: {STATS['daily_trades']}/30\n🧠 Brain pairs: {len(PAIR_BRAIN)}\n📰 News in 2h: {len(get_upcoming_news())}\n📦 OTC: DISABLED | REAL only",parse_mode="Markdown")
-    if data=="settings": bot.send_message(cid,f"⚙️ **SETTINGS V18 TRAILBLAZER MANUAL**\n\n🛡️ V18: 5M Trend + ADX 25+ + MACD + Stochastic + BB + Payout 80% + Multi-Trend\n⏱️ Expiry: SMART - 1/2/3/5 Min suggested by bot\n📊 OTC: DISABLED\nREAL: 7AM-8PM auto 88%+ signals\n📅 Max: 30 trades/day - Auto reset new day + Old signal cleared\n💰 Martingale: 1 Real + 3 Marti (1-2-4-8) MANUAL\n🧠 Brain V18: Best pairs + Best hours + Sweet RSI\n⏰ Session: London +8, Overlap +10, Lunch -10, Evening -5\n⏭️ Skip: Available on all signals - Next in 5 mins\n📊 Daily Summary: Auto at 8PM\n🔥 Trailblazer Market Good: Auto alert when market hot\n🌅 Greeting: By time + 7AM wake up\n📰 News: Forex Factory High Impact - Blocks news pairs 30min before news")
+        total=STATS['wins']+STATS['loss']; wr=(STATS['wins']/total*100) if total else 0; bal=get_real_balance("PRACTICE"); sb,sn=get_session_boost("EURUSD"); bot.send_message(cid,f"📊 **STATS V19**\n📍 {get_mode_text()}\n{get_greeting()}\n⏰ Session: {sn} ({sb:+d})\n🏆 Wins: {STATS['wins']}\n❌ Loss: {STATS['loss']}\n📈 Winrate: {wr:.1f}%\n🔥 Streak: {STATS['streak']}\n💰 Bal: ${bal:.2f}\n📅 Today: {STATS['daily_trades']}/30\n🧠 Brain pairs: {len(PAIR_BRAIN)}\n📰 News in 2h: {len(get_upcoming_news())}\n📦 OTC: DISABLED | REAL only",parse_mode="Markdown")
+    if data=="settings": bot.send_message(cid,f"⚙️ **SETTINGS V19 TRAILBLAZER MANUAL**\n\n🛡️ V19: 5M Trend + ADX 25+ + MACD + Stochastic + BB + Payout 80% + Multi-Trend + S/R 30 + Candle Confirm + Volatility\n⏱️ Expiry: SMART - 1/2/3/5 Min suggested by bot\n📊 OTC: DISABLED\nREAL: 7AM-8PM auto 88%+ signals (93% in bad sessions)\n📅 Max: 30 trades/day - Auto reset new day + Old signal cleared\n💰 Martingale: 1 Real + 3 Marti (1-2-4-8) MANUAL\n🧠 Brain V19: Best pairs + Best hours + Sweet RSI\n⏰ Session: London +8, Overlap +10, Lunch -10, Evening -5\n⏭️ Skip: Available on all signals - Next in 5 mins\n📊 Daily Summary: Auto at 8PM\n🔥 Trailblazer Market Good: Auto alert when market hot\n🌅 Greeting: By time + 7AM wake up\n📰 News: Forex Factory High Impact - Blocks news pairs 30min before news")
 
 threading.Thread(target=background_iq, daemon=True).start()
 threading.Thread(target=real_signal_scanner,daemon=True).start()
@@ -975,4 +1021,4 @@ if __name__ == "__main__":
         url=os.getenv("RENDER_EXTERNAL_URL")
         if url and BOT_TOKEN: requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={url}/{BOT_TOKEN}", timeout=5); print(f"Webhook set {url}")
     except: pass
-    port=int(os.getenv("PORT",10000)); print(f"Starting Flask on 0.0.0.0:{port} - V18 TRAILBLAZER+MULTI-TREND+SMART-EXPIRY - OTC DISABLED - MANUAL - NO JPY"); app.run(host="0.0.0.0", port=port, threaded=True)
+    port=int(os.getenv("PORT",10000)); print(f"Starting Flask on 0.0.0.0:{port} - V19 TRAILBLAZER+SR30+CANDLE+VOL - OTC DISABLED - MANUAL - NO JPY"); app.run(host="0.0.0.0", port=port, threaded=True)
