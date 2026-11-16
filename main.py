@@ -30,8 +30,6 @@ ACTIVE_SIGNAL = {"active": False, "pair": None, "dir": None, "conf":0, "rsi":0, 
 LAST_GLOBAL_SIGNAL = {"time": 0}
 GLOBAL_COOLDOWN = 360; SKIP_COOLDOWN = 120; DAILY_SUMMARY_SENT = ""
 MARKET_GOOD_SENT = {"date": "", "last_alert": 0}; MORNING_GREET_SENT = ""; NEWS_CACHE = {"data": [], "time": 0}
-SR_TIMEFRAMES = [900, 1800, 3600]
-SR_ZONE_ATR = 0.8
 MIN_SCORE = 85
 ENTRY_DELAY_SEC = 45
 def generate_chart(pair, df, support, resistance, entry_price, direction, rsi_val):
@@ -45,12 +43,9 @@ def generate_chart(pair, df, support, resistance, entry_price, direction, rsi_va
             ax1.plot([i, i], [lows[i], highs[i]], color=color, linewidth=1); ax1.plot([i, i], [opens[i], closes[i]], color=color, linewidth=4)
         ema9 = closes.ewm(9).mean(); ema21 = closes.ewm(21).mean()
         ax1.plot(ema9, color='#00aaff', linewidth=1.2, label='EMA 9'); ax1.plot(ema21, color='#ffaa00', linewidth=1.2, label='EMA 21')
-        ax1.axhline(y=resistance, color='#ff4444', linestyle='--', linewidth=1.5, label=f'Resistance {resistance:.5f}')
-        ax1.axhline(y=support, color='#00ff88', linestyle='--', linewidth=1.5, label=f'Support {support:.5f}')
         ecolor = '#00ff88' if direction == "CALL" else '#ff4444'
         ax1.axhline(y=entry_price, color=ecolor, linestyle='-', linewidth=2, label=f'ENTRY {entry_price:.5f} {direction}')
-        ax1.fill_between(range(len(closes)), support, resistance, alpha=0.05, color='white')
-        ax1.set_title(f'{pair} - {direction} - RSI {rsi_val:.1f} | Sup {support:.5f} Res {resistance:.5f}', color='white', fontsize=12, fontweight='bold')
+        ax1.set_title(f'{pair} - {direction} - RSI {rsi_val:.1f} | Entry {entry_price:.5f}', color='white', fontsize=12, fontweight='bold')
         ax1.legend(loc='upper left', fontsize=8, facecolor='#1a1a1a'); ax1.tick_params(colors='white'); ax1.grid(True, alpha=0.15)
         rsi_series = calc_rsi(df['close'], 7).tail(60).reset_index(drop=True)
         ax2.plot(rsi_series, color='#ffaa00', linewidth=1.5); ax2.axhline(y=70, color='#ff4444', linestyle='--', linewidth=1); ax2.axhline(y=30, color='#00ff88', linestyle='--', linewidth=1); ax2.axhline(y=50, color='gray', linestyle=':', linewidth=1)
@@ -61,17 +56,14 @@ def generate_chart(pair, df, support, resistance, entry_price, direction, rsi_va
 def send_signal_with_chart(cid, pair, d, mk=None):
     try:
         df = get_candles(pair)
-        support, resistance, dist_sup, dist_res = get_support_resistance(df) if df is not None else (d['price'], d['price'], 0, 0)
-        if 'sr_sup' in d and d['sr_sup']: support = d['sr_sup']
-        if 'sr_res' in d and d['sr_res']: resistance = d['sr_res']
         if df is None:
-            txt = build_brief_text(pair, d, dist_sup, dist_res); bot.send_message(cid, txt, parse_mode="Markdown", reply_markup=mk); return
-        chart_buf = generate_chart(pair, df, support, resistance, d['price'], d['dir'], d['rsi']); txt = build_brief_text(pair, d, dist_sup, dist_res)
+            txt = build_brief_text(pair, d); bot.send_message(cid, txt, parse_mode="Markdown", reply_markup=mk); return
+        chart_buf = generate_chart(pair, df, d['price'], d['price'], d['price'], d['dir'], d['rsi']); txt = build_brief_text(pair, d)
         if chart_buf: bot.send_photo(cid, chart_buf, caption=txt, parse_mode="Markdown", reply_markup=mk)
         else: bot.send_message(cid, txt, parse_mode="Markdown", reply_markup=mk)
     except Exception as e:
-        print(f"send chart err {e}"); txt = build_brief_text(pair, d, 0, 0); bot.send_message(cid, txt, parse_mode="Markdown", reply_markup=mk)
-def build_brief_text(pair, d, dist_sup, dist_res):
+        print(f"send chart err {e}"); txt = build_brief_text(pair, d); bot.send_message(cid, txt, parse_mode="Markdown", reply_markup=mk)
+def build_brief_text(pair, d):
     dir_e = "🟢 CALL ⬆️" if d['dir'] == "CALL" else "🔴 PUT ⬇️"; ti = d.get('trend_info', {}); trend_txt = ti.get('trend_type', '➡️ NORMAL TREND'); expiry_min = ti.get('expiry', 120)//60; base = OTC_MARTI["base"]
     tz = pytz.timezone("Africa/Lagos"); now = datetime.now(tz); entry_time = now + timedelta(seconds=ENTRY_DELAY_SEC)
     expiry_sec = ti.get('expiry', 120)
@@ -80,18 +72,15 @@ def build_brief_text(pair, d, dist_sup, dist_res):
     rsi_extra = ""
     if 'rsi_mtf' in d:
         m = d['rsi_mtf']; rsi_extra = f"\n**RSI MTF:** 15m {m.get('15m',0):.0f} | 30m {m.get('30m',0):.0f} | 60m {m.get('60m',0):.0f}"
-    sr_tfs = d.get('sr_tfs', ''); sr_txt = f"**S/R:** {dist_sup:.1f} ATR to Sup | {dist_res:.1f} ATR to Res"
-    if sr_tfs: sr_txt += f" | TFs {sr_tfs}"
     if d.get('scalp'): expiry_txt = f"{expiry_sec} Sec"
     else: expiry_txt = f"{expiry_min} Min"
-    return f"""📡 **REAL SIGNAL V21.4**
+    return f"""📡 **REAL SIGNAL V21.5**
 💱 {PAIR_EMOJI.get(pair,pair)}
 📊 {dir_e} | 🎯 {d['conf']:.0f}%
 
 **Entry:** {d['price']:.5f}
 **RSI:** {d['rsi']:.1f}{rsi_extra}
 **Trend:** {trend_txt}
-{sr_txt}
 
 ⏰ **ENTER AT: {entry_time.strftime('%H:%M:%S')} WAT**
 ⏳ **Wait {ENTRY_DELAY_SEC} Sec - Enter on Time**
@@ -255,7 +244,7 @@ def get_mode_text(): return "REAL SIGNAL (7AM-8PM)" if is_real_hours() else "OTC
 def can_trade_today(): check_and_reset_new_day(); return STATS["daily_trades"] < 30
 def count_trade(): STATS["daily_trades"] += 1
 @app.route("/")
-def home(): return f"V21.4 RUNNING IQ:{IQ_CONNECTED} {datetime.now(pytz.timezone('Africa/Lagos')).strftime('%H:%M:%S')}"
+def home(): return f"V21.5 RUNNING IQ:{IQ_CONNECTED} {datetime.now(pytz.timezone('Africa/Lagos')).strftime('%H:%M:%S')}"
 @app.route(f"/{BOT_TOKEN}",methods=['POST'])
 def wh(): bot.process_new_updates([telebot.types.Update.de_json(request.get_data().decode("utf-8"))]); return "ok"
 def background_iq():
@@ -339,55 +328,6 @@ def calc_adx_v12(df, period=14):
     try:
         high=df['max']; low=df['min']; close=df['close']; tr1=high-low; tr2=(high-close.shift()).abs(); tr3=(low-close.shift()).abs(); tr=pd.concat([tr1,tr2,tr3],axis=1).max(axis=1); atr=tr.rolling(period).mean(); up=high-high.shift(); down=low.shift()-low; plus_dm=((up>down)&(up>0))*up; minus_dm=((down>up)&(down>0))*down; plus_di=100*(plus_dm.rolling(period).mean()/atr); minus_di=100*(minus_dm.rolling(period).mean()/atr); dx=100*((plus_di-minus_di).abs()/(plus_di+minus_di)); adx=dx.rolling(period).mean().iloc[-1]; return float(adx), float(plus_di.iloc[-1]), float(minus_di.iloc[-1])
     except: return 0, 0, 0
-def find_sr_levels_for_df(df):
-    levels = []
-    if df is None or len(df) < 30: return levels
-    highs = df['max'].values; lows = df['min'].values
-    for i in range(2, len(df)-2):
-        if highs[i] == max(highs[i-2:i+3]): levels.append({"price": float(highs[i]), "type": "RES"})
-        if lows[i] == min(lows[i-2:i+3]): levels.append({"price": float(lows[i]), "type": "SUP"})
-    merged = []
-    for lvl in levels:
-        found = False
-        for m in merged:
-            if m["type"] == lvl["type"] and abs(m["price"] - lvl["price"]) < 0.0004: m["touches"] += 1; found = True; break
-        if not found: merged.append({"price": lvl["price"], "type": lvl["type"], "touches": 1})
-    return [m for m in merged if m["touches"] >= 2]
-def get_support_resistance_multi(pair, current_price, atr_val):
-    if not atr_val or atr_val == 0: atr_val = 0.0005
-    zone = SR_ZONE_ATR * atr_val; sup_candidates = []; res_candidates = []; tf_map = {900: "15m", 1800: "30m", 3600: "60m"}
-    for tf_sec in SR_TIMEFRAMES:
-        df_tf = get_candles_tf(pair, tf_sec, 80)
-        if df_tf is None: continue
-        levels = find_sr_levels_for_df(df_tf); tf_name = tf_map[tf_sec]
-        for lvl in levels:
-            if lvl["type"] == "SUP": sup_candidates.append((lvl["price"], tf_name))
-            else: res_candidates.append((lvl["price"], tf_name))
-    nearest_sup = None; sup_tfs = []
-    for price, tf_name in sup_candidates:
-        if abs(current_price - price) <= zone:
-            if nearest_sup is None or abs(current_price - price) < abs(current_price - nearest_sup): nearest_sup = price
-            if tf_name not in sup_tfs: sup_tfs.append(tf_name)
-    nearest_res = None; res_tfs = []
-    for price, tf_name in res_candidates:
-        if abs(current_price - price) <= zone:
-            if nearest_res is None or abs(current_price - price) < abs(current_price - nearest_res): nearest_res = price
-            if tf_name not in res_tfs: res_tfs.append(tf_name)
-    disp_sup = nearest_sup; disp_res = nearest_res
-    if disp_sup is None and sup_candidates: disp_sup = min(sup_candidates, key=lambda x: abs(x[0]-current_price))[0]
-    if disp_res is None and res_candidates: disp_res = min(res_candidates, key=lambda x: abs(x[0]-current_price))[0]
-    if disp_sup is None: disp_sup = current_price - atr_val*2
-    if disp_res is None: disp_res = current_price + atr_val*2
-    dist_sup = abs(current_price - disp_sup)/atr_val if atr_val else 99; dist_res = abs(disp_res - current_price)/atr_val if atr_val else 99
-    if nearest_sup is None: dist_sup = 99
-    if nearest_res is None: dist_res = 99
-    return {"sup": nearest_sup, "res": nearest_res, "disp_sup": disp_sup, "disp_res": disp_res, "dist_sup": dist_sup, "dist_res": dist_res, "sup_tfs": sup_tfs, "res_tfs": res_tfs, "sup_confluence": len(sup_tfs), "res_confluence": len(res_tfs), "zone": zone}
-def get_support_resistance(df, lookback=30):
-    try:
-        recent = df.tail(lookback); resistance = float(recent['max'].max()); support = float(recent['min'].min()); price = float(df['close'].iloc[-1]); atr = calc_atr(df, 14)
-        if not atr or atr == 0: atr = 0.0005
-        dist_to_res = abs(resistance - price) / atr; dist_to_sup = abs(price - support) / atr; return support, resistance, dist_to_sup, dist_to_res
-    except: return 0, 999999, 999, 999
 def get_rsi_multitimeframe(pair, df_1m):
     out = {}
     try:
@@ -470,27 +410,16 @@ def analyze_sniper_v12(pair, sniper_mode=False):
         if adx < 25: return {"pair":pair,"dir":sig,"conf":42,"price":c_now,"rsi":r7,"reason":"Choppy - ADX Low","payout":payout,"expiry":120,"atr":atr,"rejected":True}
         if body < atr*0.30: return {"pair":pair,"dir":sig,"conf":48,"price":c_now,"rsi":r7,"reason":"Doji","payout":payout,"expiry":120,"atr":atr,"rejected":True}
         if payout < 0.80: return {"pair":pair,"dir":sig,"conf":52,"price":c_now,"rsi":r7,"reason":f"Low Payout {int(payout*100)}%","payout":payout,"expiry":120,"atr":atr,"rejected":True}
-        sr = get_support_resistance_multi(pair, c_now, atr)
-        if sr["sup"] is None and sr["res"] is None: return {"pair":pair,"dir":sig,"conf":45,"price":c_now,"rsi":r7,"reason":f"No safe entry - Mid-range, no S/R within 0.8 ATR","payout":payout,"expiry":120,"atr":atr,"rejected":True}
+        # V21.5 - NO S/R - RSI MTF + Rejection only
         rsi_mtf = get_rsi_multitimeframe(pair, df); rsi_mtf_simple = {k: v["rsi"] for k,v in rsi_mtf.items()}
-        on_support = sr["sup"] is not None; on_resistance = sr["res"] is not None
         if is_green:
-            if not on_support: return {"pair":pair,"dir":sig,"conf":45,"price":c_now,"rsi":r7,"reason":f"CALL blocked - Not at Support","payout":payout,"expiry":120,"atr":atr,"rejected":True}
-            if sr["sup_confluence"] < 1: return {"pair":pair,"dir":sig,"conf":45,"price":c_now,"rsi":r7,"reason":f"Weak Support - No TF","payout":payout,"expiry":120,"atr":atr,"rejected":True}
             ok_rsi, msg_rsi = check_rsi_call_mtf(rsi_mtf)
             if not ok_rsi: return {"pair":pair,"dir":sig,"conf":48,"price":c_now,"rsi":r7,"reason":f"RSI MTF BLOCK CALL - {msg_rsi}","payout":payout,"expiry":120,"atr":atr,"rejected":True}
-            if not check_rejection_candle(df, "CALL"): return {"pair":pair,"dir":sig,"conf":48,"price":c_now,"rsi":r7,"reason":"No rejection at Support","payout":payout,"expiry":120,"atr":atr,"rejected":True}
+            if not check_rejection_candle(df, "CALL"): return {"pair":pair,"dir":sig,"conf":48,"price":c_now,"rsi":r7,"reason":"No rejection wick CALL","payout":payout,"expiry":120,"atr":atr,"rejected":True}
         else:
-            if not on_resistance: return {"pair":pair,"dir":sig,"conf":45,"price":c_now,"rsi":r7,"reason":f"PUT blocked - Not at Resistance","payout":payout,"expiry":120,"atr":atr,"rejected":True}
-            if sr["res_confluence"] < 1: return {"pair":pair,"dir":sig,"conf":45,"price":c_now,"rsi":r7,"reason":f"Weak Resistance - No TF","payout":payout,"expiry":120,"atr":atr,"rejected":True}
             ok_rsi, msg_rsi = check_rsi_put_mtf(rsi_mtf)
             if not ok_rsi: return {"pair":pair,"dir":sig,"conf":48,"price":c_now,"rsi":r7,"reason":f"RSI MTF BLOCK PUT - {msg_rsi}","payout":payout,"expiry":120,"atr":atr,"rejected":True}
-            if not check_rejection_candle(df, "PUT"): return {"pair":pair,"dir":sig,"conf":48,"price":c_now,"rsi":r7,"reason":"No rejection at Resistance","payout":payout,"expiry":120,"atr":atr,"rejected":True}
-        dist_sup = abs(c_now - sr["sup"])/atr if sr["sup"] else 99; dist_res = abs(sr["res"] - c_now)/atr if sr["res"] else 99
-        if is_green and sr["sup"] is not None and dist_sup < 0.15: return {"pair":pair,"dir":sig,"conf":45,"price":c_now,"rsi":r7,"reason":"Too close to Support - Likely BREAK, no CALL","payout":payout,"expiry":120,"atr":atr,"rejected":True}
-        if not is_green and sr["res"] is not None and dist_res < 0.15: return {"pair":pair,"dir":sig,"conf":45,"price":c_now,"rsi":r7,"reason":"Too close to Resistance - Likely BREAK, no PUT","payout":payout,"expiry":120,"atr":atr,"rejected":True}
-        if is_green and sr["sup"] is not None and dist_sup > 0.8: return {"pair":pair,"dir":sig,"conf":45,"price":c_now,"rsi":r7,"reason":"Too far from Support - Wait for touch","payout":payout,"expiry":120,"atr":atr,"rejected":True}
-        if not is_green and sr["res"] is not None and dist_res > 0.8: return {"pair":pair,"dir":sig,"conf":45,"price":c_now,"rsi":r7,"reason":"Too far from Resistance - Wait for touch","payout":payout,"expiry":120,"atr":atr,"rejected":True}
+            if not check_rejection_candle(df, "PUT"): return {"pair":pair,"dir":sig,"conf":48,"price":c_now,"rsi":r7,"reason":"No rejection wick PUT","payout":payout,"expiry":120,"atr":atr,"rejected":True}
         prev_green = c_prev > o_prev
         if is_green and not prev_green: return {"pair":pair,"dir":sig,"conf":48,"price":c_now,"rsi":r7,"reason":"Prev RED - No confirm","payout":payout,"expiry":120,"atr":atr,"rejected":True}
         if not is_green and prev_green: return {"pair":pair,"dir":sig,"conf":48,"price":c_now,"rsi":r7,"reason":"Prev GREEN - No confirm","payout":payout,"expiry":120,"atr":atr,"rejected":True}
@@ -549,10 +478,6 @@ def analyze_sniper_v12(pair, sniper_mode=False):
         if not has_pattern and score < 85: return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":r7,"reason":"No Pattern","payout":payout,"expiry":120,"atr":atr,"rejected":True}
         session_boost, session_name = get_session_boost(pair); score += session_boost
         if session_boost != 0: reasons.append(f"{session_name} {session_boost:+d}")
-        if is_green and sr["sup_confluence"] == 3: score += 5; reasons.append(f"S/R 15/30/60 {sr['sup_tfs']}")
-        elif is_green and sr["sup_confluence"] == 2: score += 3; reasons.append(f"S/R {sr['sup_tfs']}")
-        if not is_green and sr["res_confluence"] == 3: score += 5; reasons.append(f"S/R 15/30/60 {sr['res_tfs']}")
-        elif not is_green and sr["res_confluence"] == 2: score += 3; reasons.append(f"S/R {sr['res_tfs']}")
         reasons.append(f"RSI MTF 15m {rsi_mtf_simple.get('15m',0):.0f} 30m {rsi_mtf_simple.get('30m',0):.0f} 60m {rsi_mtf_simple.get('60m',0):.0f}")
         required_score = 90 if session_boost <= -5 else 85
         if sniper_mode and score < required_score: return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":r7,"reason":f"{session_name} - Needs {required_score}%","payout":payout,"expiry":120,"atr":atr,"rejected":True}
@@ -562,11 +487,11 @@ def analyze_sniper_v12(pair, sniper_mode=False):
         if rsi_boost != 0: score += rsi_boost; reasons.append(f"{rsi_txt} {rsi_boost:+d}")
         brain = get_pair_stats(pair); boost = brain.get("score_boost", 0); score += boost
         if boost != 0: reasons.append(f"🧠 {boost:+d}")
-        score = max(40, min(96, score)); reason = " + ".join(reasons) if reasons else "Weak PA"; reason += f" | S/R {dist_sup:.1f} / {dist_res:.1f}"
+        score = max(40, min(96, score)); reason = " + ".join(reasons) if reasons else "Weak PA"
         if sniper_mode and score < 85: return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":r7,"reason":reason,"payout":payout,"expiry":120,"atr":atr,"rejected":True}
-        trend_info = get_trend_and_expiry(df, df5, close, r7, r14, adx, macd_val, sig_val, mom1, mom3, stoch_val, c_now, upper, lower, is_green); reason = reason + f" | {trend_info['trend_type']} | {trend_info['expiry_txt']}"; sr_tfs_txt = ",".join(sr["sup_tfs"]) if is_green else ",".join(sr["res_tfs"])
-        return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":r7,"reason":reason,"payout":payout,"expiry":trend_info['expiry'],"atr":atr,"rejected":False,"adx":adx,"trend_info":trend_info,"sr_sup":sr["disp_sup"],"sr_res":sr["disp_res"],"sr_tfs":sr_tfs_txt,"rsi_mtf":rsi_mtf_simple}
-    except Exception as e: print(f"V21.4 err {pair} {e}"); return None
+        trend_info = get_trend_and_expiry(df, df5, close, r7, r14, adx, macd_val, sig_val, mom1, mom3, stoch_val, c_now, upper, lower, is_green); reason = reason + f" | {trend_info['trend_type']} | {trend_info['expiry_txt']}"
+        return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":r7,"reason":reason,"payout":payout,"expiry":trend_info['expiry'],"atr":atr,"rejected":False,"adx":adx,"trend_info":trend_info,"rsi_mtf":rsi_mtf_simple}
+    except Exception as e: print(f"V21.5 err {pair} {e}"); return None
 def analyze_scalp_30s_1m(pair, mode="1MIN"):
     df = get_candles(pair)
     if df is None: return None
@@ -604,9 +529,6 @@ def analyze_scalp_30s_1m(pair, mode="1MIN"):
             else: score-=8
         if adx >= 28: score+=12; reasons.append(f"ADX {adx:.0f}")
         elif adx >= 25: score+=7
-        sup, res, ds, dr = get_support_resistance(df)
-        if is_green and dr < 0.3: return {"pair":pair,"dir":sig,"conf":45,"price":c_now,"rsi":r7,"reason":"Too close to Resistance","payout":payout,"expiry":60,"atr":atr,"rejected":True}
-        if not is_green and ds < 0.3: return {"pair":pair,"dir":sig,"conf":45,"price":c_now,"rsi":r7,"reason":"Too close to Support","payout":payout,"expiry":60,"atr":atr,"rejected":True}
         session_boost, session_name = get_session_boost(pair); score += session_boost
         if session_boost != 0: reasons.append(f"{session_name} {session_boost:+d}")
         brain = get_pair_stats(pair); boost = brain.get("score_boost", 0); score += boost
@@ -614,11 +536,11 @@ def analyze_scalp_30s_1m(pair, mode="1MIN"):
         score = max(40, min(96, score)); expiry = 30 if mode=="30SEC" else 60
         if score < 85: return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":r7,"reason":" + ".join(reasons),"payout":payout,"expiry":expiry,"atr":atr,"rejected":True}
         trend_info = {"trend_type": f"⚡ SCALP {mode} MOMENTUM", "expiry": expiry}
-        return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":r7,"reason":" + ".join(reasons),"payout":payout,"expiry":expiry,"atr":atr,"rejected":False,"adx":adx,"trend_info":trend_info,"sr_sup":sup,"sr_res":res,"scalp":True,"scalp_mode":mode}
+        return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":r7,"reason":" + ".join(reasons),"payout":payout,"expiry":expiry,"atr":atr,"rejected":False,"adx":adx,"trend_info":trend_info,"scalp":True,"scalp_mode":mode}
     except Exception as e: print(f"Scalp err {pair} {e}"); return None
 def send_scalp_signal(cid, pair, d, mk=None):
     try:
-        df = get_candles(pair); sup = d.get('sr_sup', d['price']); res = d.get('sr_res', d['price'])
+        df = get_candles(pair)
         tz = pytz.timezone("Africa/Lagos"); now = datetime.now(tz); entry_time = now + timedelta(seconds=ENTRY_DELAY_SEC); expire_time = entry_time + timedelta(seconds=d.get('expiry',60))
         txt = f"""⚡ **SCALP SIGNAL {d.get('scalp_mode','1MIN')}**
 💱 {PAIR_EMOJI.get(pair,pair)}
@@ -639,7 +561,7 @@ def send_scalp_signal(cid, pair, d, mk=None):
 ⚠️ Enter FAST - At exact time above!
 """
         if df is not None:
-            buf = generate_chart(pair, df, sup, res, d['price'], d['dir'], d['rsi'])
+            buf = generate_chart(pair, df, d['price'], d['price'], d['price'], d['dir'], d['rsi'])
             if buf: bot.send_photo(cid, buf, caption=txt, parse_mode="Markdown", reply_markup=mk); return
         bot.send_message(cid, txt, parse_mode="Markdown", reply_markup=mk)
     except Exception as e: print(f"scalp send err {e}")
@@ -666,7 +588,7 @@ def pullback_scanner_loop(cid, pair, original_dir):
             levels = OTC_MARTI["levels"]; idx = OTC_MARTI["loss_streak"]; mult = levels[idx]; amt = OTC_MARTI["base"] * mult; names = ["Real Entry","Martingale 1","Martingale 2","Martingale 3"]; dir_e = "🟢 CALL ⬆️" if d['dir']=="CALL" else "🔴 PUT ⬇️"
             mk = types.InlineKeyboardMarkup(row_width=2); mk.add(types.InlineKeyboardButton("✅ WIN", callback_data=f"manual_win_{pair}"), types.InlineKeyboardButton("❌ LOSS", callback_data=f"manual_loss_{pair}_{d['dir']}")); mk.add(types.InlineKeyboardButton("⏭️ SKIP", callback_data=f"skip_{pair}"))
             try:
-                df = get_candles(pair); sup, res, ds, dr = get_support_resistance(df) if df is not None else (d['price'], d['price'], 0, 0); buf = generate_chart(pair, df, sup, res, d['price'], d['dir'], d['rsi']) if df is not None else None
+                df = get_candles(pair); buf = generate_chart(pair, df, d['price'], d['price'], d['price'], d['dir'], d['rsi']) if df is not None else None
                 tz2 = pytz.timezone("Africa/Lagos"); now2 = datetime.now(tz2); entry2 = now2 + timedelta(seconds=ENTRY_DELAY_SEC); expire2 = entry2 + timedelta(seconds=120)
                 txt = f"""🎯 **PULLBACK ENTRY**
 💱 {pair}
@@ -675,7 +597,6 @@ def pullback_scanner_loop(cid, pair, original_dir):
 **Entry:** {d['price']:.5f}
 **RSI:** {d['rsi']:.1f}
 **Trend:** Pullback to EMA
-**S/R:** {ds:.1f} ATR to Sup | {dr:.1f} to Res
 
 ⏰ **ENTER AT: {entry2.strftime('%H:%M:%S')} WAT**
 ⏳ **Wait {ENTRY_DELAY_SEC} Sec**
@@ -772,7 +693,7 @@ def start(m):
         if not news: bot.send_message(m.chat.id, "📰 **NEWS**\n✅ No high impact news in next 2h - Clean!", parse_mode="Markdown"); return
         txt = "📰 **UPCOMING NEWS**\n\n" + format_news_alert(news); bot.send_message(m.chat.id, txt, parse_mode="Markdown"); return
     if m.text.startswith('/brain'):
-        txt="🧠 **BRAIN V21.4**\n\n"; best=[]; bad=[]
+        txt="🧠 **BRAIN V21.5**\n\n"; best=[]; bad=[]
         for pair, s in PAIR_BRAIN.items():
             total=s["wins"]+s["loss"]
             if total>=3:
@@ -789,7 +710,7 @@ def start(m):
         for r in OTC_SESSION_RESULTS[-25:]: txt+=f"{'✅' if r['win'] else '❌'} {r['time']} {r['pair']} {r['dir']} ${r['amt']} L{r['level']} {r['conf']}% {r['pnl']:+.2f}\n"
         bot.send_message(m.chat.id,txt,parse_mode="Markdown"); return
     if m.text.startswith('/mode'):
-        tz=pytz.timezone("Africa/Lagos"); now=datetime.now(tz); sb, sn = get_session_boost("EURUSD"); txt=f"📍 **MODE V21.4**\n{get_greeting()}\n⏰ {now.strftime('%A %H:%M:%S WAT')} | {sn}\n📊 {get_mode_text()}\n💎 IQ: {'✅' if IQ_CONNECTED else '❌'}\n📅 Today: {STATS['daily_trades']}/30\n⏳ Active: {ACTIVE_SIGNAL['pair'] if is_signal_active() else 'None'}"; bot.send_message(m.chat.id,txt,parse_mode="Markdown"); return
+        tz=pytz.timezone("Africa/Lagos"); now=datetime.now(tz); sb, sn = get_session_boost("EURUSD"); txt=f"📍 **MODE V21.5**\n{get_greeting()}\n⏰ {now.strftime('%A %H:%M:%S WAT')} | {sn}\n📊 {get_mode_text()}\n💎 IQ: {'✅' if IQ_CONNECTED else '❌'}\n📅 Today: {STATS['daily_trades']}/30\n⏳ Active: {ACTIVE_SIGNAL['pair'] if is_signal_active() else 'None'}"; bot.send_message(m.chat.id,txt,parse_mode="Markdown"); return
     if m.text.startswith('/balance'):
         try:
             if not IQ_CONNECTED: bot.send_message(m.chat.id,f"💰 **BALANCES**\nIQ: ❌ Not connected"); return
@@ -799,7 +720,7 @@ def start(m):
     try: bal_demo=get_real_balance("PRACTICE") if IQ_CONNECTED else STATS.get("real_balance",0.0)
     except: bal_demo=0.0
     mk=types.InlineKeyboardMarkup(row_width=1); mk.add(types.InlineKeyboardButton(f"📈 TRADE REAL (19) - ${bal_demo:.2f}",callback_data="trade_real")); mk.add(types.InlineKeyboardButton("🔍 SCAN - See Pairs List",callback_data="scan_menu")); mk.add(types.InlineKeyboardButton("📊 MY STATS",callback_data="stats"),types.InlineKeyboardButton("🧠 BRAIN",callback_data="brain_btn"),types.InlineKeyboardButton("📰 NEWS",callback_data="news_btn"),types.InlineKeyboardButton("⚙️ SETTINGS",callback_data="settings"))
-    greet = get_greeting(); greet_msg = get_greeting_msg(); sb, sn = get_session_boost("EURUSD"); txt=f"""{greet}\n{greet_msg}\n\n🤖 **Z-BOT V21.4 - ENTRY TIME + 45s** 🤖\n💎 IQ: {'✅' if IQ_CONNECTED else '❌'} | 💰 DEMO ${bal_demo:.2f}\n🏆 W:{STATS['wins']} L:{STATS['loss']} | 📅 Today: {STATS['daily_trades']}/30\n⏰ Session: {sn}\n📍 {get_mode_text()}\n\n👇 **Select:**"""; bot.send_message(m.chat.id,txt,reply_markup=mk,parse_mode="Markdown")
+    greet = get_greeting(); greet_msg = get_greeting_msg(); sb, sn = get_session_boost("EURUSD"); txt=f"""{greet}\n{greet_msg}\n\n🤖 **Z-BOT V21.5 - NO S/R** 🤖\n💎 IQ: {'✅' if IQ_CONNECTED else '❌'} | 💰 DEMO ${bal_demo:.2f}\n🏆 W:{STATS['wins']} L:{STATS['loss']} | 📅 Today: {STATS['daily_trades']}/30\n⏰ Session: {sn}\n📍 {get_mode_text()}\n\n👇 **Select:**"""; bot.send_message(m.chat.id,txt,reply_markup=mk,parse_mode="Markdown")
 @bot.callback_query_handler(func=lambda c: True)
 def cb(c):
     if not is_allowed(c.from_user.id): bot.answer_callback_query(c.id,"❌ Private"); return
@@ -824,7 +745,7 @@ def cb(c):
             clear_signal(); bot.answer_callback_query(c.id,"Chain finished"); bot.send_message(cid,f"⛔ **CHAIN FINISHED** {pair}\n❌ Lost: $1 + $2 + $4 + $8 = -$15\n♻️ RESET to $1\n📅 Today: {STATS['daily_trades']}/30"); return
         levels=OTC_MARTI["levels"]; idx=OTC_MARTI["loss_streak"]; mult=levels[idx]; next_amt=OTC_MARTI["base"]*mult; names=["","Martingale 1","Martingale 2","Martingale 3"]; bot.answer_callback_query(c.id,f"LOSS - Next {names[idx]} ${next_amt}"); bot.send_message(cid,f"❌ **LOSS** {pair}\n👉 Next: **{names[idx]} - ${next_amt:.2f} Level {idx+1}/4**\n🔍 Scanning pullback..."); threading.Thread(target=pullback_scanner_loop, args=(cid, pair, orig_dir), daemon=True).start(); return
     if data=="brain_btn":
-        txt="🧠 **BRAIN V21.4**\n\n"; best=[]; bad=[]
+        txt="🧠 **BRAIN V21.5**\n\n"; best=[]; bad=[]
         for pair,s in PAIR_BRAIN.items():
             total=s["wins"]+s["loss"]
             if total>=3:
@@ -845,7 +766,7 @@ def cb(c):
         try: bal_demo=get_real_balance("PRACTICE") if IQ_CONNECTED else 0.0
         except: bal_demo=0.0
         mk2=types.InlineKeyboardMarkup(row_width=1); mk2.add(types.InlineKeyboardButton(f"📈 TRADE REAL (19) - ${bal_demo:.2f}",callback_data="trade_real")); mk2.add(types.InlineKeyboardButton("🔍 SCAN - See Pairs List",callback_data="scan_menu")); mk2.add(types.InlineKeyboardButton("📊 MY STATS",callback_data="stats"),types.InlineKeyboardButton("🧠 BRAIN",callback_data="brain_btn"),types.InlineKeyboardButton("📰 NEWS",callback_data="news_btn"),types.InlineKeyboardButton("⚙️ SETTINGS",callback_data="settings"))
-        bot.send_message(cid,f"🤖 **Z-BOT V21.4**\n💎 IQ: {'✅' if IQ_CONNECTED else '❌'} | 💰 DEMO ${bal_demo:.2f}\n📅 Today: {STATS['daily_trades']}/30\n\n👇 **Select:**",reply_markup=mk2,parse_mode="Markdown"); return
+        bot.send_message(cid,f"🤖 **Z-BOT V21.5**\n💎 IQ: {'✅' if IQ_CONNECTED else '❌'} | 💰 DEMO ${bal_demo:.2f}\n📅 Today: {STATS['daily_trades']}/30\n\n👇 **Select:**",reply_markup=mk2,parse_mode="Markdown"); return
     if data=="trade_real":
         mk=types.InlineKeyboardMarkup(row_width=1)
         mk.add(types.InlineKeyboardButton("🔍 SCAN ALL REAL NOW (19)",callback_data="scan_all_real"))
@@ -853,7 +774,7 @@ def cb(c):
         mk.add(types.InlineKeyboardButton("⚡ SCAN 1MIN SCALP (19)",callback_data="scan_scalp_1min"))
         mk.add(types.InlineKeyboardButton("--- 👇 PICK ONE PAIR TO SCAN 👇 ---",callback_data="trade_real"))
         for p in REAL_PAIRS: mk.add(types.InlineKeyboardButton(f"{PAIR_EMOJI.get(p,p)}",callback_data=f"real_pair_{p}"))
-        bot.send_message(cid,f"📈 **TRADE REAL V21.4**\n📍 {get_mode_text()}\n📅 Today: {STATS['daily_trades']}/30",reply_markup=mk,parse_mode="Markdown"); return
+        bot.send_message(cid,f"📈 **TRADE REAL V21.5**\n📍 {get_mode_text()}\n📅 Today: {STATS['daily_trades']}/30",reply_markup=mk,parse_mode="Markdown"); return
     if data=="scan_scalp_30sec" or data=="scan_scalp_1min":
         mode = "30SEC" if data=="scan_scalp_30sec" else "1MIN"
         if is_signal_active(): bot.send_message(cid,f"⏳ **One signal active**\n💱 {ACTIVE_SIGNAL['pair']} {ACTIVE_SIGNAL['dir']}\nFinish it first."); return
@@ -899,7 +820,7 @@ def cb(c):
             try: bot.edit_message_text(f"🔍 Scanning... {pair} {conf:.0f}%",cid,scan_msg.message_id)
             except: pass
             time.sleep(0.3)
-        results.sort(key=lambda x: x[1], reverse=True); txt="📊 **REAL V21.4 READINESS**\n"; txt+=f"📍 {get_mode_text()}\n⏰ {datetime.now(pytz.timezone('Africa/Lagos')).strftime('%H:%M:%S WAT')} | 📅 {STATS['daily_trades']}/30\n\n"
+        results.sort(key=lambda x: x[1], reverse=True); txt="📊 **REAL V21.5 READINESS**\n"; txt+=f"📍 {get_mode_text()}\n⏰ {datetime.now(pytz.timezone('Africa/Lagos')).strftime('%H:%M:%S WAT')} | 📅 {STATS['daily_trades']}/30\n\n"
         for pair,conf,dir_,reason,status,exp in results: emoji=PAIR_EMOJI.get(pair,pair); txt+=f"{status} {emoji}: {conf:.0f}% {dir_}\n"
         best=results[0] if results else None
         if best and best[1]>=85: txt+=f"\n💡 **BEST:** {PAIR_EMOJI.get(best[0],best[0])} {best[1]:.0f}%"
@@ -916,7 +837,7 @@ def cb(c):
         nb = is_news_blocking_pair(pair, minutes=30)
         if nb: bot.send_message(cid,f"📰 **{pair} Blocked by NEWS**\n🔴 {nb['country']} - {nb['title']}\n⏰ In {nb['in_min']} min"); return
         bot.answer_callback_query(c.id,f"Scanning {pair}...")
-        scan_msg=bot.send_message(cid,f"⚡ **SCANNING {PAIR_EMOJI.get(pair,pair)}...**\nStrategy: S/R 0.15-0.8 ATR + RSI MTF Turn + Rejection")
+        scan_msg=bot.send_message(cid,f"⚡ **SCANNING {PAIR_EMOJI.get(pair,pair)}...**\nStrategy: RSI MTF Turn + Rejection + EMA + 5M Align - NO S/R")
         d=analyze_sniper_v12(pair,sniper_mode=False)
         if not d or d['conf']<85:
             d_scalp_1m = analyze_scalp_30s_1m(pair, mode="1MIN")
@@ -936,8 +857,8 @@ def cb(c):
     if data=="stop_auto":
         if cid in AUTO_STATE: AUTO_STATE[cid]['running']=False; bot.send_message(cid,"🛑 Stopping..."); return
     if data=="stats":
-        total=STATS['wins']+STATS['loss']; wr=(STATS['wins']/total*100) if total else 0; bal=get_real_balance("PRACTICE"); sb,sn=get_session_boost("EURUSD"); bot.send_message(cid,f"📊 **STATS V21.4**\n📍 {get_mode_text()}\n{get_greeting()}\n⏰ {sn}\n🏆 W:{STATS['wins']} L:{STATS['loss']} WR:{wr:.1f}%\n💰 Bal: ${bal:.2f}\n📅 Today: {STATS['daily_trades']}/30\n🧠 Brain: {len(PAIR_BRAIN)} pairs",parse_mode="Markdown")
-    if data=="settings": bot.send_message(cid,f"⚙️ **SETTINGS V21.4**\n\n📊 Chart + Brief Signal\n🛡️ S/R 15/30/60 Swing 2+ touches | Zone 0.15-0.8 ATR | Too Close = BREAK BLOCK\n📈 RSI MTF 60+30+1m TURN + Rejection Wick\n⏰ ENTRY TIME + 45 Sec Delay | EXPIRES Time\n⚡ SCALP: 3-candle momentum + EMA + RSI 1m + ADX 25+ + Payout 85%+\n⏱️ Expiry SMART 1/2/3/5 Min + SCALP 30s/1m\nREAL 7AM-8PM 85%+ | Max 30/day\n💰 Marti 1-2-4-8 MANUAL\n🧠 Brain ON\n⏭️ Skip - Next in 5 mins")
+        total=STATS['wins']+STATS['loss']; wr=(STATS['wins']/total*100) if total else 0; bal=get_real_balance("PRACTICE"); sb,sn=get_session_boost("EURUSD"); bot.send_message(cid,f"📊 **STATS V21.5**\n📍 {get_mode_text()}\n{get_greeting()}\n⏰ {sn}\n🏆 W:{STATS['wins']} L:{STATS['loss']} WR:{wr:.1f}%\n💰 Bal: ${bal:.2f}\n📅 Today: {STATS['daily_trades']}/30\n🧠 Brain: {len(PAIR_BRAIN)} pairs",parse_mode="Markdown")
+    if data=="settings": bot.send_message(cid,f"⚙️ **SETTINGS V21.5 - NO S/R**\n\n📊 Chart + Brief Signal\n❌ S/R REMOVED TOTALLY\n📈 RSI MTF 60+30+1m TURN + Rejection Wick\n⏰ ENTRY TIME + 45 Sec Delay | EXPIRES Time\n⚡ SCALP: 3-candle momentum + EMA + RSI 1m + ADX 25+ + Payout 85%+\n⏱️ Expiry SMART 1/2/3/5 Min + SCALP 30s/1m\nREAL 7AM-8PM 85%+ | Max 30/day\n💰 Marti 1-2-4-8 MANUAL\n🧠 Brain ON\n⏭️ Skip - Next in 5 mins")
 threading.Thread(target=background_iq, daemon=True).start()
 threading.Thread(target=real_signal_scanner,daemon=True).start()
 threading.Thread(target=daily_summary_loop,daemon=True).start()
@@ -948,4 +869,4 @@ if __name__ == "__main__":
         url=os.getenv("RENDER_EXTERNAL_URL")
         if url and BOT_TOKEN: requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={url}/{BOT_TOKEN}", timeout=5); print(f"Webhook set {url}")
     except: pass
-    port=int(os.getenv("PORT",10000)); print(f"Starting Flask on 0.0.0.0:{port} - V21.4"); app.run(host="0.0.0.0", port=port, threaded=True)
+    port=int(os.getenv("PORT",10000)); print(f"Starting Flask on 0.0.0.0:{port} - V21.5"); app.run(host="0.0.0.0", port=port, threaded=True)
