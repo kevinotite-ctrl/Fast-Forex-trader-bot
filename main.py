@@ -40,7 +40,6 @@ MARKET_GOOD_SENT = {"date": "", "last_alert": 0}
 MORNING_GREET_SENT = ""
 NEWS_CACHE = {"data": [], "time": 0}
 
-# ===== NEW DAY RESET - RESET MAX TRADE + SKIP OLD SIGNAL =====
 def get_lagos_day():
     return datetime.now(pytz.timezone("Africa/Lagos")).strftime("%Y-%m-%d")
 
@@ -62,7 +61,6 @@ def check_and_reset_new_day():
         return True
     return False
 
-# ===== GREETING =====
 def get_greeting():
     tz = pytz.timezone("Africa/Lagos"); hour = datetime.now(tz).hour
     if 5 <= hour < 12: return "🌅 GOOD MORNING TRAILBLAZER ☀️"
@@ -76,7 +74,6 @@ def get_greeting_msg():
     elif 17 <= hour < 21: return "🌇 Evening session! Last chance to stack up before market closes 🌙\n🎯 Let's finish strong!"
     else: return "🌙 Market is sleeping. Rest your mind, Trailblazer 💤\n💰 Tomorrow we stack again!"
 
-# ===== SESSION BOOST =====
 def get_session_boost(pair):
     tz = pytz.timezone("Africa/Lagos"); now = datetime.now(tz); hour = now.hour + now.minute / 60
     if 8 <= hour < 11:
@@ -90,7 +87,6 @@ def get_session_boost(pair):
     elif 17 <= hour < 18: return 2, "🇺🇸 NY AFTERNOON"
     else: return 0, "🌍 NORMAL"
 
-# ===== NEWS SCANNER =====
 def get_upcoming_news():
     try:
         if time.time() - NEWS_CACHE["time"] < 300: return NEWS_CACHE["data"]
@@ -132,7 +128,6 @@ def format_news_alert(news_list):
         txt += f"🔴 {flag} {n['country']} - {n['title']}\n⏰ {when}\n\n"
     return txt
 
-# ===== AI BRAIN V17 - HOUR + PAIR RSI =====
 PAIR_BRAIN = {}
 def load_brain():
     global PAIR_BRAIN
@@ -333,7 +328,6 @@ def calc_adx_v12(df, period=14):
         return float(adx), float(plus_di.iloc[-1]), float(minus_di.iloc[-1])
     except: return 0, 0, 0
 
-# ===== V18 - MULTI-TREND + SMART EXPIRY =====
 def get_trend_and_expiry(df, df5, close, r7, r14, adx, macd_val, sig_val, mom1, mom3, stoch_val, c_now, upper, lower, is_green):
     trends = []
     trend_score = 0
@@ -478,7 +472,6 @@ def analyze_sniper_v12(pair, sniper_mode=False):
         if boost <= -8 and sniper_mode and score < 92: return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":r7,"reason":f"🧠 Weak pair {pair} needs 92%","payout":payout,"expiry":120,"atr":atr,"rejected":True}
         score = max(40, min(96, score)); reason = " + ".join(reasons) if reasons else "Weak PA"
         if sniper_mode and score < 88: return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":r7,"reason":reason,"payout":payout,"expiry":120,"atr":atr,"rejected":True}
-        # V18 Smart Expiry
         trend_info = get_trend_and_expiry(df, df5, close, r7, r14, adx, macd_val, sig_val, mom1, mom3, stoch_val, c_now, upper, lower, is_green)
         reason = reason + f" | {trend_info['trend_type']} | ⏱️ {trend_info['expiry_txt']}"
         return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":r7,"reason":reason,"payout":payout,"expiry":trend_info['expiry'],"atr":atr,"rejected":False,"adx":adx,"trend_info":trend_info}
@@ -669,7 +662,6 @@ def morning_greet_loop():
             time.sleep(60)
         except: time.sleep(60)
 
-# ===== FIXED: ONLY 1 SIGNAL AT A TIME - STRONGEST PAIR WINS =====
 def real_signal_scanner():
     last_signal = {}
     tz = pytz.timezone("Africa/Lagos")
@@ -839,11 +831,51 @@ def cb(c):
         LAST_GLOBAL_SIGNAL["time"] = time.time() - (GLOBAL_COOLDOWN - SKIP_COOLDOWN)
         bot.answer_callback_query(c.id,"Skipped - Next in 5 min")
         bot.send_message(cid,f"⏭️ **SKIPPED**\n\n💱 {pair}\nYou skipped this trade.\nNo WIN / LOSS recorded.\nNo Brain change.\n⏳ Next signal in **5 mins** - Bot go scan again.\n✅ Lock opened."); return
+    # ===== NEW WIN DESIGN - TRADE WON 🏅 + 🤑 ALONE =====
     if data.startswith("manual_win_"):
-        pair=data.replace("manual_win_",""); record_brain(pair, True, ACTIVE_SIGNAL.get("conf",88), ACTIVE_SIGNAL.get("rsi",50), ACTIVE_SIGNAL.get("adx",30)); OTC_MARTI["loss_streak"]=0
+        pair=data.replace("manual_win_","")
+        win_conf = ACTIVE_SIGNAL.get("conf",88)
+        win_rsi = ACTIVE_SIGNAL.get("rsi",50)
+        win_adx = ACTIVE_SIGNAL.get("adx",30)
+        win_dir = ACTIVE_SIGNAL.get("dir","CALL")
+        record_brain(pair, True, win_conf, win_rsi, win_adx)
+        OTC_MARTI["loss_streak"]=0
         if cid in PULLBACK_STATE: PULLBACK_STATE[cid]["active"]=False
-        clear_signal(); STATS['wins']+=1; count_trade(); wr=get_pair_winrate(pair); wr_txt=f"\n🧠 {pair} Brain WR now {wr:.0f}%" if wr is not None else ""
-        bot.answer_callback_query(c.id,"WIN - Reset to Real Entry"); bot.send_message(cid,f"✅ **WIN Recorded Trailblazer!** 🎉\n\n💱 {pair}\n♻️ RESET to Real Entry $1\n🔍 Pullback scan STOPPED{wr_txt}\n📅 Today: {STATS['daily_trades']}/30 trades\n✅ Next signal can now come.\n💰 Keep stacking! 🚀"); return
+        clear_signal(); STATS['wins']+=1; count_trade()
+        wr=get_pair_winrate(pair); wr_txt=f"\n🧠 {pair} Brain WR now {wr:.0f}%" if wr is not None else ""
+        bot.answer_callback_query(c.id,"WIN 🏅")
+        base = OTC_MARTI["base"]
+        profit = round(base * 0.85, 2)
+        total_return = round(base + profit, 2)
+        tz = pytz.timezone("Africa/Lagos")
+        now = datetime.now(tz)
+        dir_e = "🟢 CALL ⬆️" if win_dir=="CALL" else "🔴 PUT ⬇️"
+        total = STATS['wins'] + STATS['loss']
+        wr_total = (STATS['wins']/total*100) if total else 0
+        win_msg = f"""🏆━━━━━━━━━━━━━━━━━━🏆
+      ✅ TRADE WON 🏅
+🏆━━━━━━━━━━━━━━━━━━🏆
+
+🎯 {PAIR_EMOJI.get(pair,pair)}
+📈 {dir_e} | Conf: {win_conf:.0f}%
+🕒 {now.strftime('%H:%M:%S')} | {now.strftime('%d %b')}
+
+──────────────────
+💵 Stake: ${base:.2f}
+💰 Profit: +${profit:.2f}
+💵 Payout: ${total_return:.2f}
+──────────────────
+
+🏅 Wins: {STATS['wins']} | ❌ Loss: {STATS['loss']}
+📊 Today WR: {wr_total:.1f}%{wr_txt}
+♻️ Next Entry Reset: ${base:.2f}
+🔍 Pullback scan STOPPED
+📅 Today: {STATS['daily_trades']}/30 trades
+✅ Next signal can now come.
+"""
+        bot.send_message(cid, win_msg, parse_mode="Markdown")
+        bot.send_message(cid, "🤑")
+        return
     if data.startswith("manual_loss_"):
         parts=data.replace("manual_loss_","").rsplit("_",1); pair=parts[0]; orig_dir=parts[1] if len(parts)>1 else "CALL"
         record_brain(pair, False, ACTIVE_SIGNAL.get("conf",88), ACTIVE_SIGNAL.get("rsi",50), ACTIVE_SIGNAL.get("adx",30)); OTC_MARTI["loss_streak"]+=1; STATS['loss']+=1; count_trade()
