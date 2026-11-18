@@ -13,9 +13,7 @@ logging.getLogger("iqoptionapi").setLevel(logging.CRITICAL)
 logging.disable(logging.ERROR)
 BOT_TOKEN = os.getenv("BOT_TOKEN") or os.getenv("TELE_TOKEN")
 OWNER_ID = 8659453018
-# Channel hardcoded - No environment variable needed
 CHANNEL_ID = "@KEVINTRAILBLAZE"
-# Wallpapers for Welcome and Intro
 WELCOME_PHOTO = "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1080&q=80"
 INTRO_PHOTO = "https://images.unsplash.com/photo-1621761191319-c6fb62004040?w=1080&q=80"
 if not BOT_TOKEN: print("ERROR BOT_TOKEN missing")
@@ -25,7 +23,6 @@ ENABLE_OTC = False
 REAL_PAIRS = ["EURUSD","GBPUSD","EURGBP","AUDUSD","USDCAD","USDCHF","EURAUD","GBPCHF","EURCHF","NZDUSD","GBPAUD","EURCAD","AUDCAD","GBPCAD","AUDNZD",]
 OTC_PAIRS = ["EURUSD-OTC","GBPUSD-OTC","AUDUSD-OTC","USDCAD-OTC","EURGBP-OTC","EURAUD-OTC","GBPAUD-OTC","NZDUSD-OTC","GBPCHF-OTC","EURCHF-OTC","USDCHF-OTC","AUDCAD-OTC","EURCAD-OTC"]
 PAIR_EMOJI = {"EURUSD":"🇪🇺 EUR/USD REAL","GBPUSD":"🇬🇧 GBP/USD REAL","EURGBP":"🇪🇺 EUR/GBP REAL","AUDUSD":"🇦🇺 AUD/USD REAL","USDCAD":"🇺🇸 USD/CAD REAL","USDCHF":"🇺🇸 USD/CHF REAL","EURAUD":"🇪🇺 EUR/AUD REAL","GBPCHF":"🇬🇧 GBP/CHF REAL","EURCHF":"🇪🇺 EUR/CHF REAL","NZDUSD":"🇳🇿 NZD/USD REAL","GBPAUD":"🇬🇧 GBP/AUD REAL","EURCAD":"🇪🇺 EUR/CAD REAL","AUDCAD":"🇦🇺 AUD/CAD REAL","GBPCAD":"🇬🇧 GBP/CAD REAL","AUDNZD":"🇦🇺 AUD/NZD REAL","XAUUSD":"🥇 XAU/USD GOLD","EURUSD-OTC":"🇪🇺 EUR/USD OTC","GBPUSD-OTC":"🇬🇧 GBP/USD OTC","EURGBP-OTC":"🇪🇺 EUR/GBP OTC","AUDUSD-OTC":"🇦🇺 AUD/USD OTC","USDCHF-OTC":"🇺🇸 USD/CHF OTC","EURAUD-OTC":"🇪🇺 EUR/AUD OTC","GBPAUD-OTC":"🇬🇧 GBP/AUD OTC","NZDUSD-OTC":"🇳🇿 NZD/USD OTC","GBPCHF-OTC":"🇬🇧 GBP/CHF OTC","EURCHF-OTC":"🇪🇺 EUR/CHF OTC","USDCAD-OTC":"🇺🇸 USD/CAD OTC","AUDCAD-OTC":"🇦🇺 AUD/CAD OTC","EURCAD-OTC":"🇪🇺 EUR/CAD OTC"}
-# Welcome and Intro Texts in Clear English
 WELCOME_TEXT = (
     "🔥🔥🔥 WELCOME TO TRAILBLAZER SIGNALS 🔥🔥🔥\n"
     "━━━━━━━━━━━━━━━━━━\n"
@@ -98,7 +95,6 @@ DAILY_SUMMARY_SENT = ""
 MARKET_GOOD_SENT = {"date": "", "last_alert": 0}
 MORNING_GREET_SENT = ""
 NEWS_CACHE = {"data": [], "time": 0}
-# Channel Helpers
 def send_to_channel_sync(text):
     try:
         bot.send_message(CHANNEL_ID, text, parse_mode="Markdown")
@@ -110,7 +106,6 @@ def send_photo_to_channel_sync(photo_url, caption):
         print(f"photo channel err {e}")
         try: bot.send_message(CHANNEL_ID, caption, parse_mode="Markdown")
         except: pass
-# Simple Signal Format For Channel - Easy For New Users To Understand
 def format_channel_signal(pair, dir_, conf, price, entry_time_txt):
     if dir_ == "CALL":
         action = "🟢 BUY / CALL ⬆️"
@@ -980,3 +975,24 @@ def cb(c):
     if data=="stats":
         total=STATS['wins']+STATS['loss']; wr=(STATS['wins']/total*100) if total else 0; bal=get_real_balance("PRACTICE"); sb,sn=get_session_boost("EURUSD"); bot.send_message(cid,f"📊 **STATS V18**\n📍 {get_mode_text()}\n{get_greeting()}\n⏰ Session: {sn} ({sb:+d})\n🏆 Wins: {STATS['wins']}\n❌ Loss: {STATS['loss']}\n📈 Winrate: {wr:.1f}%\n🔥 Streak: {STATS['streak']}\n💰 Bal: ${bal:.2f}\n📅 Today: {STATS['daily_trades']}/30\n🧠 Brain pairs: {len(PAIR_BRAIN)}\n📰 News in 2h: {len(get_upcoming_news())}\n📦 OTC: DISABLED | REAL only\n🥇 GOLD: XAUUSD ON",parse_mode="Markdown")
     if data=="settings": bot.send_message(cid,f"⚙️ **SETTINGS V18 TRAILBLAZER MANUAL**\n\n🛡️ V18: 5M Trend + ADX 25+ + MACD + Stochastic + BB + Payout 80%+ + News Block + Session Boost + Brain + Pullback\n\n📢 Channel: @KEVINTRAILBLAZE\nUse /welcome and /intro to post to channel.")
+# ===== STARTUP - KEEPS THE BOT RUNNING ON RENDER =====
+if __name__ == "__main__":
+    print("Starting Trailblazer Bot...")
+    threading.Thread(target=background_iq, daemon=True).start()
+    threading.Thread(target=daily_summary_loop, daemon=True).start()
+    threading.Thread(target=trailblazer_market_scanner, daemon=True).start()
+    threading.Thread(target=morning_greet_loop, daemon=True).start()
+    threading.Thread(target=xauusd_signal_scanner, daemon=True).start()
+    threading.Thread(target=real_signal_scanner, daemon=True).start()
+    def run_polling():
+        while True:
+            try:
+                print("Bot polling started...")
+                bot.infinity_polling(timeout=30, long_polling_timeout=30)
+            except Exception as e:
+                print(f"Polling error: {e} - Retrying in 5 seconds...")
+                time.sleep(5)
+    threading.Thread(target=run_polling, daemon=True).start()
+    port = int(os.environ.get("PORT", 10000))
+    print(f"Flask running on port {port}")
+    app.run(host="0.0.0.0", port=port)
