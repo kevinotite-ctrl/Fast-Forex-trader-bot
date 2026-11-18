@@ -182,6 +182,42 @@ Hold The Trade Until It Hits Take Profit Or Stop Loss. Do Not Close Early.
 📢 Channel: @KEVINTRAILBLAZE
 Let Us Grow Together! 🔥
 """
+# BRIEF PULLBACK SIGNAL FOR CHANNEL - Short, Fast, No Long Guide
+def format_channel_pullback_signal(pair, dir_, entry_time_txt, level_idx=1, amount=2.0, expiry=120):
+    if dir_ == "CALL":
+        action = "🟢 BUY / CALL ⬆️"
+    else:
+        action = "🔴 SELL / PUT ⬇️"
+    pair_name = PAIR_EMOJI.get(pair, pair)
+    level_names = ["", "Martingale 1", "Martingale 2", "Martingale 3"]
+    level_name = level_names[level_idx] if 1 <= level_idx <= 3 else f"Martingale {level_idx}"
+    expiry_min = int(expiry // 60) if expiry else 2
+    return f"""🔁 {level_name.upper()} - {pair_name}
+
+📊 {action}
+⏰ Entry: {entry_time_txt}
+💵 Stake: ${amount:.2f}
+⏱️ Expiry: {expiry_min} Min
+
+👉 Open IQ Option -> Search {pair} -> Press {action} At Entry Time.
+
+📢 @KEVINTRAILBLAZE
+"""
+def format_channel_pullback_gold_signal(dir_, entry_time_txt, level_idx=1, amount=2.0):
+    dir_e = "🟢 BUY ⬆️" if dir_=="CALL" else "🔴 SELL ⬇️"
+    level_names = ["", "Martingale 1", "Martingale 2", "Martingale 3"]
+    level_name = level_names[level_idx] if 1 <= level_idx <= 3 else f"Martingale {level_idx}"
+    return f"""🔁 {level_name.upper()} - 🥇 GOLD XAU/USD
+
+📊 {dir_e}
+⏰ Entry: {entry_time_txt}
+💵 Stake: ${amount:.2f}
+
+👉 Open IQ Option -> Search GOLD -> Press {dir_e} At Entry Time.
+Use Same SL / TP As First Signal.
+
+📢 @KEVINTRAILBLAZE
+"""
 def get_lagos_day(): return datetime.now(pytz.timezone("Africa/Lagos")).strftime("%Y-%m-%d")
 def check_and_reset_new_day():
     today = get_lagos_day()
@@ -263,7 +299,6 @@ def format_news_alert(news_list):
         else: when = f"In {n['in_min']} min"
         txt += f"🔴 {flag} {n['country']} - {n['title']}\n⏰ {when}\n\n"
     return txt
-# READY MESSAGE - Built Dynamically With Current Session, Time, And News
 def get_ready_text():
     tz = pytz.timezone("Africa/Lagos"); now = datetime.now(tz)
     sb, sn = get_session_boost("EURUSD")
@@ -681,7 +716,7 @@ def pullback_scanner_loop(cid, pair, original_dir):
         d=check_pullback_entry(pair,original_dir)
         if d:
             levels=OTC_MARTI["levels"]; idx=OTC_MARTI["loss_streak"]; mult=levels[idx]; amt=OTC_MARTI["base"]*mult; names=["Real Entry","Martingale 1","Martingale 2","Martingale 3"]; dir_e="🟢 CALL ⬆️" if d['dir']=="CALL" else "🔴 PUT ⬇️"
-            mk=types.InlineKeyboardMarkup(row_width=2); mk.add(types.InlineKeyboardButton("✅ WIN",callback_data=f"manual_win_{pair}"),types.InlineKeyboardButton("❌ LOSS",callback_data=f"manual_loss_{pair}_{d['dir']}")); mk.add(types.InlineKeyboardButton("⏭️ SKIP THIS TRADE",callback_data=f"skip_{pair}")); mk.add(types.InlineKeyboardButton("📤 Send to Channel",callback_data=f"send_channel_{pair}_{d['dir']}"))
+            mk=types.InlineKeyboardMarkup(row_width=2); mk.add(types.InlineKeyboardButton("✅ WIN",callback_data=f"manual_win_{pair}"),types.InlineKeyboardButton("❌ LOSS",callback_data=f"manual_loss_{pair}_{d['dir']}")); mk.add(types.InlineKeyboardButton("⏭️ SKIP THIS TRADE",callback_data=f"skip_{pair}")); mk.add(types.InlineKeyboardButton("📤 Send to Channel",callback_data=f"send_channel_pb_{pair}_{d['dir']}"))
             bot.send_message(cid,f"🎯 **PULLBACK ENTRY FOUND!**\n\n💱 {pair}\n📊 {dir_e} | {d['reason']}\n💸 Payout {int(d['payout']*100)}%\n💰 Next: **{names[idx]} - ${amt:.2f} Level {idx+1}/4 ({mult}x)**\n⏱️ Enter NOW - 2 Min - MANUAL\n\nPress WIN/LOSS/SKIP after result:",reply_markup=mk,parse_mode="Markdown")
             PULLBACK_STATE[cid]["active"]=False; return
         time.sleep(10)
@@ -939,6 +974,23 @@ def cb(c):
         send_photo_to_channel_sync(READY_PHOTO, get_ready_text())
         bot.answer_callback_query(c.id,"✅ Get Ready sent to Channel!")
         bot.send_message(cid,"✅ Get Ready message has been sent to @KEVINTRAILBLAZE! 🚀📤"); return
+    if data.startswith("send_channel_pb_"):
+        try:
+            parts=data.replace("send_channel_pb_","").rsplit("_",1); pair=parts[0]; dir_ = parts[1] if len(parts)>1 else ACTIVE_SIGNAL.get("dir","CALL")
+            tz2=pytz.timezone("Africa/Lagos"); entry_txt=(datetime.now(tz2)+timedelta(seconds=45)).strftime('%H:%M:%S WAT')
+            idx = OTC_MARTI["loss_streak"]
+            if idx < 1: idx = 1
+            if idx > 3: idx = 3
+            amt = OTC_MARTI["base"] * OTC_MARTI["levels"][idx]
+            expiry = ACTIVE_SIGNAL.get("expiry", 120)
+            if pair=="XAUUSD":
+                send_to_channel_sync(format_channel_pullback_gold_signal(dir_, entry_txt, idx, amt))
+            else:
+                send_to_channel_sync(format_channel_pullback_signal(pair, dir_, entry_txt, idx, amt, expiry))
+            bot.answer_callback_query(c.id,"✅ Brief pullback sent to Channel!")
+            bot.send_message(cid,"✅ Brief pullback signal sent to @KEVINTRAILBLAZE 📤")
+        except Exception as e: bot.answer_callback_query(c.id,f"Error {e}")
+        return
     if data.startswith("send_channel_"):
         try:
             parts=data.replace("send_channel_","").rsplit("_",1); pair=parts[0]; dir_ = parts[1] if len(parts)>1 else ACTIVE_SIGNAL.get("dir","CALL")
