@@ -16,6 +16,7 @@ OWNER_ID = 8659453018
 CHANNEL_ID = "@KEVINTRAILBLAZE"
 WELCOME_PHOTO = "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1080&q=80"
 INTRO_PHOTO = "https://images.unsplash.com/photo-1621761191319-c6fb62004040?w=1080&q=80"
+READY_PHOTO = "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1080&q=80"
 if not BOT_TOKEN: print("ERROR BOT_TOKEN missing")
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 app = Flask(__name__)
@@ -262,6 +263,78 @@ def format_news_alert(news_list):
         else: when = f"In {n['in_min']} min"
         txt += f"🔴 {flag} {n['country']} - {n['title']}\n⏰ {when}\n\n"
     return txt
+# READY MESSAGE - Built Dynamically With Current Session, Time, And News
+def get_ready_text():
+    tz = pytz.timezone("Africa/Lagos"); now = datetime.now(tz)
+    sb, sn = get_session_boost("EURUSD")
+    news = get_upcoming_news()
+    news_txt = "✅ No High Impact News In Next 2 Hours - Clean Market" if not news else f"⚠️ {len(news)} High Impact News In Next 2 Hours - Bot Will Avoid Those Pairs"
+    return f"""🚀🚀🚀 GET READY TRAILBLAZERS 🚀🚀🚀
+
+{get_greeting()}
+
+⏰ Time: {now.strftime('%A, %d %b %Y - %H:%M WAT')}
+⏰ Session: {sn}
+📊 Mode: {get_mode_text()}
+📰 News: {news_txt}
+📅 Today: {STATS['daily_trades']}/30 Trades Used
+
+━━━━━━━━━━━━━━━━━━
+✅ CHECKLIST - DO THIS NOW BEFORE SIGNALS START:
+━━━━━━━━━━━━━━━━━━
+
+1️⃣ OPEN IQ OPTION APP 📱
+Open Your IQ Option App Now. Do Not Wait For The Signal To Open It.
+
+2️⃣ CHECK YOUR BALANCE 💰
+Make Sure You Have At Least $15 To $20 In Your Account.
+If You Are On DEMO, Make Sure You Have $1,000+ Demo Balance.
+
+3️⃣ CHECK YOUR INTERNET 🌐
+Use Strong WiFi Or Mobile Data. A Slow Connection Can Make You Enter Late.
+
+4️⃣ CHARGE YOUR PHONE 🔋
+Charge Your Phone To At Least 50%. Do Not Miss A Signal Because Your Phone Died.
+
+5️⃣ SET YOUR STAKE TO $1 💵
+Go To IQ Option -> Amount -> Set It To $1.
+We Will Use Martingale: $1 -> $2 -> $4 -> $8 If We Lose.
+
+6️⃣ SET YOUR CHART TO 1 MINUTE 📊
+For Forex Signals, Use 1 Minute Candles.
+For GOLD, Use 1 Minute Or 5 Minute Candles.
+
+7️⃣ CLEAR YOUR MIND 🧠
+No Distractions. Focus Only On The Signals.
+Do Not Trade Other Pairs That We Did Not Call.
+
+━━━━━━━━━━━━━━━━━━
+📋 HOW TODAY WILL WORK:
+━━━━━━━━━━━━━━━━━━
+🎯 Only 88%+ Sniper Signals
+💱 15 Forex Pairs + GOLD (XAU/USD)
+⏱️ Expiry Will Be Shown On Each Signal - Use The Exact Expiry
+⏰ Enter Exactly At The Entry Time Shown
+✅ If You WIN - Go Back To $1
+❌ If You LOSE - Wait For Martingale Signal ($2, $4, $8)
+⏭️ If You Miss A Signal - Skip It, Do Not Chase It
+
+━━━━━━━━━━━━━━━━━━
+⚠️ RULES FOR TODAY:
+━━━━━━━━━━━━━━━━━━
+✅ Follow The Stake - $1, $2, $4, $8 Only
+✅ Maximum 30 Trades Today
+✅ Enter At Entry Time Only
+❌ Do Not Be Greedy - Do Not Increase Stake On Your Own
+❌ Do Not Trade If You Are Angry Or Tired
+❌ Do Not Borrow Money To Trade
+
+━━━━━━━━━━━━━━━━━━
+🔥 SIGNALS ARE COMING SOON - STAY READY! 🔥
+📢 Channel: @KEVINTRAILBLAZE
+
+Drop 🔥 In The Comments If You Are Ready!
+"""
 PAIR_BRAIN = {}
 def load_brain():
     global PAIR_BRAIN
@@ -795,13 +868,15 @@ def welcome_new_member(m):
             name = member.first_name or "Trader"
             bot.send_message(m.chat.id, f"👋 Welcome {name} to Trailblazer Signals! 🔥\n\n🥇 Forex and GOLD Sniper Signals\n📈 88%+ Accuracy Only\n💰 Stake $1 - Follow Martingale\n📢 Channel: @KEVINTRAILBLAZE\n\nType /welcome to see the rules.\nGood luck! 💪")
     except: pass
-@bot.message_handler(commands=['start','stop','mode','balance','results','brain','news','welcome','intro'])
+@bot.message_handler(commands=['start','stop','mode','balance','results','brain','news','welcome','intro','ready'])
 def start(m):
     if not is_allowed(m.from_user.id):
         if m.text and m.text.startswith('/welcome'):
             bot.send_message(m.chat.id, WELCOME_TEXT); return
         if m.text and m.text.startswith('/intro'):
             bot.send_message(m.chat.id, INTRO_TEXT); return
+        if m.text and m.text.startswith('/ready'):
+            bot.send_message(m.chat.id, get_ready_text()); return
         bot.send_message(m.chat.id,"❌ Private"); return
     if m.text.startswith('/welcome'):
         send_photo_to_channel_sync(WELCOME_PHOTO, WELCOME_TEXT)
@@ -809,6 +884,9 @@ def start(m):
     if m.text.startswith('/intro'):
         send_photo_to_channel_sync(INTRO_PHOTO, INTRO_TEXT)
         bot.send_message(m.chat.id, "✅ Intro message has been sent to @KEVINTRAILBLAZE with wallpaper! 📤📸"); return
+    if m.text.startswith('/ready'):
+        send_photo_to_channel_sync(READY_PHOTO, get_ready_text())
+        bot.send_message(m.chat.id, "✅ Get Ready message has been sent to @KEVINTRAILBLAZE! 🚀📤"); return
     if m.text.startswith('/news'):
         news=get_upcoming_news()
         if not news: bot.send_message(m.chat.id,"📰 **NEWS CHECK**\n\n✅ No high impact news in next 2 hours - Clean market!\n🎯 Safe to trade all pairs.",parse_mode="Markdown"); return
@@ -849,7 +927,7 @@ def start(m):
         return
     try: bal_demo=get_real_balance("PRACTICE") if IQ_CONNECTED else STATS.get("real_balance",0.0)
     except: bal_demo=0.0
-    mk=types.InlineKeyboardMarkup(row_width=1); mk.add(types.InlineKeyboardButton(f"📈 TRADE REAL (15) AUTO EXPIRY - ${bal_demo:.2f}",callback_data="trade_real")); mk.add(types.InlineKeyboardButton("📊 MY STATS",callback_data="stats"),types.InlineKeyboardButton("🧠 AI BRAIN",callback_data="brain_btn"),types.InlineKeyboardButton("📰 NEWS CHECK",callback_data="news_btn"),types.InlineKeyboardButton("⚙️ SETTINGS",callback_data="settings"))
+    mk=types.InlineKeyboardMarkup(row_width=1); mk.add(types.InlineKeyboardButton(f"📈 TRADE REAL (15) AUTO EXPIRY - ${bal_demo:.2f}",callback_data="trade_real")); mk.add(types.InlineKeyboardButton("🚀 GET READY - Send To Channel",callback_data="ready_btn")); mk.add(types.InlineKeyboardButton("📊 MY STATS",callback_data="stats"),types.InlineKeyboardButton("🧠 AI BRAIN",callback_data="brain_btn"),types.InlineKeyboardButton("📰 NEWS CHECK",callback_data="news_btn"),types.InlineKeyboardButton("⚙️ SETTINGS",callback_data="settings"))
     greet=get_greeting(); greet_msg=get_greeting_msg(); sb,sn=get_session_boost("EURUSD")
     txt=f"""{greet}\n\n{greet_msg}\n\n🤖 **Z-BOT V18 TRAILBLAZER - MANUAL** 🤖\n\n💎 IQ: {'✅' if IQ_CONNECTED else '❌ False - Retrying...'} | 💰 DEMO ${bal_demo:.2f}\n🏆 W:{STATS['wins']} L:{STATS['loss']} | 🔥 {STATS['streak']}\n📅 Today: {STATS['daily_trades']}/30\n🧠 Brain: Learning best pairs + best hours + sweet RSI\n⏰ Session: {sn} ({sb:+d})\n📰 News: Auto scanner ON\n🥇 GOLD: XAUUSD Scanner ON - Entry/SL/TP\n📍 {get_mode_text()}\n⛔ OTC Disabled - REAL signals start 7AM\n\n👇 **Select:**\n"""
     bot.send_message(m.chat.id,txt,reply_markup=mk,parse_mode="Markdown")
@@ -857,6 +935,10 @@ def start(m):
 def cb(c):
     if not is_allowed(c.from_user.id): bot.answer_callback_query(c.id,"❌ Private"); return
     data=c.data; cid=c.message.chat.id
+    if data=="ready_btn":
+        send_photo_to_channel_sync(READY_PHOTO, get_ready_text())
+        bot.answer_callback_query(c.id,"✅ Get Ready sent to Channel!")
+        bot.send_message(cid,"✅ Get Ready message has been sent to @KEVINTRAILBLAZE! 🚀📤"); return
     if data.startswith("send_channel_"):
         try:
             parts=data.replace("send_channel_","").rsplit("_",1); pair=parts[0]; dir_ = parts[1] if len(parts)>1 else ACTIVE_SIGNAL.get("dir","CALL")
@@ -978,7 +1060,7 @@ def cb(c):
         if cid in AUTO_STATE: AUTO_STATE[cid]['running']=False; bot.send_message(cid,"🛑 Stopping..."); return
     if data=="stats":
         total=STATS['wins']+STATS['loss']; wr=(STATS['wins']/total*100) if total else 0; bal=get_real_balance("PRACTICE"); sb,sn=get_session_boost("EURUSD"); bot.send_message(cid,f"📊 **STATS V18**\n📍 {get_mode_text()}\n{get_greeting()}\n⏰ Session: {sn} ({sb:+d})\n🏆 Wins: {STATS['wins']}\n❌ Loss: {STATS['loss']}\n📈 Winrate: {wr:.1f}%\n🔥 Streak: {STATS['streak']}\n💰 Bal: ${bal:.2f}\n📅 Today: {STATS['daily_trades']}/30\n🧠 Brain pairs: {len(PAIR_BRAIN)}\n📰 News in 2h: {len(get_upcoming_news())}\n📦 OTC: DISABLED | REAL only\n🥇 GOLD: XAUUSD ON",parse_mode="Markdown")
-    if data=="settings": bot.send_message(cid,f"⚙️ **SETTINGS V18 TRAILBLAZER MANUAL**\n\n🛡️ V18: 5M Trend + ADX 25+ + MACD + Stochastic + BB + Payout 80%+ + News Block + Session Boost + Brain + Pullback\n\n📢 Channel: @KEVINTRAILBLAZE\nUse /welcome and /intro to post to channel.")
+    if data=="settings": bot.send_message(cid,f"⚙️ **SETTINGS V18 TRAILBLAZER MANUAL**\n\n🛡️ V18: 5M Trend + ADX 25+ + MACD + Stochastic + BB + Payout 80%+ + News Block + Session Boost + Brain + Pullback\n\n📢 Channel: @KEVINTRAILBLAZE\nUse /welcome, /intro and /ready to post to channel.")
 if __name__ == "__main__":
     print("Starting Trailblazer Bot...")
     threading.Thread(target=background_iq, daemon=True).start()
