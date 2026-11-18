@@ -87,7 +87,7 @@ IQ_CONNECTED=False; iq=None; PAYOUT_CACHE={}; PAYOUT_TIME=0
 OTC_SESSION_RESULTS = []
 OTC_MARTI = {"loss_streak":0, "base":1.0, "bal":"PRACTICE", "levels":[1,2,4,8]}
 PULLBACK_STATE = {}
-ACTIVE_SIGNAL = {"active": False, "pair": None, "dir": None, "conf":0, "rsi":0, "adx":0, "started": 0, "day": "", "price": 0, "sl": 0, "tp1": 0, "tp2": 0}
+ACTIVE_SIGNAL = {"active": False, "pair": None, "dir": None, "conf":0, "rsi":0, "adx":0, "started": 0, "day": "", "price": 0, "sl": 0, "tp1": 0, "tp2": 0, "expiry": 120}
 LAST_GLOBAL_SIGNAL = {"time": 0}
 GLOBAL_COOLDOWN = 360
 SKIP_COOLDOWN = 120
@@ -106,7 +106,7 @@ def send_photo_to_channel_sync(photo_url, caption):
         print(f"photo channel err {e}")
         try: bot.send_message(CHANNEL_ID, caption, parse_mode="Markdown")
         except: pass
-def format_channel_signal(pair, dir_, conf, price, entry_time_txt):
+def format_channel_signal(pair, dir_, conf, price, entry_time_txt, expiry=120):
     if dir_ == "CALL":
         action = "🟢 BUY / CALL ⬆️"
         meaning = "The Price Is Expected To Go UP, So Press The GREEN BUY / CALL Button In IQ Option"
@@ -115,6 +115,7 @@ def format_channel_signal(pair, dir_, conf, price, entry_time_txt):
         meaning = "The Price Is Expected To Go DOWN, So Press The RED SELL / PUT Button In IQ Option"
     pair_name = PAIR_EMOJI.get(pair, pair)
     price_txt = f"{price:.5f}" if price and price != 0 else "Market Price"
+    expiry_min = int(expiry // 60) if expiry else 2
     return f"""🔥🔥🔥 TRAILBLAZER SIGNAL 🔥🔥🔥
 
 💱 Pair: {pair_name}
@@ -128,15 +129,16 @@ def format_channel_signal(pair, dir_, conf, price, entry_time_txt):
 ⏰ ENTRY TIME: {entry_time_txt}
 💰 ENTRY PRICE: {price_txt}
 💵 STAKE: $1 (If You Lose, Next Is $2, Then $4, Then $8)
-⏱️ EXPIRY: 2 Minutes
+⏱️ EXPIRY: {expiry_min} Minutes - Use The Same Expiry As Shown Here
 ━━━━━━━━━━━━━━━━━━
 
 👣 HOW TO TRADE THIS SIGNAL (STEP BY STEP):
 1️⃣ Open The IQ Option App
 2️⃣ Search For {pair}
 3️⃣ Wait Until The Time Reaches {entry_time_txt}
-4️⃣ Press {action}
-5️⃣ Enter With $1 And Wait For 2 Minutes
+4️⃣ Set Expiry To {expiry_min} Minutes
+5️⃣ Press {action}
+6️⃣ Enter With $1 And Wait For {expiry_min} Minutes
 
 ⚠️ RULES:
 ✅ Enter Exactly At The Entry Time, Do Not Enter Late
@@ -173,7 +175,8 @@ def format_channel_gold_signal(d, entry_time_txt):
 4️⃣ Set Your Stop Loss And Take Profit As Shown Above
 5️⃣ Enter With $1 Only
 
-⚠️ For New Users: If You Do Not Understand Stop Loss And Take Profit Yet, Just Use CALL / PUT For 2 Minutes.
+⚠️ IMPORTANT FOR GOLD: This Is NOT A Binary Trade With Expiry.
+Hold The Trade Until It Hits Take Profit Or Stop Loss. Do Not Close Early.
 
 📢 Channel: @KEVINTRAILBLAZE
 Let Us Grow Together! 🔥
@@ -183,10 +186,10 @@ def check_and_reset_new_day():
     today = get_lagos_day()
     if STATS["daily_date"] != today:
         STATS["daily_date"] = today; STATS["daily_trades"] = 0
-        ACTIVE_SIGNAL.update({"active": False, "pair": None, "dir": None, "conf": 0, "rsi": 0, "adx": 0, "started": 0, "day": "", "price": 0, "sl": 0, "tp1": 0, "tp2": 0})
+        ACTIVE_SIGNAL.update({"active": False, "pair": None, "dir": None, "conf": 0, "rsi": 0, "adx": 0, "started": 0, "day": "", "price": 0, "sl": 0, "tp1": 0, "tp2": 0, "expiry": 120})
         PULLBACK_STATE.clear(); OTC_MARTI["loss_streak"] = 0; return True
     if ACTIVE_SIGNAL["active"] and ACTIVE_SIGNAL.get("day") and ACTIVE_SIGNAL["day"] != today:
-        ACTIVE_SIGNAL.update({"active": False, "pair": None, "dir": None, "conf": 0, "rsi": 0, "adx": 0, "started": 0, "day": "", "price": 0, "sl": 0, "tp1": 0, "tp2": 0})
+        ACTIVE_SIGNAL.update({"active": False, "pair": None, "dir": None, "conf": 0, "rsi": 0, "adx": 0, "started": 0, "day": "", "price": 0, "sl": 0, "tp1": 0, "tp2": 0, "expiry": 120})
         PULLBACK_STATE.clear(); OTC_MARTI["loss_streak"] = 0; return True
     return False
 def get_greeting():
@@ -332,9 +335,9 @@ def get_pair_rsi_boost(pair, current_rsi, is_call):
     return 0, ""
 load_brain()
 def is_signal_active(): check_and_reset_new_day(); return ACTIVE_SIGNAL["active"]
-def start_signal(pair, dir_, conf=0, rsi=0, adx=0, price=0, sl=0, tp1=0, tp2=0):
-    check_and_reset_new_day(); ACTIVE_SIGNAL.update({"active":True,"pair":pair,"dir":dir_,"conf":conf,"rsi":rsi,"adx":adx,"started":time.time(),"day":get_lagos_day(),"price":price,"sl":sl,"tp1":tp1,"tp2":tp2})
-def clear_signal(): ACTIVE_SIGNAL.update({"active":False,"pair":None,"dir":None,"conf":0,"rsi":0,"adx":0,"started":0,"day":"","price":0,"sl":0,"tp1":0,"tp2":0})
+def start_signal(pair, dir_, conf=0, rsi=0, adx=0, price=0, sl=0, tp1=0, tp2=0, expiry=120):
+    check_and_reset_new_day(); ACTIVE_SIGNAL.update({"active":True,"pair":pair,"dir":dir_,"conf":conf,"rsi":rsi,"adx":adx,"started":time.time(),"day":get_lagos_day(),"price":price,"sl":sl,"tp1":tp1,"tp2":tp2,"expiry":expiry})
+def clear_signal(): ACTIVE_SIGNAL.update({"active":False,"pair":None,"dir":None,"conf":0,"rsi":0,"adx":0,"started":0,"day":"","price":0,"sl":0,"tp1":0,"tp2":0,"expiry":120})
 def is_allowed(uid): return uid == OWNER_ID
 def is_real_hours():
     try:
@@ -781,7 +784,7 @@ def real_signal_scanner():
                     mk=types.InlineKeyboardMarkup(row_width=2); mk.add(types.InlineKeyboardButton("✅ WIN - Reset",callback_data=f"manual_win_{pair}"),types.InlineKeyboardButton("❌ LOSS - Pullback Scan",callback_data=f"manual_loss_{pair}_{d['dir']}")); mk.add(types.InlineKeyboardButton("⏭️ SKIP THIS TRADE",callback_data=f"skip_{pair}")); mk.add(types.InlineKeyboardButton("📤 Send to Channel",callback_data=f"send_channel_{pair}_{d['dir']}"))
                     wr=get_pair_winrate(pair); wr_txt=f" | 🧠 Brain WR {wr:.0f}%" if wr is not None else ""; ti=d.get('trend_info',{}); expiry_min=ti.get('expiry',120)//60; trend_type_txt=ti.get('trend_type','➡️ NORMAL TREND'); trends_txt=" | ".join(ti.get('trends',[])[:4])
                     msg=f"""📡 **REAL SIGNAL V18 TRAILBLAZER - MANUAL** 📡\n\n💱 {PAIR_EMOJI.get(pair,pair)}\n📊 {dir_e} | 🎯 {d['conf']:.0f}% SNIPER{wr_txt}\n📈 {d['reason']} | RSI {d['rsi']:.1f} | ATR {d['atr']:.5f}\n📊 Trend: {trend_type_txt}\n🔍 Trends: {trends_txt}\n💸 {int(d['payout']*100)}% | ⏱️ Suggested: {expiry_min} Min\n📅 Today: {STATS['daily_trades']}/30\n📰 News: ✅ Checked - No blocking news\n\n⏰ ENTRY: {entry.strftime('%H:%M:%S WAT')} (in 45s)\n\n**Real Entry:** ${base:.2f}\n**If LOSS ->** Martingale 1: ${base*2:.2f}\n**If LOSS ->** Martingale 2: ${base*4:.2f}\n**If LOSS ->** Martingale 3: ${base*8:.2f}\n\n⚠️ MANUAL - Press WIN / LOSS / SKIP\n"""
-                    try: bot.send_message(OWNER_ID,msg,parse_mode="Markdown",reply_markup=mk); last_signal[pair]=time.time(); LAST_GLOBAL_SIGNAL["time"]=time.time(); start_signal(pair,d['dir'],d['conf'],d['rsi'],d.get('adx',30), price=d['price'])
+                    try: bot.send_message(OWNER_ID,msg,parse_mode="Markdown",reply_markup=mk); last_signal[pair]=time.time(); LAST_GLOBAL_SIGNAL["time"]=time.time(); start_signal(pair,d['dir'],d['conf'],d['rsi'],d.get('adx',30), price=d['price'], expiry=d.get('expiry',120))
                     except Exception as e: print(f"Send err {e}")
             time.sleep(25)
         except: time.sleep(30)
@@ -858,14 +861,15 @@ def cb(c):
         try:
             parts=data.replace("send_channel_","").rsplit("_",1); pair=parts[0]; dir_ = parts[1] if len(parts)>1 else ACTIVE_SIGNAL.get("dir","CALL")
             tz2=pytz.timezone("Africa/Lagos"); entry_txt=(datetime.now(tz2)+timedelta(seconds=45)).strftime('%H:%M:%S WAT')
+            expiry = ACTIVE_SIGNAL.get("expiry", 120)
             if pair=="XAUUSD":
                 if ACTIVE_SIGNAL.get("sl",0) and ACTIVE_SIGNAL.get("pair")=="XAUUSD":
                     d_gold = {"dir":dir_, "conf":ACTIVE_SIGNAL.get("conf",88), "price":ACTIVE_SIGNAL.get("price",0), "sl":ACTIVE_SIGNAL.get("sl",0), "tp1":ACTIVE_SIGNAL.get("tp1",0), "tp2":ACTIVE_SIGNAL.get("tp2",0)}
                     send_to_channel_sync(format_channel_gold_signal(d_gold, entry_txt))
                 else:
-                    send_to_channel_sync(format_channel_signal(pair, dir_, ACTIVE_SIGNAL.get("conf",88), ACTIVE_SIGNAL.get("price",0), entry_txt))
+                    send_to_channel_sync(format_channel_signal(pair, dir_, ACTIVE_SIGNAL.get("conf",88), ACTIVE_SIGNAL.get("price",0), entry_txt, expiry))
             else:
-                send_to_channel_sync(format_channel_signal(pair, dir_, ACTIVE_SIGNAL.get("conf",88), ACTIVE_SIGNAL.get("price",0), entry_txt))
+                send_to_channel_sync(format_channel_signal(pair, dir_, ACTIVE_SIGNAL.get("conf",88), ACTIVE_SIGNAL.get("price",0), entry_txt, expiry))
             bot.answer_callback_query(c.id,"✅ Sent to @KEVINTRAILBLAZE!")
             bot.send_message(cid,"✅ Simple signal has been sent to @KEVINTRAILBLAZE 📤 - New users will understand it easily!")
         except Exception as e: bot.answer_callback_query(c.id,f"Error {e}")
@@ -946,7 +950,7 @@ def cb(c):
             mk2=types.InlineKeyboardMarkup(row_width=2); mk2.add(types.InlineKeyboardButton("✅ WIN - Reset",callback_data=f"manual_win_{best_data['pair']}"),types.InlineKeyboardButton("❌ LOSS - Pullback Scan",callback_data=f"manual_loss_{best_data['pair']}_{best_data['dir']}")); mk2.add(types.InlineKeyboardButton("⏭️ SKIP THIS TRADE",callback_data=f"skip_{best_data['pair']}")); mk2.add(types.InlineKeyboardButton("📤 Send to Channel",callback_data=f"send_channel_{best_data['pair']}_{best_data['dir']}"))
             ti2=best_data.get('trend_info',{}); exp_min2=ti2.get('expiry',120)//60
             signal_txt=f"""📡 **REAL TOP SIGNAL V18 - MANUAL** 📡\n\n💱 {PAIR_EMOJI.get(best_data['pair'],best_data['pair'])}\n📊 {dir_e} | 🎯 {best_data['conf']:.0f}% SNIPER\n📈 {best_data['reason']} | RSI {best_data['rsi']:.1f}\n💸 {int(best_data['payout']*100)}% | 💰 {best_data['price']:.5f} | ⏱️ Suggested: {exp_min2} Min\n📊 Trend: {ti2.get('trend_type','➡️ NORMAL TREND')}\n📰 News: ✅ Checked\n\n⏰ ENTRY: {entry.strftime('%H:%M:%S WAT')} (in 45s)\n\n**Real Entry:** ${base:.2f}\n**Marti 1:** ${base*2:.2f} | **Marti 2:** ${base*4:.2f} | **Marti 3:** ${base*8:.2f}\n\n⚠️ MANUAL - Press WIN / LOSS / SKIP\n"""
-            bot.send_message(cid,signal_txt,parse_mode="Markdown",reply_markup=mk2); start_signal(best_data['pair'],best_data['dir'],best_data['conf'],best_data['rsi'],best_data.get('adx',30), price=best_data['price'])
+            bot.send_message(cid,signal_txt,parse_mode="Markdown",reply_markup=mk2); start_signal(best_data['pair'],best_data['dir'],best_data['conf'],best_data['rsi'],best_data.get('adx',30), price=best_data['price'], expiry=best_data.get('expiry',120))
         return
     if data.startswith("real_pair_"):
         pair=data.replace("real_pair_","")
@@ -967,7 +971,7 @@ def cb(c):
         tz=pytz.timezone("Africa/Lagos"); now=datetime.now(tz); entry=now+timedelta(seconds=45); dir_e="🟢 CALL ⬆️" if d['dir']=="CALL" else "🔴 PUT ⬇️"; base=OTC_MARTI["base"]; ti3=d.get('trend_info',{}); exp_min3=ti3.get('expiry',120)//60
         signal_txt=f"""📡 **REAL SIGNAL V18 TRAILBLAZER - MANUAL** 📡\n\n💱 {PAIR_EMOJI.get(pair,pair)}\n📊 {dir_e} | 🎯 {d['conf']:.0f}% SNIPER\n📈 {d['reason']} | RSI {d['rsi']:.1f} | ATR {d['atr']:.5f}\n📊 Trend: {ti3.get('trend_type','➡️ NORMAL TREND')}\n🔍 Trends: {" | ".join(ti3.get('trends',[])[:4])}\n💸 {int(d['payout']*100)}% | 💰 {d['price']:.5f} | ⏱️ Suggested: {exp_min3} Min\n📰 News: ✅ Checked\n\n⏰ ENTRY: {entry.strftime('%H:%M:%S WAT')} (in 45s)\n⏱️ EXPIRY: {exp_min3} Min Suggested\n\n**Real Entry:** ${base:.2f}\n**Marti 1:** ${base*2:.2f} | **Marti 2:** ${base*4:.2f} | **Marti 3:** ${base*8:.2f}\n\n⚠️ **MANUAL PLACE - Press WIN / LOSS / SKIP**\n"""
         mk=types.InlineKeyboardMarkup(row_width=2); mk.add(types.InlineKeyboardButton("✅ WIN - Reset",callback_data=f"manual_win_{pair}"),types.InlineKeyboardButton("❌ LOSS - Pullback Scan",callback_data=f"manual_loss_{pair}_{d['dir']}")); mk.add(types.InlineKeyboardButton("⏭️ SKIP THIS TRADE",callback_data=f"skip_{pair}")); mk.add(types.InlineKeyboardButton("📤 Send to Channel",callback_data=f"send_channel_{pair}_{d['dir']}")); mk.add(types.InlineKeyboardButton("🔁 SAME PAIR",callback_data=f"real_pair_{pair}"),types.InlineKeyboardButton("📈 SCAN ALL",callback_data="scan_all_real"))
-        bot.send_message(cid,signal_txt,reply_markup=mk,parse_mode="Markdown"); start_signal(pair,d['dir'],d['conf'],d['rsi'],d.get('adx',30), price=d['price']); return
+        bot.send_message(cid,signal_txt,reply_markup=mk,parse_mode="Markdown"); start_signal(pair,d['dir'],d['conf'],d['rsi'],d.get('adx',30), price=d['price'], expiry=d.get('expiry',120)); return
     if data=="trade" or data=="scan_all_otc" or data=="auto_setup" or data.startswith("auto_pair_") or data.startswith("auto_bal_") or data.startswith("auto_amt_") or data.startswith("pair_"):
         bot.answer_callback_query(c.id,"OTC Disabled"); bot.send_message(cid,"⛔ **OTC DISABLED**\n\nOTC is causing delays. Bot will only send REAL signals from 7AM.\n\nUse TRADE REAL for now."); return
     if data=="stop_auto":
@@ -975,7 +979,6 @@ def cb(c):
     if data=="stats":
         total=STATS['wins']+STATS['loss']; wr=(STATS['wins']/total*100) if total else 0; bal=get_real_balance("PRACTICE"); sb,sn=get_session_boost("EURUSD"); bot.send_message(cid,f"📊 **STATS V18**\n📍 {get_mode_text()}\n{get_greeting()}\n⏰ Session: {sn} ({sb:+d})\n🏆 Wins: {STATS['wins']}\n❌ Loss: {STATS['loss']}\n📈 Winrate: {wr:.1f}%\n🔥 Streak: {STATS['streak']}\n💰 Bal: ${bal:.2f}\n📅 Today: {STATS['daily_trades']}/30\n🧠 Brain pairs: {len(PAIR_BRAIN)}\n📰 News in 2h: {len(get_upcoming_news())}\n📦 OTC: DISABLED | REAL only\n🥇 GOLD: XAUUSD ON",parse_mode="Markdown")
     if data=="settings": bot.send_message(cid,f"⚙️ **SETTINGS V18 TRAILBLAZER MANUAL**\n\n🛡️ V18: 5M Trend + ADX 25+ + MACD + Stochastic + BB + Payout 80%+ + News Block + Session Boost + Brain + Pullback\n\n📢 Channel: @KEVINTRAILBLAZE\nUse /welcome and /intro to post to channel.")
-# ===== STARTUP - KEEPS THE BOT RUNNING ON RENDER =====
 if __name__ == "__main__":
     print("Starting Trailblazer Bot...")
     threading.Thread(target=background_iq, daemon=True).start()
