@@ -1167,7 +1167,6 @@ if __name__ == "__main__":
                 print(f"Polling error: {e} - Retrying in 5 seconds...")
                 time.sleep(5)
     threading.Thread(target=run_polling, daemon=True).start()
-    port = int```python
     port = int(os.environ.get("PORT", 10000))
     print(f"Flask running on port {port}")
     app.run(host="0.0.0.0", port=port)
