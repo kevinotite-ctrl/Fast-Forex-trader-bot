@@ -24,6 +24,13 @@ ENABLE_OTC = False
 REAL_PAIRS = ["EURUSD","GBPUSD","EURGBP","AUDUSD","USDCAD","USDCHF","EURAUD","GBPCHF","EURCHF","NZDUSD","GBPAUD","EURCAD","AUDCAD","GBPCAD","AUDNZD",]
 OTC_PAIRS = ["EURUSD-OTC","GBPUSD-OTC","AUDUSD-OTC","USDCAD-OTC","EURGBP-OTC","EURAUD-OTC","GBPAUD-OTC","NZDUSD-OTC","GBPCHF-OTC","EURCHF-OTC","USDCHF-OTC","AUDCAD-OTC","EURCAD-OTC"]
 PAIR_EMOJI = {"EURUSD":"🇪🇺 EUR/USD REAL","GBPUSD":"🇬🇧 GBP/USD REAL","EURGBP":"🇪🇺 EUR/GBP REAL","AUDUSD":"🇦🇺 AUD/USD REAL","USDCAD":"🇺🇸 USD/CAD REAL","USDCHF":"🇺🇸 USD/CHF REAL","EURAUD":"🇪🇺 EUR/AUD REAL","GBPCHF":"🇬🇧 GBP/CHF REAL","EURCHF":"🇪🇺 EUR/CHF REAL","NZDUSD":"🇳🇿 NZD/USD REAL","GBPAUD":"🇬🇧 GBP/AUD REAL","EURCAD":"🇪🇺 EUR/CAD REAL","AUDCAD":"🇦🇺 AUD/CAD REAL","GBPCAD":"🇬🇧 GBP/CAD REAL","AUDNZD":"🇦🇺 AUD/NZD REAL","XAUUSD":"🥇 XAU/USD GOLD","EURUSD-OTC":"🇪🇺 EUR/USD OTC","GBPUSD-OTC":"🇬🇧 GBP/USD OTC","EURGBP-OTC":"🇪🇺 EUR/GBP OTC","AUDUSD-OTC":"🇦🇺 AUD/USD OTC","USDCHF-OTC":"🇺🇸 USD/CHF OTC","EURAUD-OTC":"🇪🇺 EUR/AUD OTC","GBPAUD-OTC":"🇬🇧 GBP/AUD OTC","NZDUSD-OTC":"🇳🇿 NZD/USD OTC","GBPCHF-OTC":"🇬🇧 GBP/CHF OTC","EURCHF-OTC":"🇪🇺 EUR/CHF OTC","USDCAD-OTC":"🇺🇸 USD/CAD OTC","AUDCAD-OTC":"🇦🇺 AUD/CAD OTC","EURCAD-OTC":"🇪🇺 EUR/CAD OTC"}
+# ===== MARATHON ADD-ON =====
+MARATHON_PAIRS = ["EURUSD-OTC","GBPUSD-OTC","USDJPY-OTC","EURJPY-OTC","AUDUSD-OTC","USDZAR-OTC"]
+PAIR_EMOJI["USDZAR-OTC"] = "🇿🇦 USD/ZAR OTC"
+PAIR_EMOJI["USDJPY-OTC"] = "🇺🇸 USD/JPY OTC"
+PAIR_EMOJI["EURJPY-OTC"] = "🇪🇺 EUR/JPY OTC"
+MARATHON = {"active": False, "start": 0.0, "target": 0.0, "bal": 0.0, "wins": 0, "loss": 0, "win_streak": 0, "loss_streak": 0, "cid": None, "bal_type": "PRACTICE"}
+MARATHON_PICK = {"pair": None}
 WELCOME_TEXT = (
     "🔥🔥🔥 WELCOME TO TRAILBLAZER SIGNALS 🔥🔥🔥\n"
     "━━━━━━━━━━━━━━━━━━\n"
@@ -97,127 +104,39 @@ MARKET_GOOD_SENT = {"date": "", "last_alert": 0}
 MORNING_GREET_SENT = ""
 NEWS_CACHE = {"data": [], "time": 0}
 def send_to_channel_sync(text):
-    try:
-        bot.send_message(CHANNEL_ID, text, parse_mode="Markdown")
+    try: bot.send_message(CHANNEL_ID, text, parse_mode="Markdown")
     except Exception as e: print(f"channel send err {e}")
 def send_photo_to_channel_sync(photo_url, caption):
-    try:
-        bot.send_photo(CHANNEL_ID, photo_url, caption=caption, parse_mode="Markdown")
+    try: bot.send_photo(CHANNEL_ID, photo_url, caption=caption, parse_mode="Markdown")
     except Exception as e:
         print(f"photo channel err {e}")
         try: bot.send_message(CHANNEL_ID, caption, parse_mode="Markdown")
         except: pass
 def format_channel_signal(pair, dir_, conf, price, entry_time_txt, expiry=120):
     if dir_ == "CALL":
-        action = "🟢 BUY / CALL ⬆️"
-        meaning = "The Price Is Expected To Go UP, So Press The GREEN BUY / CALL Button In IQ Option"
+        action = "🟢 BUY / CALL ⬆️"; meaning = "The Price Is Expected To Go UP, So Press The GREEN BUY / CALL Button In IQ Option"
     else:
-        action = "🔴 SELL / PUT ⬇️"
-        meaning = "The Price Is Expected To Go DOWN, So Press The RED SELL / PUT Button In IQ Option"
+        action = "🔴 SELL / PUT ⬇️"; meaning = "The Price Is Expected To Go DOWN, So Press The RED SELL / PUT Button In IQ Option"
     pair_name = PAIR_EMOJI.get(pair, pair)
     price_txt = f"{price:.5f}" if price and price != 0 else "Market Price"
     expiry_min = int(expiry // 60) if expiry else 2
-    return f"""🔥🔥🔥 TRAILBLAZER SIGNAL 🔥🔥🔥
-
-💱 Pair: {pair_name}
-📊 Signal: {action}
-🎯 Confidence: {conf:.0f}%
-
-💡 What It Means:
-{meaning}
-
-━━━━━━━━━━━━━━━━━━
-⏰ ENTRY TIME: {entry_time_txt}
-💰 ENTRY PRICE: {price_txt}
-💵 STAKE: $1 (If You Lose, Next Is $2, Then $4, Then $8)
-⏱️ EXPIRY: {expiry_min} Minutes - Use The Same Expiry As Shown Here
-━━━━━━━━━━━━━━━━━━
-
-👣 HOW TO TRADE THIS SIGNAL (STEP BY STEP):
-1️⃣ Open The IQ Option App
-2️⃣ Search For {pair}
-3️⃣ Wait Until The Time Reaches {entry_time_txt}
-4️⃣ Set Expiry To {expiry_min} Minutes
-5️⃣ Press {action}
-6️⃣ Enter With $1 And Wait For {expiry_min} Minutes
-
-⚠️ RULES:
-✅ Enter Exactly At The Entry Time, Do Not Enter Late
-✅ Do Not Be Greedy - Follow $1, $2, $4, $8 Only
-✅ If You Win, Go Back To $1
-❌ Do Not Overtrade
-
-📢 Channel: @KEVINTRAILBLAZE
-Good Luck! 💪🤑
-"""
+    return f"""🔥🔥🔥 TRAILBLAZER SIGNAL 🔥🔥🔥\n\n💱 Pair: {pair_name}\n📊 Signal: {action}\n🎯 Confidence: {conf:.0f}%\n\n💡 What It Means:\n{meaning}\n\n━━━━━━━━━━━━━━━━━━\n⏰ ENTRY TIME: {entry_time_txt}\n💰 ENTRY PRICE: {price_txt}\n💵 STAKE: $1 (If You Lose, Next Is $2, Then $4, Then $8)\n⏱️ EXPIRY: {expiry_min} Minutes\n━━━━━━━━━━━━━━━━━━\n\n👣 HOW TO TRADE:\n1️⃣ Open IQ Option App\n2️⃣ Search For {pair}\n3️⃣ Wait Until {entry_time_txt}\n4️⃣ Set Expiry To {expiry_min} Minutes\n5️⃣ Press {action}\n6️⃣ Enter With $1\n\n📢 Channel: @KEVINTRAILBLAZE\nGood Luck! 💪🤑\n"""
 def format_channel_gold_signal(d, entry_time_txt):
     dir_e = "🟢 BUY ⬆️" if d['dir']=="CALL" else "🔴 SELL ⬇️"
     what = "The Gold Price Is Expected To Go UP, Press GREEN BUY" if d['dir']=="CALL" else "The Gold Price Is Expected To Go DOWN, Press RED SELL"
-    return f"""🥇🥇🥇 GOLD SIGNAL - XAU/USD 🥇🥇🥇
-
-📊 Signal: {dir_e}
-🎯 Confidence: {d['conf']:.0f}%
-
-💡 What It Means:
-{what}
-
-━━━━━━━━━━━━━━━━━━
-⏰ ENTRY TIME: {entry_time_txt}
-💰 ENTRY: {d['price']:.2f}
-🛑 STOP LOSS: {d['sl']:.2f} (If Price Reaches Here, Close The Trade To Avoid A Bigger Loss)
-🎯 TAKE PROFIT 1: {d['tp1']:.2f} (Take A Small Profit Here To Secure Your Win)
-🎯 TAKE PROFIT 2: {d['tp2']:.2f} (Leave A Small Part Running For A Bigger Profit)
-━━━━━━━━━━━━━━━━━━
-
-👣 HOW TO TRADE THIS SIGNAL:
-1️⃣ Open IQ Option And Search For GOLD / XAU/USD
-2️⃣ Wait Until {entry_time_txt}
-3️⃣ Press {dir_e}
-4️⃣ Set Your Stop Loss And Take Profit As Shown Above
-5️⃣ Enter With $1 Only
-
-⚠️ IMPORTANT FOR GOLD: This Is NOT A Binary Trade With Expiry.
-Hold The Trade Until It Hits Take Profit Or Stop Loss. Do Not Close Early.
-
-📢 Channel: @KEVINTRAILBLAZE
-Let Us Grow Together! 🔥
-"""
-# BRIEF PULLBACK SIGNAL FOR CHANNEL - Short, Fast, No Long Guide
+    return f"""🥇🥇🥇 GOLD SIGNAL - XAU/USD 🥇🥇🥇\n\n📊 Signal: {dir_e}\n🎯 Confidence: {d['conf']:.0f}%\n\n💡 What It Means:\n{what}\n\n━━━━━━━━━━━━━━━━━━\n⏰ ENTRY TIME: {entry_time_txt}\n💰 ENTRY: {d['price']:.2f}\n🛑 STOP LOSS: {d['sl']:.2f}\n🎯 TAKE PROFIT 1: {d['tp1']:.2f}\n🎯 TAKE PROFIT 2: {d['tp2']:.2f}\n━━━━━━━━━━━━━━━━━━\n\n📢 Channel: @KEVINTRAILBLAZE\nLet Us Grow Together! 🔥\n"""
 def format_channel_pullback_signal(pair, dir_, entry_time_txt, level_idx=1, amount=2.0, expiry=120):
-    if dir_ == "CALL":
-        action = "🟢 BUY / CALL ⬆️"
-    else:
-        action = "🔴 SELL / PUT ⬇️"
+    action = "🟢 BUY / CALL ⬆️" if dir_ == "CALL" else "🔴 SELL / PUT ⬇️"
     pair_name = PAIR_EMOJI.get(pair, pair)
     level_names = ["", "Martingale 1", "Martingale 2", "Martingale 3"]
     level_name = level_names[level_idx] if 1 <= level_idx <= 3 else f"Martingale {level_idx}"
     expiry_min = int(expiry // 60) if expiry else 2
-    return f"""🔁 {level_name.upper()} - {pair_name}
-
-📊 {action}
-⏰ Entry: {entry_time_txt}
-💵 Stake: ${amount:.2f}
-⏱️ Expiry: {expiry_min} Min
-
-👉 Open IQ Option -> Search {pair} -> Press {action} At Entry Time.
-
-📢 @KEVINTRAILBLAZE
-"""
+    return f"""🔁 {level_name.upper()} - {pair_name}\n\n📊 {action}\n⏰ Entry: {entry_time_txt}\n💵 Stake: ${amount:.2f}\n⏱️ Expiry: {expiry_min} Min\n\n👉 Open IQ Option -> Search {pair} -> Press {action} At Entry Time.\n\n📢 @KEVINTRAILBLAZE\n"""
 def format_channel_pullback_gold_signal(dir_, entry_time_txt, level_idx=1, amount=2.0):
     dir_e = "🟢 BUY ⬆️" if dir_=="CALL" else "🔴 SELL ⬇️"
     level_names = ["", "Martingale 1", "Martingale 2", "Martingale 3"]
     level_name = level_names[level_idx] if 1 <= level_idx <= 3 else f"Martingale {level_idx}"
-    return f"""🔁 {level_name.upper()} - 🥇 GOLD XAU/USD
-
-📊 {dir_e}
-⏰ Entry: {entry_time_txt}
-💵 Stake: ${amount:.2f}
-
-👉 Open IQ Option -> Search GOLD -> Press {dir_e} At Entry Time.
-Use Same SL / TP As First Signal.
-
-📢 @KEVINTRAILBLAZE
-"""
+    return f"""🔁 {level_name.upper()} - 🥇 GOLD XAU/USD\n\n📊 {dir_e}\n⏰ Entry: {entry_time_txt}\n💵 Stake: ${amount:.2f}\n\n👉 Open IQ Option -> Search GOLD -> Press {dir_e} At Entry Time.\nUse Same SL / TP As First Signal.\n\n📢 @KEVINTRAILBLAZE\n"""
 def get_lagos_day(): return datetime.now(pytz.timezone("Africa/Lagos")).strftime("%Y-%m-%d")
 def check_and_reset_new_day():
     today = get_lagos_day()
@@ -304,72 +223,7 @@ def get_ready_text():
     sb, sn = get_session_boost("EURUSD")
     news = get_upcoming_news()
     news_txt = "✅ No High Impact News In Next 2 Hours - Clean Market" if not news else f"⚠️ {len(news)} High Impact News In Next 2 Hours - Bot Will Avoid Those Pairs"
-    return f"""🚀🚀🚀 GET READY TRAILBLAZERS 🚀🚀🚀
-
-{get_greeting()}
-
-⏰ Time: {now.strftime('%A, %d %b %Y - %H:%M WAT')}
-⏰ Session: {sn}
-📊 Mode: {get_mode_text()}
-📰 News: {news_txt}
-📅 Today: {STATS['daily_trades']}/30 Trades Used
-
-━━━━━━━━━━━━━━━━━━
-✅ CHECKLIST - DO THIS NOW BEFORE SIGNALS START:
-━━━━━━━━━━━━━━━━━━
-
-1️⃣ OPEN IQ OPTION APP 📱
-Open Your IQ Option App Now. Do Not Wait For The Signal To Open It.
-
-2️⃣ CHECK YOUR BALANCE 💰
-Make Sure You Have At Least $15 To $20 In Your Account.
-If You Are On DEMO, Make Sure You Have $1,000+ Demo Balance.
-
-3️⃣ CHECK YOUR INTERNET 🌐
-Use Strong WiFi Or Mobile Data. A Slow Connection Can Make You Enter Late.
-
-4️⃣ CHARGE YOUR PHONE 🔋
-Charge Your Phone To At Least 50%. Do Not Miss A Signal Because Your Phone Died.
-
-5️⃣ SET YOUR STAKE TO $1 💵
-Go To IQ Option -> Amount -> Set It To $1.
-We Will Use Martingale: $1 -> $2 -> $4 -> $8 If We Lose.
-
-6️⃣ SET YOUR CHART TO 1 MINUTE 📊
-For Forex Signals, Use 1 Minute Candles.
-For GOLD, Use 1 Minute Or 5 Minute Candles.
-
-7️⃣ CLEAR YOUR MIND 🧠
-No Distractions. Focus Only On The Signals.
-Do Not Trade Other Pairs That We Did Not Call.
-
-━━━━━━━━━━━━━━━━━━
-📋 HOW TODAY WILL WORK:
-━━━━━━━━━━━━━━━━━━
-🎯 Only 88%+ Sniper Signals
-💱 15 Forex Pairs + GOLD (XAU/USD)
-⏱️ Expiry Will Be Shown On Each Signal - Use The Exact Expiry
-⏰ Enter Exactly At The Entry Time Shown
-✅ If You WIN - Go Back To $1
-❌ If You LOSE - Wait For Martingale Signal ($2, $4, $8)
-⏭️ If You Miss A Signal - Skip It, Do Not Chase It
-
-━━━━━━━━━━━━━━━━━━
-⚠️ RULES FOR TODAY:
-━━━━━━━━━━━━━━━━━━
-✅ Follow The Stake - $1, $2, $4, $8 Only
-✅ Maximum 30 Trades Today
-✅ Enter At Entry Time Only
-❌ Do Not Be Greedy - Do Not Increase Stake On Your Own
-❌ Do Not Trade If You Are Angry Or Tired
-❌ Do Not Borrow Money To Trade
-
-━━━━━━━━━━━━━━━━━━
-🔥 SIGNALS ARE COMING SOON - STAY READY! 🔥
-📢 Channel: @KEVINTRAILBLAZE
-
-Drop 🔥 In The Comments If You Are Ready!
-"""
+    return f"""🚀🚀🚀 GET READY TRAILBLAZERS 🚀🚀🚀\n\n{get_greeting()}\n\n⏰ Time: {now.strftime('%A, %d %b %Y - %H:%M WAT')}\n⏰ Session: {sn}\n📊 Mode: {get_mode_text()}\n📰 News: {news_txt}\n📅 Today: {STATS['daily_trades']}/30 Trades Used\n\n🔥 SIGNALS ARE COMING SOON - STAY READY! 🔥\n📢 Channel: @KEVINTRAILBLAZE\n"""
 PAIR_BRAIN = {}
 def load_brain():
     global PAIR_BRAIN
@@ -460,7 +314,7 @@ def get_mode_text(): return "REAL SIGNAL (7AM-8PM)" if is_real_hours() else "OTC
 def can_trade_today(): check_and_reset_new_day(); return STATS["daily_trades"] < 30
 def count_trade(): STATS["daily_trades"] += 1
 @app.route("/")
-def home(): return f"V18 TRAILBLAZER+XAUUSD RUNNING IQ:{IQ_CONNECTED} {datetime.now(pytz.timezone('Africa/Lagos')).strftime('%H:%M:%S')}"
+def home(): return f"V18 TRAILBLAZER+XAUUSD RUNNING IQ:{IQ_CONNECTED} MARATHON:{MARATHON['bal_type']} {datetime.now(pytz.timezone('Africa/Lagos')).strftime('%H:%M:%S')}"
 @app.route(f"/{BOT_TOKEN}",methods=['POST'])
 def wh(): bot.process_new_updates([telebot.types.Update.de_json(request.get_data().decode("utf-8"))]); return "ok"
 def background_iq():
@@ -519,7 +373,6 @@ def get_payout(pair):
     except: return PAYOUT_CACHE.get(pair,0.85)
 def get_candles(pair):
     if not IQ_CONNECTED and not iq_reconnect(): return None
-    if pair not in REAL_PAIRS and pair not in OTC_PAIRS and pair!="XAUUSD": return None
     for _ in range(3):
         try:
             logging.disable(logging.CRITICAL); c=iq.get_candles(pair,60,100,time.time())
@@ -709,7 +562,7 @@ def check_pullback_entry(pair, original_dir):
     except: return None
 def pullback_scanner_loop(cid, pair, original_dir):
     start=time.time(); PULLBACK_STATE[cid]={"pair":pair,"dir":original_dir,"active":True}
-    bot.send_message(cid, f"🔍 **Pullback Scan ON**\n\n💱 {pair} looking for {original_dir} pullback\n📊 Scanning every 10 sec...\n📍 RSI7 + RSI14 both safe + RSI turning + Price at EMA\n📰 News check ON\n⏳ Timeout 5 min\n\nPress ✅ WIN / ❌ LOSS / ⏭️ SKIP")
+    bot.send_message(cid, f"🔍 **Pullback Scan ON**\n\n💱 {pair} looking for {original_dir} pullback\n📊 Scanning every 10 sec...\n⏳ Timeout 5 min\n\nPress ✅ WIN / ❌ LOSS / ⏭️ SKIP")
     while PULLBACK_STATE.get(cid, {}).get("active") and time.time()-start<300:
         if check_and_reset_new_day(): bot.send_message(cid,"🔄 New day started - Yesterday pullback scan stopped."); PULLBACK_STATE[cid]["active"]=False; return
         if not can_trade_today(): bot.send_message(cid,"⛔ Max 30 trades reached today."); PULLBACK_STATE[cid]["active"]=False; return
@@ -896,6 +749,137 @@ def real_signal_scanner():
                     except Exception as e: print(f"Send err {e}")
             time.sleep(25)
         except: time.sleep(30)
+# ===== MARATHON V2 - SCAN ALL / PICK ONE / AUTO PLACE / PRACTICE<->REAL =====
+def marathon_stake():
+    bal = MARATHON["bal"]
+    if MARATHON["loss_streak"] >= 2: pct = 0.005
+    elif MARATHON["win_streak"] >= 3: pct = 0.03
+    elif MARATHON["win_streak"] >= 2: pct = 0.02
+    else: pct = 0.01
+    return max(1.0, round(bal * pct, 2))
+def analyze_marathon_30s(pair):
+    df = get_candles(pair)
+    if df is None: return None
+    try:
+        close = df['close']
+        e9 = float(close.ewm(9).mean().iloc[-1]); e21 = float(close.ewm(21).mean().iloc[-1])
+        r7 = float(calc_rsi(close,7).iloc[-1])
+        mom1 = (close.iloc[-1]-close.iloc[-2])/close.iloc[-2]*100
+        mom3 = (close.iloc[-1]-close.iloc[-4])/close.iloc[-4]*100
+        c_now = float(close.iloc[-1]); o_now = float(df['open'].iloc[-1])
+        is_green = c_now > o_now
+        payout = get_payout(pair)
+        if payout < 0.88: return None
+        if is_green:
+            if not (e9 > e21): return None
+            if not (50 <= r7 <= 72): return None
+            if not (mom1 > 0.01 and mom3 > 0): return None
+            return {"pair":pair,"dir":"CALL","conf":88,"price":c_now,"rsi":r7,"payout":payout}
+        else:
+            if not (e9 < e21): return None
+            if not (28 <= r7 <= 50): return None
+            if not (mom1 < -0.01 and mom3 < 0): return None
+            return {"pair":pair,"dir":"PUT","conf":88,"price":c_now,"rsi":r7,"payout":payout}
+    except: return None
+def marathon_auto_buy(pair, amount, direction):
+    try:
+        with IQ_LOCK:
+            logging.disable(logging.CRITICAL)
+            iq.change_balance(MARATHON["bal_type"])
+            status, trade_id = iq.buy(amount, pair, direction.lower(), 1)
+            print(f"[MARATHON AUTO {MARATHON['bal_type']}] {pair} {direction} ${amount} -> {status} {trade_id}")
+            return status, trade_id
+    except Exception as e:
+        print(f"[MARATHON AUTO ERR] {e}"); return False, None
+def marathon_check_win(trade_id):
+    try:
+        time.sleep(65)
+        with IQ_LOCK:
+            logging.disable(logging.CRITICAL)
+            win, profit = iq.check_win_v2(trade_id)
+            return win, profit
+    except Exception as e:
+        print(f"[MARATHON CHECK ERR] {e}"); return None, 0
+def marathon_scan_all_text():
+    txt = "📊 **MARATHON SCAN ALL - 6 PAIRS**\n"
+    txt += f"💰 Mode: {MARATHON['bal_type']} | GOD ON 88%+\n\n"
+    results = []
+    for pair in MARATHON_PAIRS:
+        d = analyze_marathon_30s(pair)
+        if d:
+            results.append(d)
+            txt += f"🟢 {PAIR_EMOJI.get(pair,pair)}: {d['dir']} | RSI {d['rsi']:.0f} | Payout {int(d['payout']*100)}% - READY\n"
+        else:
+            txt += f"🔴 {PAIR_EMOJI.get(pair,pair)}: No edge / Payout <88% - SKIP\n"
+    if results: txt += f"\n💡 BEST: {results[0]['pair']} {results[0]['dir']}"
+    else: txt += "\n⏳ No clean setup now, scanning again..."
+    return txt, results
+def marathon_loop():
+    while MARATHON["active"]:
+        try:
+            if MARATHON["bal"] >= MARATHON["target"]:
+                bot.send_message(MARATHON["cid"], f"🏁 **MARATHON DONE! [{MARATHON['bal_type']}]**\n\n💰 Start: ${MARATHON['start']:.2f}\n🏆 Now: ${MARATHON['bal']:.2f}\n✅ DOUBLED - AUTO STOPPED\n\nW:{MARATHON['wins']} L:{MARATHON['loss']}")
+                MARATHON["active"] = False; clear_signal(); break
+            if MARATHON["bal"] <= 1:
+                bot.send_message(MARATHON["cid"], f"🛑 **MARATHON STOPPED - BALANCE LOW [{MARATHON['bal_type']}]**\nBal: ${MARATHON['bal']:.2f}")
+                MARATHON["active"] = False; break
+            if MARATHON_PICK["pair"]:
+                found = analyze_marathon_30s(MARATHON_PICK["pair"])
+                if not found:
+                    time.sleep(10); continue
+            else:
+                _, results = marathon_scan_all_text()
+                if not results:
+                    time.sleep(10); continue
+                found = results[0]
+            stake = marathon_stake()
+            dir_e = "🟢 CALL ⬆️" if found['dir']=="CALL" else "🔴 PUT ⬇️"
+            bot.send_message(MARATHON["cid"], f"🏁 **MARATHON AUTO-PLACING... [{MARATHON['bal_type']}]**\n\n💱 {PAIR_EMOJI.get(found['pair'],found['pair'])}\n📊 {dir_e} | RSI {found['rsi']:.0f} | Payout {int(found['payout']*100)}%\n💰 Auto Stake: ${stake:.2f} | Bal: ${MARATHON['bal']:.2f} / Target ${MARATHON['target']:.2f}\n⏱️ Expiry: 30s-1m | GOD ON\n🤖 Placing on IQ {MARATHON['bal_type']} now...")
+            start_signal(found['pair'], found['dir'], found['conf'], found['rsi'], 30, price=found['price'], expiry=30)
+            status, trade_id = marathon_auto_buy(found['pair'], stake, found['dir'])
+            if not status:
+                bot.send_message(MARATHON["cid"], f"❌ **AUTO PLACE FAILED [{MARATHON['bal_type']}]**\n\n💱 {found['pair']} - IQ rejected / No connection\nCheck IQ login, balance, or pair open.\nRetrying in 10s...")
+                clear_signal(); time.sleep(10); continue
+            bot.send_message(MARATHON["cid"], f"✅ **TRADE PLACED [{MARATHON['bal_type']}]** ID: {trade_id}\nWaiting for result... ⏳")
+            win, profit = marathon_check_win(trade_id)
+            clear_signal()
+            if win is None:
+                bot.send_message(MARATHON["cid"], "⚠️ Could not confirm result, checking balance..."); continue
+            if win:
+                MARATHON["bal"] += float(profit); MARATHON["wins"]+=1; MARATHON["win_streak"]+=1; MARATHON["loss_streak"]=0
+                record_brain(found['pair'], True, 88, found['rsi'], 30)
+                bot.send_message(MARATHON["cid"], f"✅ **MARATHON WIN [{MARATHON['bal_type']}]** +${float(profit):.2f}\nBal: ${MARATHON['bal']:.2f} / Target ${MARATHON['target']:.2f}\nStreak: {MARATHON['win_streak']} wins")
+            else:
+                MARATHON["bal"] -= stake; MARATHON["loss"]+=1; MARATHON["loss_streak"]+=1; MARATHON["win_streak"]=0
+                record_brain(found['pair'], False, 88, found['rsi'], 30)
+                bot.send_message(MARATHON["cid"], f"❌ **MARATHON LOSS [{MARATHON['bal_type']}]** -${stake:.2f}\nBal: ${MARATHON['bal']:.2f} / Target ${MARATHON['target']:.2f}")
+                if MARATHON["loss_streak"] >= 3:
+                    bot.send_message(MARATHON["cid"], "⏸️ 3 losses - Pausing 5 mins to protect balance..."); time.sleep(300)
+            time.sleep(5)
+        except Exception as e:
+            print(f"Marathon err {e}"); time.sleep(10)
+def start_marathon(cid, amount):
+    MARATHON.update({"active":True,"start":float(amount),"target":float(amount)*2,"bal":float(amount),"wins":0,"loss":0,"win_streak":0,"loss_streak":0,"cid":cid})
+    bot.send_message(cid, f"🏁 **MARATHON STARTED - AUTO [{MARATHON['bal_type']}]**\n\n💰 Start: ${amount:.2f}\n🎯 Target: ${amount*2:.2f}\n💱 Mode: {'Pick One: '+MARATHON_PICK['pair'] if MARATHON_PICK['pair'] else 'Scan All 6 Pairs'}\n⏱️ Expiry: 30s\n🛡️ GOD ON (88%+)\n🤖 AUTO PLACE: ON - Bot go place trade for IQ {MARATHON['bal_type']}\n\nScanning now...")
+    threading.Thread(target=marathon_loop, daemon=True).start()
+def marathon_menu_text(cid):
+    bal_type = MARATHON["bal_type"]
+    emoji = "🟢 DEMO" if bal_type=="PRACTICE" else "🔴 REAL"
+    picked = MARATHON_PICK["pair"] if MARATHON_PICK["pair"] else "Scan All 6 Pairs"
+    return f"🏁 **MARATHON MODE - AUTO**\n\n💰 Current Balance Mode: {emoji} **{bal_type}**\n🎯 Picked Pair: {picked}\n📊 Pairs: EURUSD, GBPUSD, USDJPY, EURJPY, AUDUSD, USDZAR OTC\n\n1️⃣ **SCAN ALL** - Bot scans all 6, shows table, picks best\n2️⃣ **PICK ONE** - You pick 1 pair, bot only trades that one\n3️⃣ **AUTO PLACE** - Bot places trade for you on IQ\n\n⚠️ If na REAL, na real money e go use. Double-check before you start!"
+def marathon_menu_kb():
+    mk = types.InlineKeyboardMarkup(row_width=1)
+    if MARATHON["bal_type"]=="PRACTICE":
+        mk.add(types.InlineKeyboardButton("🔴 SWITCH TO REAL MONEY",callback_data="mar_bal_REAL"))
+    else:
+        mk.add(types.InlineKeyboardButton("🟢 SWITCH TO PRACTICE (DEMO)",callback_data="mar_bal_PRACTICE"))
+    mk.add(types.InlineKeyboardButton("📊 SCAN ALL 6 PAIRS NOW",callback_data="mar_scan_all"))
+    mk.add(types.InlineKeyboardButton("🎯 PICK ONE PAIR",callback_data="mar_pick_menu"))
+    mk.add(types.InlineKeyboardButton("📊 SCAN ALL MODE (Clear Pick)",callback_data="mar_scan_all_start"))
+    mk.add(types.InlineKeyboardButton("💰 $10 Marathon",callback_data="mar_start_10"), types.InlineKeyboardButton("💰 $20 Marathon",callback_data="mar_start_20"))
+    if MARATHON["active"]:
+        mk.add(types.InlineKeyboardButton("🛑 STOP MARATHON",callback_data="mar_stop"))
+    return mk
 @bot.message_handler(content_types=['new_chat_members'])
 def welcome_new_member(m):
     try:
@@ -903,7 +887,7 @@ def welcome_new_member(m):
             name = member.first_name or "Trader"
             bot.send_message(m.chat.id, f"👋 Welcome {name} to Trailblazer Signals! 🔥\n\n🥇 Forex and GOLD Sniper Signals\n📈 88%+ Accuracy Only\n💰 Stake $1 - Follow Martingale\n📢 Channel: @KEVINTRAILBLAZE\n\nType /welcome to see the rules.\nGood luck! 💪")
     except: pass
-@bot.message_handler(commands=['start','stop','mode','balance','results','brain','news','welcome','intro','ready'])
+@bot.message_handler(commands=['start','stop','mode','balance','results','brain','news','welcome','intro','ready','marathon','real','practice'])
 def start(m):
     if not is_allowed(m.from_user.id):
         if m.text and m.text.startswith('/welcome'):
@@ -913,6 +897,14 @@ def start(m):
         if m.text and m.text.startswith('/ready'):
             bot.send_message(m.chat.id, get_ready_text()); return
         bot.send_message(m.chat.id,"❌ Private"); return
+    if m.text.startswith('/real'):
+        MARATHON["bal_type"]="REAL"
+        bot.send_message(m.chat.id,"🔴 **MARATHON MODE: REAL MONEY**\n\n⚠️ Next marathon go use REAL balance.\nType /marathon to confirm.",parse_mode="Markdown"); return
+    if m.text.startswith('/practice'):
+        MARATHON["bal_type"]="PRACTICE"
+        bot.send_message(m.chat.id,"🟢 **MARATHON MODE: PRACTICE (DEMO)**\n\n✅ Next marathon go use DEMO balance.\nType /marathon to confirm.",parse_mode="Markdown"); return
+    if m.text.startswith('/marathon'):
+        bot.send_message(m.chat.id, marathon_menu_text(m.chat.id), reply_markup=marathon_menu_kb(), parse_mode="Markdown"); return
     if m.text.startswith('/welcome'):
         send_photo_to_channel_sync(WELCOME_PHOTO, WELCOME_TEXT)
         bot.send_message(m.chat.id, "✅ Welcome message has been sent to @KEVINTRAILBLAZE with wallpaper! 📤📸"); return
@@ -942,7 +934,8 @@ def start(m):
         if is_signal_active(): txt+=f"\n⏳ Active: {ACTIVE_SIGNAL['pair']} {ACTIVE_SIGNAL['dir']}"
         sb,sn=get_session_boost("EURUSD"); txt+=f"\n⏰ Current Session: {sn} ({sb:+d})"; bot.send_message(m.chat.id,txt,parse_mode="Markdown"); return
     if m.text.startswith('/stop'):
-        if m.chat.id in AUTO_STATE: AUTO_STATE[m.chat.id]['running']=False; bot.send_message(m.chat.id,"🛑 Stopping...")
+        MARATHON["active"] = False
+        if m.chat.id in AUTO_STATE: AUTO_STATE[m.chat.id]['running']=False; bot.send_message(m.chat.id,"🛑 Stopping Marathon + Auto...")
         else: bot.send_message(m.chat.id,"Auto not running"); return
     if m.text.startswith('/results'):
         if not OTC_SESSION_RESULTS: bot.send_message(m.chat.id,"📭 No trades yet this session"); return
@@ -952,24 +945,72 @@ def start(m):
         bot.send_message(m.chat.id,txt,parse_mode="Markdown"); return
     if m.text.startswith('/mode'):
         tz=pytz.timezone("Africa/Lagos"); now=datetime.now(tz); sb,sn=get_session_boost("EURUSD")
-        txt=f"""📍 **MODE CHECK V18 TRAILBLAZER**\n\n{get_greeting()}\n⏰ Now: {now.strftime('%A %H:%M:%S WAT')}\n⏰ Session: {sn} ({sb:+d})\n📊 Mode: {get_mode_text()}\n💎 IQ: {'✅' if IQ_CONNECTED else '❌ False'}\n🛡️ Martingale: 1 Real + 3 Marti (1-2-4-8)\n📅 Today: {STATS['daily_trades']}/30 trades\n🧠 Brain: {'ON' if PAIR_BRAIN else 'ON - No data yet'}\n📰 News: {len(get_upcoming_news())} high impact in next 2h\n⏳ Active Signal: {ACTIVE_SIGNAL['pair'] if is_signal_active() else 'None'}\nOTC: ⛔ DISABLED - REAL only\n🥇 GOLD: ✅ XAUUSD Scanner ON\n"""
+        txt=f"""📍 **MODE CHECK V18 TRAILBLAZER**\n\n{get_greeting()}\n⏰ Now: {now.strftime('%A %H:%M:%S WAT')}\n⏰ Session: {sn} ({sb:+d})\n📊 Mode: {get_mode_text()}\n💎 IQ: {'✅' if IQ_CONNECTED else '❌ False'}\n🛡️ Martingale: 1 Real + 3 Marti (1-2-4-8)\n📅 Today: {STATS['daily_trades']}/30 trades\n🧠 Brain: {'ON' if PAIR_BRAIN else 'ON - No data yet'}\n📰 News: {len(get_upcoming_news())} high impact in next 2h\n⏳ Active Signal: {ACTIVE_SIGNAL['pair'] if is_signal_active() else 'None'}\nOTC: ⛔ DISABLED - REAL only\n🥇 GOLD: ✅ XAUUSD Scanner ON\n🏁 MARATHON: {'🟢 ACTIVE' if MARATHON['active'] else '⚪ OFF'} | Balance: {MARATHON['bal_type']} | Pick: {MARATHON_PICK['pair'] or 'Scan All'}\n"""
         bot.send_message(m.chat.id,txt,parse_mode="Markdown"); return
     if m.text.startswith('/balance'):
         try:
             if not IQ_CONNECTED: bot.send_message(m.chat.id,f"💰 **BALANCES**\nIQ: ❌ Not connected yet\n📍 {get_mode_text()}\n\nWait 1 min and try /start again"); return
-            demo=get_real_balance("PRACTICE"); real=get_real_balance("REAL"); bot.send_message(m.chat.id,f"💰 **BALANCES**\n🟢 DEMO: ${demo:.2f}\n🔴 REAL: ${real:.2f}\n📍 {get_mode_text()}")
+            demo=get_real_balance("PRACTICE"); real=get_real_balance("REAL"); bot.send_message(m.chat.id,f"💰 **BALANCES**\n🟢 DEMO: ${demo:.2f}\n🔴 REAL: ${real:.2f}\n🏁 MARATHON USING: {MARATHON['bal_type']}\n📍 {get_mode_text()}\n\nTo switch Marathon: /real or /practice or use /marathon button")
         except Exception as e: bot.send_message(m.chat.id,f"Balance error {e}")
         return
     try: bal_demo=get_real_balance("PRACTICE") if IQ_CONNECTED else STATS.get("real_balance",0.0)
     except: bal_demo=0.0
-    mk=types.InlineKeyboardMarkup(row_width=1); mk.add(types.InlineKeyboardButton(f"📈 TRADE REAL (15) AUTO EXPIRY - ${bal_demo:.2f}",callback_data="trade_real")); mk.add(types.InlineKeyboardButton("🚀 GET READY - Send To Channel",callback_data="ready_btn")); mk.add(types.InlineKeyboardButton("📊 MY STATS",callback_data="stats"),types.InlineKeyboardButton("🧠 AI BRAIN",callback_data="brain_btn"),types.InlineKeyboardButton("📰 NEWS CHECK",callback_data="news_btn"),types.InlineKeyboardButton("⚙️ SETTINGS",callback_data="settings"))
+    mk=types.InlineKeyboardMarkup(row_width=1); mk.add(types.InlineKeyboardButton(f"📈 TRADE REAL (15) AUTO EXPIRY - ${bal_demo:.2f}",callback_data="trade_real")); mk.add(types.InlineKeyboardButton("🏁 MARATHON 30s",callback_data="marathon_btn")); mk.add(types.InlineKeyboardButton("🚀 GET READY - Send To Channel",callback_data="ready_btn")); mk.add(types.InlineKeyboardButton("📊 MY STATS",callback_data="stats"),types.InlineKeyboardButton("🧠 AI BRAIN",callback_data="brain_btn"),types.InlineKeyboardButton("📰 NEWS CHECK",callback_data="news_btn"),types.InlineKeyboardButton("⚙️ SETTINGS",callback_data="settings"))
     greet=get_greeting(); greet_msg=get_greeting_msg(); sb,sn=get_session_boost("EURUSD")
-    txt=f"""{greet}\n\n{greet_msg}\n\n🤖 **Z-BOT V18 TRAILBLAZER - MANUAL** 🤖\n\n💎 IQ: {'✅' if IQ_CONNECTED else '❌ False - Retrying...'} | 💰 DEMO ${bal_demo:.2f}\n🏆 W:{STATS['wins']} L:{STATS['loss']} | 🔥 {STATS['streak']}\n📅 Today: {STATS['daily_trades']}/30\n🧠 Brain: Learning best pairs + best hours + sweet RSI\n⏰ Session: {sn} ({sb:+d})\n📰 News: Auto scanner ON\n🥇 GOLD: XAUUSD Scanner ON - Entry/SL/TP\n📍 {get_mode_text()}\n⛔ OTC Disabled - REAL signals start 7AM\n\n👇 **Select:**\n"""
+    txt=f"""{greet}\n\n{greet_msg}\n\n🤖 **Z-BOT V18 TRAILBLAZER - MANUAL** 🤖\n\n💎 IQ: {'✅' if IQ_CONNECTED else '❌ False - Retrying...'} | 💰 DEMO ${bal_demo:.2f}\n🏆 W:{STATS['wins']} L:{STATS['loss']} | 🔥 {STATS['streak']}\n📅 Today: {STATS['daily_trades']}/30\n🧠 Brain: Learning best pairs + best hours + sweet RSI\n⏰ Session: {sn} ({sb:+d})\n📰 News: Auto scanner ON\n🥇 GOLD: XAUUSD Scanner ON - Entry/SL/TP\n📍 {get_mode_text()}\n🏁 MARATHON: {MARATHON['bal_type']} - Type /marathon\n\n👇 **Select:**\n"""
     bot.send_message(m.chat.id,txt,reply_markup=mk,parse_mode="Markdown")
 @bot.callback_query_handler(func=lambda c: True)
 def cb(c):
     if not is_allowed(c.from_user.id): bot.answer_callback_query(c.id,"❌ Private"); return
     data=c.data; cid=c.message.chat.id
+    if data=="marathon_btn":
+        bot.send_message(cid, marathon_menu_text(cid), reply_markup=marathon_menu_kb(), parse_mode="Markdown"); return
+    if data.startswith("mar_bal_"):
+        new_type = data.replace("mar_bal_","")
+        if MARATHON["active"]:
+            bot.answer_callback_query(c.id,"⚠️ Stop marathon first before switching!")
+            bot.send_message(cid,"⚠️ **Cannot switch while Marathon is ACTIVE**\nPress 🛑 STOP first, then switch."); return
+        MARATHON["bal_type"]=new_type
+        emoji = "🟢 PRACTICE (DEMO)" if new_type=="PRACTICE" else "🔴 REAL MONEY"
+        bot.answer_callback_query(c.id,f"Switched to {new_type}")
+        bot.send_message(cid, f"✅ **SWITCHED TO {emoji}**\n\n🏁 Next Marathon go use {new_type} balance.\nType /marathon to see menu.", reply_markup=marathon_menu_kb(), parse_mode="Markdown"); return
+    if data=="mar_scan_all":
+        txt, results = marathon_scan_all_text()
+        mk = types.InlineKeyboardMarkup(row_width=2)
+        if results: mk.add(types.InlineKeyboardButton(f"✅ AUTO TRADE BEST {results[0]['pair']}",callback_data="mar_start_10"))
+        mk.add(types.InlineKeyboardButton("🔄 RE-SCAN",callback_data="mar_scan_all"))
+        mk.add(types.InlineKeyboardButton("🎯 PICK ONE",callback_data="mar_pick_menu"))
+        bot.send_message(cid, txt, reply_markup=mk, parse_mode="Markdown"); return
+    if data=="mar_pick_menu":
+        mk = types.InlineKeyboardMarkup(row_width=1)
+        for p in MARATHON_PAIRS:
+            mk.add(types.InlineKeyboardButton(f"{PAIR_EMOJI.get(p,p)}",callback_data=f"mar_pick_{p}"))
+        mk.add(types.InlineKeyboardButton("📊 SCAN ALL INSTEAD",callback_data="mar_scan_all_start"))
+        bot.send_message(cid, "🎯 **PICK ONE PAIR FOR MARATHON**\n\nBot go only trade this pair until you stop.\nPick one:", reply_markup=mk, parse_mode="Markdown"); return
+    if data.startswith("mar_pick_"):
+        pair = data.replace("mar_pick_","")
+        MARATHON_PICK["pair"] = pair
+        mk = types.InlineKeyboardMarkup(row_width=2)
+        mk.add(types.InlineKeyboardButton("💰 $10 Marathon",callback_data="mar_start_10"), types.InlineKeyboardButton("💰 $20 Marathon",callback_data="mar_start_20"))
+        bot.send_message(cid, f"✅ **PICKED: {PAIR_EMOJI.get(pair,pair)}**\n💰 Balance: {MARATHON['bal_type']}\n\nNow choose $10 or $20 to start AUTO marathon on this pair only.", reply_markup=mk, parse_mode="Markdown"); return
+    if data=="mar_scan_all_start":
+        MARATHON_PICK["pair"] = None
+        bot.send_message(cid, "📊 Scan All mode ON - Bot go pick best pair each time.", reply_markup=marathon_menu_kb(), parse_mode="Markdown"); return
+    if data.startswith("mar_start_"):
+        amt = float(data.replace("mar_start_",""))
+        if MARATHON["active"]: bot.answer_callback_query(c.id,"Marathon already running"); return
+        # Safety confirm for REAL
+        if MARATHON["bal_type"]=="REAL":
+            mk = types.InlineKeyboardMarkup(row_width=2)
+            mk.add(types.InlineKeyboardButton(f"✅ YES, USE REAL ${amt:.0f}",callback_data=f"mar_confirm_{amt}"), types.InlineKeyboardButton("❌ NO, USE PRACTICE",callback_data="mar_bal_PRACTICE"))
+            bot.send_message(cid, f"⚠️ **CONFIRM REAL MONEY**\n\nYou are about to start Marathon with **REAL ${amt:.0f}**\nTarget: ${amt*2:.0f}\nPair: {MARATHON_PICK['pair'] or 'Scan All'}\n\nAre you sure?", reply_markup=mk, parse_mode="Markdown"); return
+        start_marathon(cid, amt); return
+    if data.startswith("mar_confirm_"):
+        amt = float(data.replace("mar_confirm_",""))
+        start_marathon(cid, amt); return
+    if data == "mar_stop":
+        MARATHON["active"] = False; clear_signal()
+        bot.send_message(cid, f"🛑 **MARATHON STOPPED [{MARATHON['bal_type']}]**\nBal: ${MARATHON['bal']:.2f} | W:{MARATHON['wins']} L:{MARATHON['loss']}"); return
     if data=="ready_btn":
         send_photo_to_channel_sync(READY_PHOTO, get_ready_text())
         bot.answer_callback_query(c.id,"✅ Get Ready sent to Channel!")
@@ -983,10 +1024,8 @@ def cb(c):
             if idx > 3: idx = 3
             amt = OTC_MARTI["base"] * OTC_MARTI["levels"][idx]
             expiry = ACTIVE_SIGNAL.get("expiry", 120)
-            if pair=="XAUUSD":
-                send_to_channel_sync(format_channel_pullback_gold_signal(dir_, entry_txt, idx, amt))
-            else:
-                send_to_channel_sync(format_channel_pullback_signal(pair, dir_, entry_txt, idx, amt, expiry))
+            if pair=="XAUUSD": send_to_channel_sync(format_channel_pullback_gold_signal(dir_, entry_txt, idx, amt))
+            else: send_to_channel_sync(format_channel_pullback_signal(pair, dir_, entry_txt, idx, amt, expiry))
             bot.answer_callback_query(c.id,"✅ Brief pullback sent to Channel!")
             bot.send_message(cid,"✅ Brief pullback signal sent to @KEVINTRAILBLAZE 📤")
         except Exception as e: bot.answer_callback_query(c.id,f"Error {e}")
@@ -1000,12 +1039,10 @@ def cb(c):
                 if ACTIVE_SIGNAL.get("sl",0) and ACTIVE_SIGNAL.get("pair")=="XAUUSD":
                     d_gold = {"dir":dir_, "conf":ACTIVE_SIGNAL.get("conf",88), "price":ACTIVE_SIGNAL.get("price",0), "sl":ACTIVE_SIGNAL.get("sl",0), "tp1":ACTIVE_SIGNAL.get("tp1",0), "tp2":ACTIVE_SIGNAL.get("tp2",0)}
                     send_to_channel_sync(format_channel_gold_signal(d_gold, entry_txt))
-                else:
-                    send_to_channel_sync(format_channel_signal(pair, dir_, ACTIVE_SIGNAL.get("conf",88), ACTIVE_SIGNAL.get("price",0), entry_txt, expiry))
-            else:
-                send_to_channel_sync(format_channel_signal(pair, dir_, ACTIVE_SIGNAL.get("conf",88), ACTIVE_SIGNAL.get("price",0), entry_txt, expiry))
+                else: send_to_channel_sync(format_channel_signal(pair, dir_, ACTIVE_SIGNAL.get("conf",88), ACTIVE_SIGNAL.get("price",0), entry_txt, expiry))
+            else: send_to_channel_sync(format_channel_signal(pair, dir_, ACTIVE_SIGNAL.get("conf",88), ACTIVE_SIGNAL.get("price",0), entry_txt, expiry))
             bot.answer_callback_query(c.id,"✅ Sent to @KEVINTRAILBLAZE!")
-            bot.send_message(cid,"✅ Simple signal has been sent to @KEVINTRAILBLAZE 📤 - New users will understand it easily!")
+            bot.send_message(cid,"✅ Simple signal has been sent to @KEVINTRAILBLAZE 📤")
         except Exception as e: bot.answer_callback_query(c.id,f"Error {e}")
         return
     if data=="news_btn":
@@ -1111,7 +1148,7 @@ def cb(c):
     if data=="stop_auto":
         if cid in AUTO_STATE: AUTO_STATE[cid]['running']=False; bot.send_message(cid,"🛑 Stopping..."); return
     if data=="stats":
-        total=STATS['wins']+STATS['loss']; wr=(STATS['wins']/total*100) if total else 0; bal=get_real_balance("PRACTICE"); sb,sn=get_session_boost("EURUSD"); bot.send_message(cid,f"📊 **STATS V18**\n📍 {get_mode_text()}\n{get_greeting()}\n⏰ Session: {sn} ({sb:+d})\n🏆 Wins: {STATS['wins']}\n❌ Loss: {STATS['loss']}\n📈 Winrate: {wr:.1f}%\n🔥 Streak: {STATS['streak']}\n💰 Bal: ${bal:.2f}\n📅 Today: {STATS['daily_trades']}/30\n🧠 Brain pairs: {len(PAIR_BRAIN)}\n📰 News in 2h: {len(get_upcoming_news())}\n📦 OTC: DISABLED | REAL only\n🥇 GOLD: XAUUSD ON",parse_mode="Markdown")
+        total=STATS['wins']+STATS['loss']; wr=(STATS['wins']/total*100) if total else 0; bal=get_real_balance("PRACTICE"); sb,sn=get_session_boost("EURUSD"); bot.send_message(cid,f"📊 **STATS V18**\n📍 {get_mode_text()}\n{get_greeting()}\n⏰ Session: {sn} ({sb:+d})\n🏆 Wins: {STATS['wins']}\n❌ Loss: {STATS['loss']}\n📈 Winrate: {wr:.1f}%\n🔥 Streak: {STATS['streak']}\n💰 Bal: ${bal:.2f}\n📅 Today: {STATS['daily_trades']}/30\n🧠 Brain pairs: {len(PAIR_BRAIN)}\n📰 News in 2h: {len(get_upcoming_news())}\n📦 OTC: DISABLED | REAL only\n🥇 GOLD: XAUUSD ON\n🏁 MARATHON: {MARATHON['bal_type']}",parse_mode="Markdown")
     if data=="settings": bot.send_message(cid,f"⚙️ **SETTINGS V18 TRAILBLAZER MANUAL**\n\n🛡️ V18: 5M Trend + ADX 25+ + MACD + Stochastic + BB + Payout 80%+ + News Block + Session Boost + Brain + Pullback\n\n📢 Channel: @KEVINTRAILBLAZE\nUse /welcome, /intro and /ready to post to channel.")
 if __name__ == "__main__":
     print("Starting Trailblazer Bot...")
@@ -1130,6 +1167,7 @@ if __name__ == "__main__":
                 print(f"Polling error: {e} - Retrying in 5 seconds...")
                 time.sleep(5)
     threading.Thread(target=run_polling, daemon=True).start()
+    port = int```python
     port = int(os.environ.get("PORT", 10000))
     print(f"Flask running on port {port}")
     app.run(host="0.0.0.0", port=port)
