@@ -541,6 +541,7 @@ def trailblazer_market_scanner():
     tz=pytz.timezone("Africa/Lagos"); last_news_alert=0
     while True:
         try:
+            if MARATHON["active"]: time.sleep(60); continue
             if not is_real_hours() or not IQ_CONNECTED: time.sleep(60); continue
             news=get_upcoming_news(); urgent_news=[n for n in news if 0<=n["in_min"]<=30]
             if urgent_news and time.time()-last_news_alert>3600:
@@ -654,6 +655,7 @@ def xauusd_signal_scanner():
     while True:
         try:
             check_and_reset_new_day()
+            if MARATHON["active"]: time.sleep(30); continue
             if is_signal_active(): time.sleep(15); continue
             if time.time()-LAST_GLOBAL_SIGNAL["time"]<GLOBAL_COOLDOWN: time.sleep(30); continue
             if is_real_hours() and IQ_CONNECTED:
@@ -672,6 +674,7 @@ def real_signal_scanner():
     while True:
         try:
             check_and_reset_new_day()
+            if MARATHON["active"]: time.sleep(30); continue
             if is_signal_active(): time.sleep(15); continue
             if time.time()-LAST_GLOBAL_SIGNAL["time"]<GLOBAL_COOLDOWN: time.sleep(30); continue
             if is_real_hours() and IQ_CONNECTED:
@@ -735,7 +738,7 @@ def marathon_auto_buy(pair, amount, direction):
         print(f"[MARATHON AUTO ERR] {e}"); return False, None
 def marathon_check_win(trade_id):
     try:
-        for _ in range(13):
+        for _ in range(7):
             time.sleep(5)
             if not MARATHON["active"]: return None, 0
         with IQ_LOCK:
@@ -765,8 +768,11 @@ def marathon_scan_all_text():
     else: txt += "\n⏳ No clean setup now, try again in 1 min..."
     return txt, results
 def marathon_loop():
+    last_trade_time = 0
     while MARATHON["active"]:
         try:
+            if time.time() - last_trade_time < 90:
+                time.sleep(5); continue
             if not IQ_CONNECTED:
                 bot.send_message(MARATHON["cid"], "⏳ Waiting for IQ to connect... Marathon paused 10s")
                 time.sleep(10); continue
@@ -780,45 +786,48 @@ def marathon_loop():
             if MARATHON_PICK["pair"]:
                 found = analyze_marathon_30s(MARATHON_PICK["pair"])
                 if not found:
-                    time.sleep(5); continue
+                    time.sleep(10); continue
             else:
                 for pair in MARATHON_PAIRS:
                     if not MARATHON["active"]: break
                     d = analyze_marathon_30s(pair)
                     if d: found = d; break
-                    time.sleep(1)
+                    time.sleep(2)
                 if not found:
-                    time.sleep(8); continue
+                    time.sleep(15); continue
             stake = marathon_stake()
             dir_e = "🟢 CALL ⬆️" if found['dir']=="CALL" else "🔴 PUT ⬇️"
             bot.send_message(MARATHON["cid"], f"🏁 **MARATHON AUTO-PLACING... [{MARATHON['bal_type']}]**\n\n💱 {PAIR_EMOJI.get(found['pair'],found['pair'])}\n📊 {dir_e} | RSI {found['rsi']:.0f} | Payout {int(found['payout']*100)}%\n💰 Auto Stake: ${stake:.2f} | Bal: ${MARATHON['bal']:.2f} / Target ${MARATHON['target']:.2f}\n🤖 Placing on IQ {MARATHON['bal_type']} now...")
             start_signal(found['pair'], found['dir'], found['conf'], found['rsi'], 30, price=found['price'], expiry=30)
             status, trade_id = marathon_auto_buy(found['pair'], stake, found['dir'])
             if not status:
-                bot.send_message(MARATHON["cid"], f"❌ **AUTO PLACE FAILED [{MARATHON['bal_type']}]**\n\n💱 {found['pair']} - IQ rejected / No connection\nRetrying in 10s...")
-                clear_signal(); time.sleep(10); continue
+                bot.send_message(MARATHON["cid"], f"❌ **AUTO PLACE FAILED [{MARATHON['bal_type']}]**\n\n💱 {found['pair']} - IQ rejected / No connection\nRetrying in 15s...")
+                clear_signal(); time.sleep(15); continue
+            last_trade_time = time.time()
             bot.send_message(MARATHON["cid"], f"✅ **TRADE PLACED [{MARATHON['bal_type']}]** ID: {trade_id}\nWaiting for result... ⏳")
             win, profit = marathon_check_win(trade_id)
             clear_signal()
+            last_trade_time = time.time()
             if win is None:
-                bot.send_message(MARATHON["cid"], "⚠️ Could not confirm result, continuing...")
-                time.sleep(5); continue
+                bot.send_message(MARATHON["cid"], "⚠️ Could not confirm result, resting 30s...")
+                time.sleep(30); continue
             if win:
                 MARATHON["bal"] += float(profit); MARATHON["wins"]+=1; MARATHON["win_streak"]+=1; MARATHON["loss_streak"]=0
                 record_brain(found['pair'], True, 80, found['rsi'], 30)
-                bot.send_message(MARATHON["cid"], f"✅ **MARATHON WIN [{MARATHON['bal_type']}]** +${float(profit):.2f}\nBal: ${MARATHON['bal']:.2f} / Target ${MARATHON['target']:.2f}")
+                bot.send_message(MARATHON["cid"], f"✅ **MARATHON WIN [{MARATHON['bal_type']}]** +${float(profit):.2f}\nBal: ${MARATHON['bal']:.2f} / Target ${MARATHON['target']:.2f}\n⏳ Resting 90s before next trade...")
             else:
                 MARATHON["bal"] -= stake; MARATHON["loss"]+=1; MARATHON["loss_streak"]+=1; MARATHON["win_streak"]=0
                 record_brain(found['pair'], False, 80, found['rsi'], 30)
-                bot.send_message(MARATHON["cid"], f"❌ **MARATHON LOSS [{MARATHON['bal_type']}]** -${stake:.2f}\nBal: ${MARATHON['bal']:.2f} / Target ${MARATHON['target']:.2f}")
+                bot.send_message(MARATHON["cid"], f"❌ **MARATHON LOSS [{MARATHON['bal_type']}]** -${stake:.2f}\nBal: ${MARATHON['bal']:.2f} / Target ${MARATHON['target']:.2f}\n⏳ Resting 90s...")
                 if MARATHON["loss_streak"] >= 3:
                     bot.send_message(MARATHON["cid"], "⏸️ 3 losses - Pausing 3 mins to protect balance..."); time.sleep(180)
-            time.sleep(3)
+                    last_trade_time = time.time()
+            time.sleep(10)
         except Exception as e:
             print(f"Marathon err {e}")
-            try: bot.send_message(MARATHON["cid"], f"⚠️ Marathon error: {e} - retrying in 10s")
+            try: bot.send_message(MARATHON["cid"], f"⚠️ Marathon error: {e} - retrying in 15s")
             except: pass
-            time.sleep(10)
+            time.sleep(15)
 def start_marathon(cid, amount):
     MARATHON.update({"active":True,"start":float(amount),"target":float(amount)*2,"bal":float(amount),"wins":0,"loss":0,"win_streak":0,"loss_streak":0,"cid":cid})
     bot.send_message(cid, f"🏁 **MARATHON STARTED - AUTO [{MARATHON['bal_type']}]**\n\n💰 Start: ${amount:.2f}\n🎯 Target: ${amount*2:.2f}\n💱 Mode: {'Pick One: '+MARATHON_PICK['pair'] if MARATHON_PICK['pair'] else 'Scan All 6 Pairs'}\n⏱️ Expiry: 30s\n🛡️ Payout 80%+\n🤖 AUTO PLACE: ON - Bot go place trade for IQ {MARATHON['bal_type']}\n\nScanning now...")
