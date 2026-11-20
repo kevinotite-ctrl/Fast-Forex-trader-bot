@@ -711,17 +711,17 @@ def analyze_marathon_30s(pair):
         c_now = float(close.iloc[-1]); o_now = float(df['open'].iloc[-1])
         is_green = c_now > o_now
         payout = get_payout(pair)
-        if payout < 0.88: return None
+        if payout < 0.80: return None
         if is_green:
             if not (e9 > e21): return None
             if not (50 <= r7 <= 72): return None
             if not (mom1 > 0.01 and mom3 > 0): return None
-            return {"pair":pair,"dir":"CALL","conf":88,"price":c_now,"rsi":r7,"payout":payout}
+            return {"pair":pair,"dir":"CALL","conf":80,"price":c_now,"rsi":r7,"payout":payout}
         else:
             if not (e9 < e21): return None
             if not (28 <= r7 <= 50): return None
             if not (mom1 < -0.01 and mom3 < 0): return None
-            return {"pair":pair,"dir":"PUT","conf":88,"price":c_now,"rsi":r7,"payout":payout}
+            return {"pair":pair,"dir":"PUT","conf":80,"price":c_now,"rsi":r7,"payout":payout}
     except: return None
 def marathon_auto_buy(pair, amount, direction):
     try:
@@ -749,7 +749,7 @@ def marathon_check_win(trade_id):
 def marathon_scan_all_text():
     if not IQ_CONNECTED: return "⏳ IQ not connected yet - wait 30s and try again", []
     txt = "📊 **MARATHON SCAN ALL - 6 PAIRS**\n"
-    txt += f"💰 Mode: {MARATHON['bal_type']} | GOD ON 88%+\n\n"
+    txt += f"💰 Mode: {MARATHON['bal_type']} | Payout 80%+\n\n"
     results = []
     for pair in MARATHON_PAIRS:
         try:
@@ -758,7 +758,7 @@ def marathon_scan_all_text():
                 results.append(d)
                 txt += f"🟢 {PAIR_EMOJI.get(pair,pair)}: {d['dir']} | RSI {d['rsi']:.0f} | Payout {int(d['payout']*100)}% - READY\n"
             else:
-                txt += f"🔴 {PAIR_EMOJI.get(pair,pair)}: No edge / Payout <88% - SKIP\n"
+                txt += f"🔴 {PAIR_EMOJI.get(pair,pair)}: No edge / Payout <80% - SKIP\n"
         except: txt += f"🔴 {pair}: Error\n"
         time.sleep(0.5)
     if results: txt += f"\n💡 BEST: {results[0]['pair']} {results[0]['dir']}"
@@ -805,11 +805,11 @@ def marathon_loop():
                 time.sleep(5); continue
             if win:
                 MARATHON["bal"] += float(profit); MARATHON["wins"]+=1; MARATHON["win_streak"]+=1; MARATHON["loss_streak"]=0
-                record_brain(found['pair'], True, 88, found['rsi'], 30)
+                record_brain(found['pair'], True, 80, found['rsi'], 30)
                 bot.send_message(MARATHON["cid"], f"✅ **MARATHON WIN [{MARATHON['bal_type']}]** +${float(profit):.2f}\nBal: ${MARATHON['bal']:.2f} / Target ${MARATHON['target']:.2f}")
             else:
                 MARATHON["bal"] -= stake; MARATHON["loss"]+=1; MARATHON["loss_streak"]+=1; MARATHON["win_streak"]=0
-                record_brain(found['pair'], False, 88, found['rsi'], 30)
+                record_brain(found['pair'], False, 80, found['rsi'], 30)
                 bot.send_message(MARATHON["cid"], f"❌ **MARATHON LOSS [{MARATHON['bal_type']}]** -${stake:.2f}\nBal: ${MARATHON['bal']:.2f} / Target ${MARATHON['target']:.2f}")
                 if MARATHON["loss_streak"] >= 3:
                     bot.send_message(MARATHON["cid"], "⏸️ 3 losses - Pausing 3 mins to protect balance..."); time.sleep(180)
@@ -821,7 +821,7 @@ def marathon_loop():
             time.sleep(10)
 def start_marathon(cid, amount):
     MARATHON.update({"active":True,"start":float(amount),"target":float(amount)*2,"bal":float(amount),"wins":0,"loss":0,"win_streak":0,"loss_streak":0,"cid":cid})
-    bot.send_message(cid, f"🏁 **MARATHON STARTED - AUTO [{MARATHON['bal_type']}]**\n\n💰 Start: ${amount:.2f}\n🎯 Target: ${amount*2:.2f}\n💱 Mode: {'Pick One: '+MARATHON_PICK['pair'] if MARATHON_PICK['pair'] else 'Scan All 6 Pairs'}\n⏱️ Expiry: 30s\n🛡️ GOD ON (88%+)\n🤖 AUTO PLACE: ON - Bot go place trade for IQ {MARATHON['bal_type']}\n\nScanning now...")
+    bot.send_message(cid, f"🏁 **MARATHON STARTED - AUTO [{MARATHON['bal_type']}]**\n\n💰 Start: ${amount:.2f}\n🎯 Target: ${amount*2:.2f}\n💱 Mode: {'Pick One: '+MARATHON_PICK['pair'] if MARATHON_PICK['pair'] else 'Scan All 6 Pairs'}\n⏱️ Expiry: 30s\n🛡️ Payout 80%+\n🤖 AUTO PLACE: ON - Bot go place trade for IQ {MARATHON['bal_type']}\n\nScanning now...")
     threading.Thread(target=marathon_loop, daemon=True).start()
 def marathon_menu_text(cid):
     bal_type = MARATHON["bal_type"]
