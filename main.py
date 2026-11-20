@@ -738,17 +738,55 @@ def marathon_auto_buy(pair, amount, direction):
         print(f"[MARATHON AUTO ERR] {e}"); return False, None
 def marathon_check_win(trade_id):
     try:
-        for _ in range(7):
+        # Wait for 1-min trade to close - 65s total
+        print(f"[MARATHON CHECK] Waiting for trade {trade_id} to close...")
+        for i in range(13):  # 13 x 5s = 65s
             time.sleep(5)
-            if not MARATHON["active"]: return None, 0
-        with IQ_LOCK:
-            logging.disable(logging.CRITICAL)
-            try:
-                win, profit = iq.check_win_v2(trade_id)
-                return win, profit
-            except: return None, 0
+            if not MARATHON["active"]:
+                return None, 0
+            # Try check every 5s after 60s
+            if i >= 11:
+                try:
+                    with IQ_LOCK:
+                        logging.disable(logging.CRITICAL)
+                        win, profit = iq.check_win_v2(trade_id)
+                        print(f"[MARATHON CHECK TRY {i}] win={win} profit={profit}")
+                        if win is not None:
+                            return win, profit
+                except Exception as e:
+                    print(f"[MARATHON CHECK ERR TRY {i}] {e}")
+                    time.sleep(2)
+        # Last try - check via option info
+        try:
+            with IQ_LOCK:
+                logging.disable(logging.CRITICAL)
+                info = iq.get_optioninfo_v2(trade_id)
+                print(f"[MARATHON CHECK INFO] {info}")
+                if info and 'win' in info:
+                    win = info['win']
+                    profit = float(info.get('profit', 0))
+                    if win is not None:
+                        return win, profit
+        except Exception as e:
+            print(f"[MARATHON CHECK INFO ERR] {e}")
+        # Fallback - check balance change
+        try:
+            with IQ_LOCK:
+                logging.disable(logging.CRITICAL)
+                iq.change_balance(MARATHON["bal_type"])
+                new_bal = iq.get_balance()
+                print(f"[MARATHON CHECK BAL] Old {MARATHON['bal']:.2f} New {new_bal:.2f}")
+                # If balance go up, na WIN, if down, na LOSS
+                if new_bal > MARATHON["bal"]:
+                    return True, round(new_bal - MARATHON["bal"], 2)
+                elif new_bal < MARATHON["bal"]:
+                    return False, 0
+        except Exception as e:
+            print(f"[MARATHON CHECK BAL ERR] {e}")
+        return None, 0
     except Exception as e:
-        print(f"[MARATHON CHECK ERR] {e}"); return None, 0
+        print(f"[MARATHON CHECK ERR] {e}")
+        return None, 0
 def marathon_scan_all_text():
     if not IQ_CONNECTED: return "⏳ IQ not connected yet - wait 30s and try again", []
     txt = "📊 **MARATHON SCAN ALL - 6 PAIRS**\n"
