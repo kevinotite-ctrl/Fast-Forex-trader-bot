@@ -585,7 +585,6 @@ def real_signal_scanner():
             if not is_real_hours() or not IQ_CONNECTED: continue
             if is_signal_active(): continue
             if not can_trade_today(): continue
-            # Scanner is passive - manual via /start TRADE REAL, auto scanner only alerts market good via trailblazer_market_scanner
             pass
         except: time.sleep(60)
 def trailblazer_market_scanner():
@@ -624,7 +623,14 @@ def trailblazer_market_scanner():
                 except: pass
             time.sleep(60)
         except: time.sleep(60)
-# ===== MARATHON - NEW FLOW + FIXED STAKE 7-9% =====
+# ===== MARATHON - CURRENCY: DEMO $ , REAL ₦ =====
+def mar_currency():
+    return "₦" if MARATHON["bal_type"] == "REAL" else "$"
+def mar_fmt(amount):
+    if MARATHON["bal_type"] == "REAL":
+        return f"₦{float(amount):,.0f}"
+    else:
+        return f"${float(amount):.2f}"
 def marathon_stake():
     bal = MARATHON["bal"]; start = MARATHON["start"]; target = MARATHON["target"]
     if target <= start: return bal * 0.07
@@ -643,7 +649,7 @@ def marathon_auto_buy(pair, stake, direction):
             logging.disable(logging.CRITICAL)
             iq.change_balance(MARATHON["bal_type"])
             status, trade_id = iq.buy(stake, pair, direction.lower(), 1)
-            print(f"[MARATHON BUY] {pair} {direction} ${stake:.2f} -> {status} {trade_id}")
+            print(f"[MARATHON BUY] {pair} {direction} {mar_fmt(stake)} -> {status} {trade_id}")
             return status, trade_id
     except Exception as e:
         print(f"[MARATHON BUY ERR] {e}")
@@ -692,14 +698,14 @@ def marathon_loop():
                 bot.send_message(MARATHON["cid"], "Waiting for IQ to connect... Marathon paused 10s")
                 time.sleep(10); continue
             if MARATHON["bal"] >= MARATHON["target"]:
-                bot.send_message(MARATHON["cid"], f"MARATHON DONE! [{MARATHON['bal_type']}]\n\nStart: ${MARATHON['start']:.2f}\nNow: ${MARATHON['bal']:.2f}\nTarget: ${MARATHON['target']:.2f} REACHED!\nAUTO STOPPED\n\nW:{MARATHON['wins']} L:{MARATHON['loss']}")
+                bot.send_message(MARATHON["cid"], f"MARATHON DONE! [{MARATHON['bal_type']}]\n\nStart: {mar_fmt(MARATHON['start'])}\nNow: {mar_fmt(MARATHON['bal'])}\nTarget: {mar_fmt(MARATHON['target'])} REACHED!\nAUTO STOPPED\n\nW:{MARATHON['wins']} L:{MARATHON['loss']}")
                 MARATHON["active"] = False; clear_signal(); break
             stop_loss = MARATHON["start"] * 0.70
             if MARATHON["bal"] <= stop_loss:
-                bot.send_message(MARATHON["cid"], f"MARATHON STOPPED - STOP LOSS HIT [{MARATHON['bal_type']}]\n\nStart: ${MARATHON['start']:.2f}\nNow: ${MARATHON['bal']:.2f}\nLost 30% - I stop to protect your remaining money\nW:{MARATHON['wins']} L:{MARATHON['loss']}\n\nYou still get ${MARATHON['bal']:.2f} remain, no be $0")
+                bot.send_message(MARATHON["cid"], f"MARATHON STOPPED - STOP LOSS HIT [{MARATHON['bal_type']}]\n\nStart: {mar_fmt(MARATHON['start'])}\nNow: {mar_fmt(MARATHON['bal'])}\nLost 30% - I stop to protect your remaining money\nW:{MARATHON['wins']} L:{MARATHON['loss']}\n\nYou still get {mar_fmt(MARATHON['bal'])} remain, no be 0")
                 MARATHON["active"] = False; break
             if MARATHON["bal"] <= 1:
-                bot.send_message(MARATHON["cid"], f"MARATHON STOPPED - BALANCE LOW [{MARATHON['bal_type']}]\nBal: ${MARATHON['bal']:.2f}")
+                bot.send_message(MARATHON["cid"], f"MARATHON STOPPED - BALANCE LOW [{MARATHON['bal_type']}]\nBal: {mar_fmt(MARATHON['bal'])}")
                 MARATHON["active"] = False; break
             found = None
             if MARATHON_PICK["pair"]:
@@ -713,7 +719,7 @@ def marathon_loop():
             dir_e = "CALL UP" if found['dir']=="CALL" else "PUT DOWN"
             progress_pct = int((MARATHON['bal'] - MARATHON['start']) / (MARATHON['target'] - MARATHON['start']) * 100) if MARATHON['target'] > MARATHON['start'] else 0
             progress_pct = max(0, min(100, progress_pct))
-            bot.send_message(MARATHON["cid"], f"MARATHON AUTO-PLACING... [{MARATHON['bal_type']}]\n\n{PAIR_EMOJI.get(found['pair'],found['pair'])}\n{dir_e} | RSI {found['rsi']:.0f} | Payout {int(found['payout']*100)}%\nStake: ${stake:.2f} (7-9% Fixed {progress_pct}%) | Bal: ${MARATHON['bal']:.2f} / Target ${MARATHON['target']:.2f}\nExpiry: 1 MIN ONLY\nPlacing on IQ {MARATHON['bal_type']} now...")
+            bot.send_message(MARATHON["cid"], f"MARATHON AUTO-PLACING... [{MARATHON['bal_type']}]\n\n{PAIR_EMOJI.get(found['pair'],found['pair'])}\n{dir_e} | RSI {found['rsi']:.0f} | Payout {int(found['payout']*100)}%\nStake: {mar_fmt(stake)} (7-9% Fixed {progress_pct}%) | Bal: {mar_fmt(MARATHON['bal'])} / Target {mar_fmt(MARATHON['target'])}\nExpiry: 1 MIN ONLY\nPlacing on IQ {MARATHON['bal_type']} now...")
             start_signal(found['pair'], found['dir'], found['conf'], found['rsi'], 30, price=found['price'], expiry=60)
             status, trade_id = marathon_auto_buy(found['pair'], stake, found['dir'])
             if not status:
@@ -732,11 +738,11 @@ def marathon_loop():
                 record_brain(found['pair'], True, 80, found['rsi'], 30)
                 progress2 = int((MARATHON['bal'] - MARATHON['start']) / (MARATHON['target'] - MARATHON['start']) * 100) if MARATHON['target'] > MARATHON['start'] else 0
                 progress2 = max(0, min(100, progress2))
-                bot.send_message(MARATHON["cid"], f"MARATHON WIN [{MARATHON['bal_type']}] +${float(profit):.2f}\nBal: ${MARATHON['bal']:.2f} / Target ${MARATHON['target']:.2f}\nProgress: {progress2}% | Next Stake: ${marathon_stake():.2f}\nExpiry was 1 MIN\nResting 90s...")
+                bot.send_message(MARATHON["cid"], f"MARATHON WIN [{MARATHON['bal_type']}] +{mar_fmt(float(profit))}\nBal: {mar_fmt(MARATHON['bal'])} / Target {mar_fmt(MARATHON['target'])}\nProgress: {progress2}% | Next Stake: {mar_fmt(marathon_stake())}\nExpiry was 1 MIN\nResting 90s...")
             else:
                 MARATHON["bal"] -= stake; MARATHON["loss"]+=1; MARATHON["loss_streak"]+=1; MARATHON["win_streak"]=0
                 record_brain(found['pair'], False, 80, found['rsi'], 30)
-                bot.send_message(MARATHON["cid"], f"MARATHON LOSS [{MARATHON['bal_type']}] -${stake:.2f}\nBal: ${MARATHON['bal']:.2f} / Target ${MARATHON['target']:.2f}\nNext Stake: ${marathon_stake():.2f}\nResting 90s...")
+                bot.send_message(MARATHON["cid"], f"MARATHON LOSS [{MARATHON['bal_type']}] -{mar_fmt(stake)}\nBal: {mar_fmt(MARATHON['bal'])} / Target {mar_fmt(MARATHON['target'])}\nNext Stake: {mar_fmt(marathon_stake())}\nResting 90s...")
                 if MARATHON["loss_streak"] >= 2:
                     bot.send_message(MARATHON["cid"], "2 losses - Pausing 10 mins to protect balance..."); time.sleep(600)
                     last_trade_time = time.time()
@@ -749,34 +755,47 @@ def marathon_loop():
 def start_marathon(cid, amount, target=None):
     if target is None: target = float(amount)*2
     MARATHON.update({"active":True,"start":float(amount),"target":float(target),"bal":float(amount),"wins":0,"loss":0,"win_streak":0,"loss_streak":0,"cid":cid,"base_stake":1.0,"marti_level":0})
-    bot.send_message(cid, f"MARATHON STARTED - NEW FLOW [{MARATHON['bal_type']}]\n\nPair: {MARATHON_PICK['pair']}\nStart: ${float(amount):.2f}\nYOUR Target: ${float(target):.2f}\nExpiry: 1 MIN ONLY\nStop Loss: ${float(amount)*0.70:.2f} (Stop if lose 30%)\nStake: 7%-9% Fixed\nAUTO PLACE: ON - Bot go place trade for IQ {MARATHON['bal_type']}\n\nScanning now...")
+    bot.send_message(cid, f"MARATHON STARTED - NEW FLOW [{MARATHON['bal_type']}]\n\nPair: {MARATHON_PICK['pair']}\nStart: {mar_fmt(amount)}\nYOUR Target: {mar_fmt(target)}\nExpiry: 1 MIN ONLY\nStop Loss: {mar_fmt(float(amount)*0.70)} (Stop if lose 30%)\nStake: 7%-9% Fixed in {mar_currency()}\nAUTO PLACE: ON - Bot go place trade for IQ {MARATHON['bal_type']}\n\nScanning now...")
     threading.Thread(target=marathon_loop, daemon=True).start()
 def marathon_menu_text(cid):
     bal_type = MARATHON["bal_type"]
-    emoji = "DEMO" if bal_type=="PRACTICE" else "REAL"
-    return f"MARATHON MODE - NEW FLOW\n\nBalance Mode: {emoji} {bal_type}\nExpiry: 1 MIN ONLY\nStake: 7% - 9% Fixed\nStop Loss: 30%\n\nHOW E GO GO:\n1. Pick ONE Pair\n2. Pick Balance (or Type Your Own)\n3. Pick Target (or Type Your Own)\n4. Bot Start\n\nPick ONE pair below:"
+    if bal_type == "REAL":
+        emoji = "NAIRA REAL"
+        cur_note = "Currency: NAIRA (₦) - Your IQ REAL account na Naira"
+    else:
+        emoji = "DEMO $"
+        cur_note = "Currency: DOLLAR ($) - Demo na Dollar"
+    return f"MARATHON MODE - NEW FLOW\n\nBalance Mode: {emoji} {bal_type}\n{cur_note}\nExpiry: 1 MIN ONLY\nStake: 7% - 9% Fixed\nStop Loss: 30%\n\nHOW E GO GO:\n1. Pick ONE Pair\n2. Pick Balance (or Type Your Own)\n3. Pick Target (or Type Your Own)\n4. Bot Start\n\nPick ONE pair below:"
 def marathon_menu_kb():
     mk = types.InlineKeyboardMarkup(row_width=2)
     for p in MARATHON_PAIRS:
         mk.add(types.InlineKeyboardButton(f"{PAIR_EMOJI.get(p,p)}", callback_data=f"mar_pick_{p}"))
     if MARATHON["bal_type"]=="PRACTICE":
-        mk.add(types.InlineKeyboardButton("SWITCH TO REAL MONEY", callback_data="mar_bal_REAL"))
+        mk.add(types.InlineKeyboardButton("SWITCH TO REAL MONEY (₦ NAIRA)", callback_data="mar_bal_REAL"))
     else:
-        mk.add(types.InlineKeyboardButton("SWITCH TO PRACTICE (DEMO)", callback_data="mar_bal_PRACTICE"))
+        mk.add(types.InlineKeyboardButton("SWITCH TO PRACTICE (DEMO $)", callback_data="mar_bal_PRACTICE"))
     if MARATHON["active"]:
         mk.add(types.InlineKeyboardButton("STOP MARATHON", callback_data="mar_stop"))
     return mk
 def marathon_balance_kb():
     mk = types.InlineKeyboardMarkup(row_width=2)
-    mk.add(types.InlineKeyboardButton("$10", callback_data="mar_bal_10"), types.InlineKeyboardButton("$20", callback_data="mar_bal_20"))
-    mk.add(types.InlineKeyboardButton("$50", callback_data="mar_bal_50"), types.InlineKeyboardButton("$100", callback_data="mar_bal_100"))
+    if MARATHON["bal_type"] == "REAL":
+        mk.add(types.InlineKeyboardButton("₦10,000", callback_data="mar_bal_10000"), types.InlineKeyboardButton("₦20,000", callback_data="mar_bal_20000"))
+        mk.add(types.InlineKeyboardButton("₦50,000", callback_data="mar_bal_50000"), types.InlineKeyboardButton("₦100,000", callback_data="mar_bal_100000"))
+    else:
+        mk.add(types.InlineKeyboardButton("$10", callback_data="mar_bal_10"), types.InlineKeyboardButton("$20", callback_data="mar_bal_20"))
+        mk.add(types.InlineKeyboardButton("$50", callback_data="mar_bal_50"), types.InlineKeyboardButton("$100", callback_data="mar_bal_100"))
     mk.add(types.InlineKeyboardButton("Type My Own Balance", callback_data="mar_bal_custom"))
     mk.add(types.InlineKeyboardButton("Back to Pairs", callback_data="mar_back_pairs"))
     return mk
 def marathon_target_kb(start_amt):
     mk = types.InlineKeyboardMarkup(row_width=2)
-    mk.add(types.InlineKeyboardButton(f"${start_amt*1.5:.0f} (+50%)", callback_data=f"mar_target_{start_amt}_{start_amt*1.5}"), types.InlineKeyboardButton(f"${start_amt*2:.0f} (Double)", callback_data=f"mar_target_{start_amt}_{start_amt*2}"))
-    mk.add(types.InlineKeyboardButton(f"${start_amt*2.5:.0f}", callback_data=f"mar_target_{start_amt}_{start_amt*2.5}"), types.InlineKeyboardButton(f"${start_amt*3:.0f} (Triple)", callback_data=f"mar_target_{start_amt}_{start_amt*3}"))
+    if MARATHON["bal_type"] == "REAL":
+        def f(a): return f"₦{a:,.0f}"
+    else:
+        def f(a): return f"${a:.0f}"
+    mk.add(types.InlineKeyboardButton(f"{f(start_amt*1.5)} (+50%)", callback_data=f"mar_target_{start_amt}_{start_amt*1.5}"), types.InlineKeyboardButton(f"{f(start_amt*2)} (Double)", callback_data=f"mar_target_{start_amt}_{start_amt*2}"))
+    mk.add(types.InlineKeyboardButton(f"{f(start_amt*2.5)}", callback_data=f"mar_target_{start_amt}_{start_amt*2.5}"), types.InlineKeyboardButton(f"{f(start_amt*3)} (Triple)", callback_data=f"mar_target_{start_amt}_{start_amt*3}"))
     mk.add(types.InlineKeyboardButton("Type My Own Target", callback_data=f"mar_type_target_{start_amt}"))
     mk.add(types.InlineKeyboardButton("Back to Balance", callback_data="mar_back_balance"))
     return mk
@@ -787,28 +806,37 @@ def welcome_new_member(m):
             name = member.first_name or "Trader"
             bot.send_message(m.chat.id, f"Welcome {name} to Trailblazer Signals!\n\nForex and GOLD Sniper Signals\n88%+ Accuracy Only\nStake $1 - Follow Martingale\nChannel: @KEVINTRAILBLAZE\n\nType /welcome to see the rules.\nGood luck!")
     except: pass
-@bot.message_handler(commands=['start','stop','mode','balance','results','brain','news','welcome','intro','ready','marathon','real','practice'])
-def start(m):
+# ===== FIX: CUSTOM TEXT HANDLER - MUST BE BEFORE COMMAND HANDLER =====
+@bot.message_handler(content_types=['text'])
+def handle_custom_text(m):
+    if not is_allowed(m.from_user.id): return
+    if m.text and m.text.startswith("/"): return
     if m.chat.id in MARATHON_BALANCE_WAIT:
         try:
-            bal_amt = float(m.text.strip().replace("$",""))
+            bal_amt = float(m.text.strip().replace("₦","").replace("$","").replace(",",""))
             MARATHON_BALANCE_WAIT.pop(m.chat.id)
             pair = MARATHON_PICK["pair"]
-            bot.send_message(m.chat.id, f"Pair: {PAIR_EMOJI.get(pair,pair)}\nStart Balance: ${bal_amt:.2f}\n\nNow pick TARGET:", reply_markup=marathon_target_kb(bal_amt), parse_mode="Markdown")
+            bot.send_message(m.chat.id, f"Pair: {PAIR_EMOJI.get(pair,pair)}\nStart Balance: {mar_fmt(bal_amt)}\n\nNow pick TARGET:", reply_markup=marathon_target_kb(bal_amt), parse_mode="Markdown")
             return
         except:
-            bot.send_message(m.chat.id, "Type number only. Example: 20"); return
-    if m.chat.id in MARATHON_TARGET_WAIT and m.text and m.text.replace('.','',1).isdigit():
-        start_amt = MARATHON_TARGET_WAIT.pop(m.chat.id)
-        target_amt = float(m.text.strip())
-        if target_amt <= start_amt:
-            bot.send_message(m.chat.id, f"Target must be bigger than start ${start_amt:.0f}. Try again - type target:")
-            MARATHON_TARGET_WAIT[m.chat.id] = start_amt
+            bot.send_message(m.chat.id, "Type number only. Example: 20000 for Naira or 20 for Demo"); return
+    if m.chat.id in MARATHON_TARGET_WAIT:
+        if m.text and m.text.replace('.','',1).replace(',','').isdigit():
+            start_amt = MARATHON_TARGET_WAIT.pop(m.chat.id)
+            target_amt = float(m.text.strip().replace(",","").replace("₦","").replace("$",""))
+            if target_amt <= start_amt:
+                bot.send_message(m.chat.id, f"Target must be bigger than start {mar_fmt(start_amt)}. Try again - type target:")
+                MARATHON_TARGET_WAIT[m.chat.id] = start_amt
+                return
+            mkc = types.InlineKeyboardMarkup(row_width=1)
+            mkc.add(types.InlineKeyboardButton(f"START {mar_fmt(start_amt)} -> {mar_fmt(target_amt)} (1 MIN)",callback_data=f"mar_target_{start_amt}_{target_amt}"))
+            bot.send_message(m.chat.id, f"Target set: {mar_fmt(target_amt)}\nPress START to begin:", reply_markup=mkc)
             return
-        mkc = types.InlineKeyboardMarkup(row_width=1)
-        mkc.add(types.InlineKeyboardButton(f"START ${start_amt:.0f} -> ${target_amt:.0f} (1 MIN)",callback_data=f"mar_target_{start_amt}_{target_amt}"))
-        bot.send_message(m.chat.id, f"Target set: ${target_amt:.0f}\nPress START to begin:", reply_markup=mkc)
-        return
+        else:
+            bot.send_message(m.chat.id, "Type number only. Example: 30000"); return
+    return
+@bot.message_handler(commands=['start','stop','mode','balance','results','brain','news','welcome','intro','ready','marathon','real','practice'])
+def start(m):
     if not is_allowed(m.from_user.id):
         if m.text and m.text.startswith('/welcome'):
             bot.send_message(m.chat.id, WELCOME_TEXT); return
@@ -819,10 +847,10 @@ def start(m):
         bot.send_message(m.chat.id,"Private"); return
     if m.text.startswith('/real'):
         MARATHON["bal_type"]="REAL"
-        bot.send_message(m.chat.id,"MARATHON MODE: REAL MONEY\n\nNext marathon go use REAL balance.\nType /marathon to confirm.",parse_mode="Markdown"); return
+        bot.send_message(m.chat.id,"MARATHON MODE: REAL MONEY (₦ NAIRA)\n\nNext marathon go use REAL Naira balance.\nType /marathon to confirm.",parse_mode="Markdown"); return
     if m.text.startswith('/practice'):
         MARATHON["bal_type"]="PRACTICE"
-        bot.send_message(m.chat.id,"MARATHON MODE: PRACTICE (DEMO)\n\nNext marathon go use DEMO balance.\nType /marathon to confirm.",parse_mode="Markdown"); return
+        bot.send_message(m.chat.id,"MARATHON MODE: PRACTICE (DEMO $)\n\nNext marathon go use DEMO Dollar balance.\nType /marathon to confirm.",parse_mode="Markdown"); return
     if m.text.startswith('/marathon'):
         bot.send_message(m.chat.id, marathon_menu_text(m.chat.id), reply_markup=marathon_menu_kb(), parse_mode="Markdown"); return
     if m.text.startswith('/welcome'):
@@ -865,19 +893,19 @@ def start(m):
         bot.send_message(m.chat.id,txt,parse_mode="Markdown"); return
     if m.text.startswith('/mode'):
         tz=pytz.timezone("Africa/Lagos"); now=datetime.now(tz); sb,sn=get_session_boost("EURUSD")
-        txt=f"MODE CHECK V19 TRAILBLAZER\n\n{get_greeting()}\nNow: {now.strftime('%A %H:%M:%S WAT')}\nSession: {sn} ({sb:+d})\nMode: {get_mode_text()}\nIQ: {'YES' if IQ_CONNECTED else 'NO'}\nMartingale: 1 Real + 3 Marti (1-2-4-8)\nToday: {STATS['daily_trades']}/30 trades\nBrain: {'ON' if PAIR_BRAIN else 'ON - No data yet'}\nNews: {len(get_upcoming_news())} high impact in next 2h\nActive Signal: {ACTIVE_SIGNAL['pair'] if is_signal_active() else 'None'}\nOTC: DISABLED - REAL only\nGOLD: XAUUSD Scanner ON\nMARATHON: {'ACTIVE' if MARATHON['active'] else 'OFF'} | Balance: {MARATHON['bal_type']} | Pick: {MARATHON_PICK['pair'] or 'Scan All'} | Expiry: 1 MIN ONLY | Target: ${MARATHON['target']:.2f}\n"
+        txt=f"MODE CHECK V19 TRAILBLAZER\n\n{get_greeting()}\nNow: {now.strftime('%A %H:%M:%S WAT')}\nSession: {sn} ({sb:+d})\nMode: {get_mode_text()}\nIQ: {'YES' if IQ_CONNECTED else 'NO'}\nMartingale: 1 Real + 3 Marti (1-2-4-8)\nToday: {STATS['daily_trades']}/30 trades\nBrain: {'ON' if PAIR_BRAIN else 'ON - No data yet'}\nNews: {len(get_upcoming_news())} high impact in next 2h\nActive Signal: {ACTIVE_SIGNAL['pair'] if is_signal_active() else 'None'}\nOTC: DISABLED - REAL only\nGOLD: XAUUSD Scanner ON\nMARATHON: {'ACTIVE' if MARATHON['active'] else 'OFF'} | Balance: {MARATHON['bal_type']} ({mar_currency()}) | Pick: {MARATHON_PICK['pair'] or 'Scan All'} | Expiry: 1 MIN ONLY | Target: {mar_fmt(MARATHON['target'])}\n"
         bot.send_message(m.chat.id,txt,parse_mode="Markdown"); return
     if m.text.startswith('/balance'):
         try:
             if not IQ_CONNECTED: bot.send_message(m.chat.id,f"BALANCES\nIQ: Not connected yet\n{get_mode_text()}\n\nWait 1 min and try /start again"); return
-            demo=get_real_balance("PRACTICE"); real=get_real_balance("REAL"); bot.send_message(m.chat.id,f"BALANCES\nDEMO: ${demo:.2f}\nREAL: ${real:.2f}\nMARATHON USING: {MARATHON['bal_type']}\n{get_mode_text()}\n\nTo switch Marathon: /real or /practice or use /marathon button")
+            demo=get_real_balance("PRACTICE"); real=get_real_balance("REAL"); bot.send_message(m.chat.id,f"BALANCES\nDEMO: ${demo:.2f}\nREAL: ₦{real:,.0f}\nMARATHON USING: {MARATHON['bal_type']} ({mar_currency()})\n{get_mode_text()}\n\nTo switch Marathon: /real or /practice or use /marathon button")
         except Exception as e: bot.send_message(m.chat.id,f"Balance error {e}")
         return
     try: bal_demo=get_real_balance("PRACTICE") if IQ_CONNECTED else STATS.get("real_balance",0.0)
     except: bal_demo=0.0
     mk=types.InlineKeyboardMarkup(row_width=1); mk.add(types.InlineKeyboardButton(f"TRADE REAL (15) AUTO EXPIRY - ${bal_demo:.2f}",callback_data="trade_real")); mk.add(types.InlineKeyboardButton("MARATHON 1 MIN",callback_data="marathon_btn")); mk.add(types.InlineKeyboardButton("GET READY - Send To Channel",callback_data="ready_btn")); mk.add(types.InlineKeyboardButton("MY STATS",callback_data="stats"),types.InlineKeyboardButton("AI BRAIN",callback_data="brain_btn"),types.InlineKeyboardButton("NEWS CHECK",callback_data="news_btn"),types.InlineKeyboardButton("SETTINGS",callback_data="settings"))
     greet=get_greeting(); greet_msg=get_greeting_msg(); sb,sn=get_session_boost("EURUSD")
-    txt=f"{greet}\n\n{greet_msg}\n\nZ-BOT V19 TRAILBLAZER - MANUAL\n\nIQ: {'YES' if IQ_CONNECTED else 'NO - Retrying...'} | DEMO ${bal_demo:.2f}\nW:{STATS['wins']} L:{STATS['loss']} | {STATS['streak']}\nToday: {STATS['daily_trades']}/30\nBrain: Learning best pairs + best hours + sweet RSI\nSession: {sn} ({sb:+d})\nNews: Auto scanner ON\nGOLD: XAUUSD Scanner ON - Entry/SL/TP\n{get_mode_text()}\nMARATHON: {MARATHON['bal_type']} - 1 MIN ONLY - Type /marathon\n\nSelect:\n"
+    txt=f"{greet}\n\n{greet_msg}\n\nZ-BOT V19 TRAILBLAZER - MANUAL\n\nIQ: {'YES' if IQ_CONNECTED else 'NO - Retrying...'} | DEMO ${bal_demo:.2f}\nW:{STATS['wins']} L:{STATS['loss']} | {STATS['streak']}\nToday: {STATS['daily_trades']}/30\nBrain: Learning best pairs + best hours + sweet RSI\nSession: {sn} ({sb:+d})\nNews: Auto scanner ON\nGOLD: XAUUSD Scanner ON - Entry/SL/TP\n{get_mode_text()}\nMARATHON: {MARATHON['bal_type']} ({mar_currency()}) - 1 MIN ONLY - Type /marathon\n\nSelect:\n"
     bot.send_message(m.chat.id,txt,reply_markup=mk,parse_mode="Markdown")
 @bot.callback_query_handler(func=lambda c: True)
 def cb(c):
@@ -895,31 +923,33 @@ def cb(c):
             bot.answer_callback_query(c.id,"Stop marathon first before switching!")
             bot.send_message(cid,"Cannot switch while Marathon is ACTIVE\nPress STOP first, then switch."); return
         MARATHON["bal_type"]=new_type
-        bot.answer_callback_query(c.id,f"Switched to {new_type}")
-        bot.send_message(cid, f"SWITCHED TO {new_type}\n\nNext Marathon go use {new_type} balance.", reply_markup=marathon_menu_kb(), parse_mode="Markdown"); return
+        bot.answer_callback_query(c.id,f"Switched to {new_type} ({mar_currency()})")
+        bot.send_message(cid, f"SWITCHED TO {new_type} ({mar_currency()})\n\nNext Marathon go use {new_type} balance.", reply_markup=marathon_menu_kb(), parse_mode="Markdown"); return
     if data.startswith("mar_bal_"):
         if data=="mar_bal_custom":
             MARATHON_BALANCE_WAIT[cid] = True
-            bot.send_message(cid, f"Type your START BALANCE:\nPair: {PAIR_EMOJI.get(MARATHON_PICK['pair'],MARATHON_PICK['pair'])}\nExample: type 20 or 24.77\n\nJust type number and send."); return
+            cur = "Naira (₦) - Example: type 20000" if MARATHON["bal_type"]=="REAL" else "Dollar ($) - Example: type 20"
+            bot.send_message(cid, f"Type your START BALANCE:\nPair: {PAIR_EMOJI.get(MARATHON_PICK['pair'],MARATHON_PICK['pair'])}\nCurrency: {cur}\n\nJust type number and send."); return
         try: amt = float(data.replace("mar_bal_",""))
         except: return
-        bot.send_message(cid, f"Pair: {PAIR_EMOJI.get(MARATHON_PICK['pair'],MARATHON_PICK['pair'])}\nStart: ${amt:.2f} | Balance: {MARATHON['bal_type']} | 1 MIN ONLY\n\nNow pick TARGET:", reply_markup=marathon_target_kb(amt), parse_mode="Markdown"); return
+        bot.send_message(cid, f"Pair: {PAIR_EMOJI.get(MARATHON_PICK['pair'],MARATHON_PICK['pair'])}\nStart: {mar_fmt(amt)} | Balance: {MARATHON['bal_type']} ({mar_currency()}) | 1 MIN ONLY\n\nNow pick TARGET:", reply_markup=marathon_target_kb(amt), parse_mode="Markdown"); return
     if data.startswith("mar_pick_"):
         pair = data.replace("mar_pick_","")
         MARATHON_PICK["pair"] = pair
-        bot.send_message(cid, f"PICKED: {PAIR_EMOJI.get(pair,pair)}\nBalance: {MARATHON['bal_type']} | Expiry: 1 MIN ONLY\n\nNow choose START BALANCE:", reply_markup=marathon_balance_kb(), parse_mode="Markdown"); return
+        bot.send_message(cid, f"PICKED: {PAIR_EMOJI.get(pair,pair)}\nBalance: {MARATHON['bal_type']} ({mar_currency()}) | Expiry: 1 MIN ONLY\n\nNow choose START BALANCE:", reply_markup=marathon_balance_kb(), parse_mode="Markdown"); return
     if data.startswith("mar_type_target_"):
         amt = float(data.replace("mar_type_target_",""))
         MARATHON_TARGET_WAIT[cid] = amt
-        bot.send_message(cid, f"Type your target amount\n\nStart: ${amt:.0f}\nExpiry: 1 MIN ONLY\nExample: type 25 if you want target $25\n\nJust type the number now:"); return
+        cur = "Naira (₦) - Example: type 30000" if MARATHON["bal_type"]=="REAL" else "Dollar ($) - Example: type 30"
+        bot.send_message(cid, f"Type your target amount\n\nStart: {mar_fmt(amt)}\nExpiry: 1 MIN ONLY\nCurrency: {cur}\n\nJust type the number now:"); return
     if data.startswith("mar_target_"):
         parts = data.replace("mar_target_","").split("_")
         start_amt = float(parts[0]); target_amt = float(parts[1])
         if MARATHON["active"]: bot.answer_callback_query(c.id,"Marathon already running"); return
         if MARATHON["bal_type"]=="REAL":
             mk3 = types.InlineKeyboardMarkup(row_width=2)
-            mk3.add(types.InlineKeyboardButton(f"YES REAL ${start_amt:.0f} -> ${target_amt:.0f} (1 MIN)",callback_data=f"mar_confirm_custom_{start_amt}_{target_amt}"), types.InlineKeyboardButton("NO, PRACTICE",callback_data="mar_bal_PRACTICE"))
-            bot.send_message(cid, f"CONFIRM REAL MONEY - 1 MIN ONLY\nStart ${start_amt:.0f} -> Target ${target_amt:.0f}\nPair: {MARATHON_PICK['pair'] or 'Scan All'}\nStop Loss: ${start_amt*0.70:.2f}", reply_markup=mk3, parse_mode="Markdown"); return
+            mk3.add(types.InlineKeyboardButton(f"YES REAL {mar_fmt(start_amt)} -> {mar_fmt(target_amt)} (1 MIN)",callback_data=f"mar_confirm_custom_{start_amt}_{target_amt}"), types.InlineKeyboardButton("NO, PRACTICE",callback_data="mar_bal_PRACTICE"))
+            bot.send_message(cid, f"CONFIRM REAL MONEY - 1 MIN ONLY\nStart {mar_fmt(start_amt)} -> Target {mar_fmt(target_amt)}\nPair: {MARATHON_PICK['pair'] or 'Scan All'}\nStop Loss: {mar_fmt(start_amt*0.70)}", reply_markup=mk3, parse_mode="Markdown"); return
         start_marathon(cid, start_amt, target_amt); return
     if data.startswith("mar_confirm_custom_"):
         parts = data.replace("mar_confirm_custom_","").split("_")
@@ -927,7 +957,7 @@ def cb(c):
         start_marathon(cid, start_amt, target_amt); return
     if data == "mar_stop":
         MARATHON["active"] = False; clear_signal()
-        bot.send_message(cid, f"MARATHON STOPPED [{MARATHON['bal_type']}]\nBal: ${MARATHON['bal']:.2f} | Target was ${MARATHON['target']:.2f} | W:{MARATHON['wins']} L:{MARATHON['loss']}"); return
+        bot.send_message(cid, f"MARATHON STOPPED [{MARATHON['bal_type']}]\nBal: {mar_fmt(MARATHON['bal'])} | Target was {mar_fmt(MARATHON['target'])} | W:{MARATHON['wins']} L:{MARATHON['loss']}"); return
     if data=="ready_btn":
         send_photo_to_channel_sync(READY_PHOTO, get_ready_text())
         bot.answer_callback_query(c.id,"Get Ready sent to Channel!")
@@ -1071,10 +1101,10 @@ def cb(c):
     if data=="stop_auto":
         if cid in AUTO_STATE: AUTO_STATE[cid]['running']=False; bot.send_message(cid,"Stopping..."); return
     if data=="stats":
-        total=STATS['wins']+STATS['loss']; wr=(STATS['wins']/total*100) if total else 0; bal=get_real_balance("PRACTICE"); sb,sn=get_session_boost("EURUSD"); bot.send_message(cid,f"STATS V19\n{get_mode_text()}\n{get_greeting()}\nSession: {sn} ({sb:+d})\nWins: {STATS['wins']}\nLoss: {STATS['loss']}\nWinrate: {wr:.1f}%\nStreak: {STATS['streak']}\nBal: ${bal:.2f}\nToday: {STATS['daily_trades']}/30\nBrain pairs: {len(PAIR_BRAIN)}\nNews in 2h: {len(get_upcoming_news())}\nOTC: DISABLED | REAL only\nGOLD: XAUUSD ON\nMARATHON: {MARATHON['bal_type']} | 1 MIN ONLY | Target: ${MARATHON['target']:.2f}",parse_mode="Markdown")
-    if data=="settings": bot.send_message(cid,f"SETTINGS V19 TRAILBLAZER MANUAL\n\nV19: 5M Trend + ADX 25+ + MACD + Stochastic + BB + Payout 80%+ + News Block + Session Boost + Brain + Pullback\nMarathon: 7%-9% Fixed Stake | Stop Loss 30% | 1 MIN ONLY | Custom Target - No Lock\n\nChannel: @KEVINTRAILBLAZE\nUse /welcome, /intro and /ready to post to channel.")
+        total=STATS['wins']+STATS['loss']; wr=(STATS['wins']/total*100) if total else 0; bal=get_real_balance("PRACTICE"); sb,sn=get_session_boost("EURUSD"); bot.send_message(cid,f"STATS V19\n{get_mode_text()}\n{get_greeting()}\nSession: {sn} ({sb:+d})\nWins: {STATS['wins']}\nLoss: {STATS['loss']}\nWinrate: {wr:.1f}%\nStreak: {STATS['streak']}\nBal: ${bal:.2f}\nToday: {STATS['daily_trades']}/30\nBrain pairs: {len(PAIR_BRAIN)}\nNews in 2h: {len(get_upcoming_news())}\nOTC: DISABLED | REAL only\nGOLD: XAUUSD ON\nMARATHON: {MARATHON['bal_type']} ({mar_currency()}) | 1 MIN ONLY | Target: {mar_fmt(MARATHON['target'])}",parse_mode="Markdown")
+    if data=="settings": bot.send_message(cid,f"SETTINGS V19 TRAILBLAZER MANUAL\n\nV19: 5M Trend + ADX 25+ + MACD + Stochastic + BB + Payout 80%+ + News Block + Session Boost + Brain + Pullback\nMarathon: 7%-9% Fixed Stake | Stop Loss 30% | 1 MIN ONLY | Custom Target - No Lock\nDEMO = $ Dollar | REAL = ₦ Naira\n\nChannel: @KEVINTRAILBLAZE\nUse /welcome, /intro and /ready to post to channel.")
 if __name__ == "__main__":
-    print("Starting Trailblazer Bot V19 - NEW FLOW + 7-9% STAKE + 1 MIN MARATHON...")
+    print("Starting Trailblazer Bot V19 - NEW FLOW + 7-9% STAKE + 1 MIN MARATHON + NAIRA REAL / DOLLAR DEMO + CUSTOM FIX...")
     try:
         bot.remove_webhook()
         time.sleep(1)
