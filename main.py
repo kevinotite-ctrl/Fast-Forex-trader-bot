@@ -623,7 +623,7 @@ def trailblazer_market_scanner():
                 except: pass
             time.sleep(60)
         except: time.sleep(60)
-# ===== MARATHON - CURRENCY: DEMO $ , REAL ₦ =====
+# ===== MARATHON - CURRENCY: DEMO $ , REAL Naira =====
 def mar_currency():
     return "₦" if MARATHON["bal_type"] == "REAL" else "$"
 def mar_fmt(amount):
@@ -806,11 +806,10 @@ def welcome_new_member(m):
             name = member.first_name or "Trader"
             bot.send_message(m.chat.id, f"Welcome {name} to Trailblazer Signals!\n\nForex and GOLD Sniper Signals\n88%+ Accuracy Only\nStake $1 - Follow Martingale\nChannel: @KEVINTRAILBLAZE\n\nType /welcome to see the rules.\nGood luck!")
     except: pass
-# ===== FIX: CUSTOM TEXT HANDLER - MUST BE BEFORE COMMAND HANDLER =====
-@bot.message_handler(content_types=['text'])
+# ===== FIXED: CUSTOM HANDLER - ONLY CATCHES NUMBERS WHEN WAITING, NEVER BLOCKS /start =====
+@bot.message_handler(func=lambda m: m.text and not m.text.startswith("/") and (m.chat.id in MARATHON_BALANCE_WAIT or m.chat.id in MARATHON_TARGET_WAIT), content_types=['text'])
 def handle_custom_text(m):
     if not is_allowed(m.from_user.id): return
-    if m.text and m.text.startswith("/"): return
     if m.chat.id in MARATHON_BALANCE_WAIT:
         try:
             bal_amt = float(m.text.strip().replace("₦","").replace("$","").replace(",",""))
@@ -1104,7 +1103,7 @@ def cb(c):
         total=STATS['wins']+STATS['loss']; wr=(STATS['wins']/total*100) if total else 0; bal=get_real_balance("PRACTICE"); sb,sn=get_session_boost("EURUSD"); bot.send_message(cid,f"STATS V19\n{get_mode_text()}\n{get_greeting()}\nSession: {sn} ({sb:+d})\nWins: {STATS['wins']}\nLoss: {STATS['loss']}\nWinrate: {wr:.1f}%\nStreak: {STATS['streak']}\nBal: ${bal:.2f}\nToday: {STATS['daily_trades']}/30\nBrain pairs: {len(PAIR_BRAIN)}\nNews in 2h: {len(get_upcoming_news())}\nOTC: DISABLED | REAL only\nGOLD: XAUUSD ON\nMARATHON: {MARATHON['bal_type']} ({mar_currency()}) | 1 MIN ONLY | Target: {mar_fmt(MARATHON['target'])}",parse_mode="Markdown")
     if data=="settings": bot.send_message(cid,f"SETTINGS V19 TRAILBLAZER MANUAL\n\nV19: 5M Trend + ADX 25+ + MACD + Stochastic + BB + Payout 80%+ + News Block + Session Boost + Brain + Pullback\nMarathon: 7%-9% Fixed Stake | Stop Loss 30% | 1 MIN ONLY | Custom Target - No Lock\nDEMO = $ Dollar | REAL = ₦ Naira\n\nChannel: @KEVINTRAILBLAZE\nUse /welcome, /intro and /ready to post to channel.")
 if __name__ == "__main__":
-    print("Starting Trailblazer Bot V19 - NEW FLOW + 7-9% STAKE + 1 MIN MARATHON + NAIRA REAL / DOLLAR DEMO + CUSTOM FIX...")
+    print("Starting Trailblazer Bot V19 - START FIXED + NAIRA REAL / DOLLAR DEMO + CUSTOM FIX...")
     try:
         bot.remove_webhook()
         time.sleep(1)
