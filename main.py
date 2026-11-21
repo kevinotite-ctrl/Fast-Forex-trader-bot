@@ -28,8 +28,11 @@ MARATHON_PAIRS = ["EURUSD-OTC","GBPUSD-OTC","USDJPY-OTC","EURJPY-OTC","AUDUSD-OT
 PAIR_EMOJI["USDZAR-OTC"] = "🇿🇦 USD/ZAR OTC"
 PAIR_EMOJI["USDJPY-OTC"] = "🇺🇸 USD/JPY OTC"
 PAIR_EMOJI["EURJPY-OTC"] = "🇪🇺 EUR/JPY OTC"
-MARATHON = {"active": False, "start": 0.0, "target": 0.0, "bal": 0.0, "wins": 0, "loss": 0, "win_streak": 0, "loss_streak": 0, "cid": None, "bal_type": "PRACTICE", "base_stake": 1.0, "marti_level": 0}
+# MARATHON - SAFE + SMART COMPOUNDING + CUSTOM TARGET + 1 MIN ONLY
+MARATHON = {"active": False, "start": 0.0, "target": 0.0, "bal": 0.0, "wins": 0, "loss": 0, "win_streak": 0, "loss_streak": 0, "cid": None, "bal_type": "PRACTICE", "base_stake": 1.0, "marti_level": 0, "custom_target": False}
 MARATHON_PICK = {"pair": None}
+MARATHON_TARGET_WAIT = {}
+MARATHON_EXPIRY = 1  # 1 MIN ONLY - DO NOT CHANGE
 WELCOME_TEXT = "🔥🔥🔥 WELCOME TO TRAILBLAZER SIGNALS 🔥🔥🔥\n━━━━━━━━━━━━━━━━━━\n👋 Welcome Trader! You have arrived at the right place.\n\n🥇 WHAT WE DO HERE\n📈 Forex and GOLD Sniper Signals\n🎯 88%+ Accuracy Only\n🧠 Smart System That Learns From Every Win and Loss\n💰 Martingale 1-2-4-8 To Recover Losses\n\n📜 CHANNEL RULES\n✅ 1. Follow The Stake - $1, $2, $4, $8 - Do Not Be Greedy\n✅ 2. Do Not Overtrade - Maximum 30 Signals Per Day\n✅ 3. Enter Exactly At The Entry Time\n✅ 4. Press WIN or LOSS After Every Trade\n❌ 5. No Spam, No Direct Message To Admin For Signals\n❌ 6. Do Not Borrow Money To Trade\n\n🚀 NEW HERE? Type /intro For A Full Guide\n📊 Type /status To See Today's Result\n📢 Channel: @KEVINTRAILBLAZE\n\n━━━━━━━━━━━━━━━━━━\n💪 Good Luck Trader! Let Us Grow Together! 🤑\n🏆 TRAILBLAZER - WE MOVE! 🔥"
 INTRO_TEXT = "📚📚 TRAILBLAZER INTRO 📚📚\n━━━━━━━━━━━━━━━━━━\n💱 WHAT IS FOREX?\nForex Means Foreign Exchange. You Predict If One Currency Will Go UP Or DOWN Against Another.\nExample: EUR/USD - Euro Against Dollar.\nIf Euro Is Strong, Press BUY / CALL\nIf Euro Is Weak, Press SELL / PUT\n\n📈 HOW DO YOU MAKE MONEY?\n1️⃣ Enter With A Stake For Example $1\n2️⃣ If You Are Correct, IQ Option Pays You 85% = $1.85 Back\n3️⃣ If You Are Wrong, We Use Martingale $1 -> $2 -> $4 -> $8 To Recover\n\n🥇 GOLD (XAU/USD) WORKS THE SAME WAY\nGold Price Goes Up And Down. We Trade It With Stop Loss And Take Profit.\n\n🚀 HOW TO START ON IQ OPTION\n1️⃣ CREATE ACCOUNT - Go To iqoption.com\n2️⃣ VERIFY EMAIL\n3️⃣ PRACTICE WITH DEMO - $10,000 DEMO\n4️⃣ VERIFY ACCOUNT (KYC)\n5️⃣ DEPOSIT - Start With $10 To $20 Only\n6️⃣ TRADE WITH US\n\n⚠️ RULES:\n• No Overtrade - Maximum 30 Per Day\n• Follow Stake - $1, $2, $4, $8\n• Trading Has Risk, Only Trade Money You Can Afford To Lose\n\n📢 Channel: @KEVINTRAILBLAZE\n👋 Welcome Again! Let Us Go! 🚀"
 STATS = {"balance":0.0,"real_balance":0.0,"wins":0,"loss":0,"streak":0,"daily_trades":0,"daily_date":""}
@@ -38,7 +41,7 @@ IQ_CONNECTED=False; iq=None; PAYOUT_CACHE={}; PAYOUT_TIME=0
 OTC_SESSION_RESULTS = []
 OTC_MARTI = {"loss_streak":0, "base":1.0, "bal":"PRACTICE", "levels":[1,2,4,8]}
 PULLBACK_STATE = {}
-ACTIVE_SIGNAL = {"active": False, "pair": None, "dir": None, "conf":0, "rsi":0, "adx":0, "started": 0, "day": "", "price": 0, "sl": 0, "tp1": 0, "tp2": 0, "expiry": 120}
+ACTIVE_SIGNAL = {"active": False, "pair": None, "dir": None, "conf":0, "rsi":0, "adx":0, "started": 0, "day": "", "price": 0, "sl": 0, "tp1": 0, "tp2": 0, "expiry": 60}
 LAST_GLOBAL_SIGNAL = {"time": 0}
 GLOBAL_COOLDOWN = 360
 SKIP_COOLDOWN = 120
@@ -55,25 +58,25 @@ def send_photo_to_channel_sync(photo_url, caption):
         print(f"photo channel err {e}")
         try: bot.send_message(CHANNEL_ID, caption, parse_mode="Markdown")
         except: pass
-def format_channel_signal(pair, dir_, conf, price, entry_time_txt, expiry=120):
+def format_channel_signal(pair, dir_, conf, price, entry_time_txt, expiry=60):
     if dir_ == "CALL":
         action = "🟢 BUY / CALL ⬆️"; meaning = "The Price Is Expected To Go UP, So Press The GREEN BUY / CALL Button In IQ Option"
     else:
         action = "🔴 SELL / PUT ⬇️"; meaning = "The Price Is Expected To Go DOWN, So Press The RED SELL / PUT Button In IQ Option"
     pair_name = PAIR_EMOJI.get(pair, pair)
     price_txt = f"{price:.5f}" if price and price != 0 else "Market Price"
-    expiry_min = int(expiry // 60) if expiry else 2
+    expiry_min = int(expiry // 60) if expiry else 1
     return f"🔥🔥🔥 TRAILBLAZER SIGNAL 🔥🔥🔥\n\n💱 Pair: {pair_name}\n📊 Signal: {action}\n🎯 Confidence: {conf:.0f}%\n\n💡 What It Means:\n{meaning}\n\n━━━━━━━━━━━━━━━━━━\n⏰ ENTRY TIME: {entry_time_txt}\n💰 ENTRY PRICE: {price_txt}\n💵 STAKE: $1 (If You Lose, Next Is $2, Then $4, Then $8)\n⏱️ EXPIRY: {expiry_min} Minutes\n━━━━━━━━━━━━━━━━━━\n\n👣 HOW TO TRADE:\n1️⃣ Open IQ Option App\n2️⃣ Search For {pair}\n3️⃣ Wait Until {entry_time_txt}\n4️⃣ Set Expiry To {expiry_min} Minutes\n5️⃣ Press {action}\n6️⃣ Enter With $1\n\n📢 Channel: @KEVINTRAILBLAZE\nGood Luck! 💪🤑\n"
 def format_channel_gold_signal(d, entry_time_txt):
     dir_e = "🟢 BUY ⬆️" if d['dir']=="CALL" else "🔴 SELL ⬇️"
     what = "The Gold Price Is Expected To Go UP, Press GREEN BUY" if d['dir']=="CALL" else "The Gold Price Is Expected To Go DOWN, Press RED SELL"
     return f"🥇🥇🥇 GOLD SIGNAL - XAU/USD 🥇🥇🥇\n\n📊 Signal: {dir_e}\n🎯 Confidence: {d['conf']:.0f}%\n\n💡 What It Means:\n{what}\n\n━━━━━━━━━━━━━━━━━━\n⏰ ENTRY TIME: {entry_time_txt}\n💰 ENTRY: {d['price']:.2f}\n🛑 STOP LOSS: {d['sl']:.2f}\n🎯 TAKE PROFIT 1: {d['tp1']:.2f}\n🎯 TAKE PROFIT 2: {d['tp2']:.2f}\n━━━━━━━━━━━━━━━━━━\n\n📢 Channel: @KEVINTRAILBLAZE\nLet Us Grow Together! 🔥\n"
-def format_channel_pullback_signal(pair, dir_, entry_time_txt, level_idx=1, amount=2.0, expiry=120):
+def format_channel_pullback_signal(pair, dir_, entry_time_txt, level_idx=1, amount=2.0, expiry=60):
     action = "🟢 BUY / CALL ⬆️" if dir_ == "CALL" else "🔴 SELL / PUT ⬇️"
     pair_name = PAIR_EMOJI.get(pair, pair)
     level_names = ["", "Martingale 1", "Martingale 2", "Martingale 3"]
     level_name = level_names[level_idx] if 1 <= level_idx <= 3 else f"Martingale {level_idx}"
-    expiry_min = int(expiry // 60) if expiry else 2
+    expiry_min = int(expiry // 60) if expiry else 1
     return f"🔁 {level_name.upper()} - {pair_name}\n\n📊 {action}\n⏰ Entry: {entry_time_txt}\n💵 Stake: ${amount:.2f}\n⏱️ Expiry: {expiry_min} Min\n\n👉 Open IQ Option -> Search {pair} -> Press {action} At Entry Time.\n\n📢 @KEVINTRAILBLAZE\n"
 def format_channel_pullback_gold_signal(dir_, entry_time_txt, level_idx=1, amount=2.0):
     dir_e = "🟢 BUY ⬆️" if dir_=="CALL" else "🔴 SELL ⬇️"
@@ -85,10 +88,10 @@ def check_and_reset_new_day():
     today = get_lagos_day()
     if STATS["daily_date"] != today:
         STATS["daily_date"] = today; STATS["daily_trades"] = 0
-        ACTIVE_SIGNAL.update({"active": False, "pair": None, "dir": None, "conf": 0, "rsi": 0, "adx": 0, "started": 0, "day": "", "price": 0, "sl": 0, "tp1": 0, "tp2": 0, "expiry": 120})
+        ACTIVE_SIGNAL.update({"active": False, "pair": None, "dir": None, "conf": 0, "rsi": 0, "adx": 0, "started": 0, "day": "", "price": 0, "sl": 0, "tp1": 0, "tp2": 0, "expiry": 60})
         PULLBACK_STATE.clear(); OTC_MARTI["loss_streak"] = 0; return True
     if ACTIVE_SIGNAL["active"] and ACTIVE_SIGNAL.get("day") and ACTIVE_SIGNAL["day"] != today:
-        ACTIVE_SIGNAL.update({"active": False, "pair": None, "dir": None, "conf": 0, "rsi": 0, "adx": 0, "started": 0, "day": "", "price": 0, "sl": 0, "tp1": 0, "tp2": 0, "expiry": 120})
+        ACTIVE_SIGNAL.update({"active": False, "pair": None, "dir": None, "conf": 0, "rsi": 0, "adx": 0, "started": 0, "day": "", "price": 0, "sl": 0, "tp1": 0, "tp2": 0, "expiry": 60})
         PULLBACK_STATE.clear(); OTC_MARTI["loss_streak"] = 0; return True
     return False
 def get_greeting():
@@ -240,9 +243,9 @@ def get_pair_rsi_boost(pair, current_rsi, is_call):
     return 0, ""
 load_brain()
 def is_signal_active(): check_and_reset_new_day(); return ACTIVE_SIGNAL["active"]
-def start_signal(pair, dir_, conf=0, rsi=0, adx=0, price=0, sl=0, tp1=0, tp2=0, expiry=120):
+def start_signal(pair, dir_, conf=0, rsi=0, adx=0, price=0, sl=0, tp1=0, tp2=0, expiry=60):
     check_and_reset_new_day(); ACTIVE_SIGNAL.update({"active":True,"pair":pair,"dir":dir_,"conf":conf,"rsi":rsi,"adx":adx,"started":time.time(),"day":get_lagos_day(),"price":price,"sl":sl,"tp1":tp1,"tp2":tp2,"expiry":expiry})
-def clear_signal(): ACTIVE_SIGNAL.update({"active":False,"pair":None,"dir":None,"conf":0,"rsi":0,"adx":0,"started":0,"day":"","price":0,"sl":0,"tp1":0,"tp2":0,"expiry":120})
+def clear_signal(): ACTIVE_SIGNAL.update({"active":False,"pair":None,"dir":None,"conf":0,"rsi":0,"adx":0,"started":0,"day":"","price":0,"sl":0,"tp1":0,"tp2":0,"expiry":60})
 def is_allowed(uid): return uid == OWNER_ID
 def is_real_hours():
     try:
@@ -382,6 +385,7 @@ def get_trend_and_expiry(df, df5, close, r7, r14, adx, macd_val, sig_val, mom1, 
     elif c_now<lower: trends.append("💥 BB Breakout Down")
     elif (upper-lower)/c_now < 0.0005: trends.append("😴 BB Squeeze")
     else: trends.append("➡️ BB Inside")
+    # For normal signals we keep dynamic, but Marathon will force 60s
     if trend_score>=7: expiry=300; expiry_txt="5 Min - STRONG TREND"; trend_type="🔥 STRONG TREND"
     elif trend_score>=5: expiry=180; expiry_txt="3 Min - GOOD TREND"; trend_type="📈 GOOD TREND"
     elif trend_score>=3: expiry=120; expiry_txt="2 Min - NORMAL TREND"; trend_type="➡️ NORMAL TREND"
@@ -408,18 +412,18 @@ def analyze_sniper_v12(pair, sniper_mode=False):
         h_now=float(high.iloc[-1]); l_now=float(low.iloc[-1]); e9=float(ema9.iloc[-1]); e21=float(ema21.iloc[-1]); e50=float(ema50.iloc[-1])
         r7=float(rsi7.iloc[-1]); r14=float(rsi14.iloc[-1]); mom1=(close.iloc[-1]-close.iloc[-2])/close.iloc[-2]*100; mom3=(close.iloc[-1]-close.iloc[-4])/close.iloc[-4]*100
         body=abs(c_now-o_now); upper_wick=h_now-max(c_now,o_now); lower_wick=min(c_now,o_now)-l_now; is_green=c_now>o_now; payout=get_payout(pair); sig="CALL" if is_green else "PUT"
-        if is_pair_blocked(pair): return {"pair":pair,"dir":sig,"conf":40,"price":c_now,"rsi":r7,"reason":f"🧠 BRAIN Blocked {pair}","payout":payout,"expiry":120,"atr":atr,"rejected":True}
+        if is_pair_blocked(pair): return {"pair":pair,"dir":sig,"conf":40,"price":c_now,"rsi":r7,"reason":f"🧠 BRAIN Blocked {pair}","payout":payout,"expiry":60,"atr":atr,"rejected":True}
         news_block=is_news_blocking_pair(pair,minutes=30)
-        if news_block: return {"pair":pair,"dir":sig,"conf":40,"price":c_now,"rsi":r7,"reason":f"📰 NEWS BLOCK {news_block['country']} {news_block['title'][:25]} in {news_block['in_min']}min","payout":payout,"expiry":120,"atr":atr,"rejected":True}
-        if adx<25: return {"pair":pair,"dir":sig,"conf":42,"price":c_now,"rsi":r7,"reason":"Choppy - ADX Low","payout":payout,"expiry":120,"atr":atr,"rejected":True}
-        if body<atr*0.30: return {"pair":pair,"dir":sig,"conf":48,"price":c_now,"rsi":r7,"reason":"Doji - No Body","payout":payout,"expiry":120,"atr":atr,"rejected":True}
-        if payout<0.80: return {"pair":pair,"dir":sig,"conf":52,"price":c_now,"rsi":r7,"reason":f"Low Payout {int(payout*100)}%","payout":payout,"expiry":120,"atr":atr,"rejected":True}
+        if news_block: return {"pair":pair,"dir":sig,"conf":40,"price":c_now,"rsi":r7,"reason":f"📰 NEWS BLOCK {news_block['country']} {news_block['title'][:25]} in {news_block['in_min']}min","payout":payout,"expiry":60,"atr":atr,"rejected":True}
+        if adx<25: return {"pair":pair,"dir":sig,"conf":42,"price":c_now,"rsi":r7,"reason":"Choppy - ADX Low","payout":payout,"expiry":60,"atr":atr,"rejected":True}
+        if body<atr*0.30: return {"pair":pair,"dir":sig,"conf":48,"price":c_now,"rsi":r7,"reason":"Doji - No Body","payout":payout,"expiry":60,"atr":atr,"rejected":True}
+        if payout<0.80: return {"pair":pair,"dir":sig,"conf":52,"price":c_now,"rsi":r7,"reason":f"Low Payout {int(payout*100)}%","payout":payout,"expiry":60,"atr":atr,"rejected":True}
         score=30; reasons=[]
         if df5 is not None:
             c5=df5['close']; e9_5=c5.ewm(9).mean(); e21_5=c5.ewm(21).mean(); trend_5m=1 if float(e9_5.iloc[-1])>float(e21_5.iloc[-1]) else -1
-            if (is_green and trend_5m==-1) or (not is_green and trend_5m==1): return {"pair":pair,"dir":sig,"conf":45,"price":c_now,"rsi":r7,"reason":"Against 5M Trend - REJECT","payout":payout,"expiry":120,"atr":atr,"rejected":True}
+            if (is_green and trend_5m==-1) or (not is_green and trend_5m==1): return {"pair":pair,"dir":sig,"conf":45,"price":c_now,"rsi":r7,"reason":"Against 5M Trend - REJECT","payout":payout,"expiry":60,"atr":atr,"rejected":True}
             else: score+=12; reasons.append("5M Trend Align")
-        else: return {"pair":pair,"dir":sig,"conf":45,"price":c_now,"rsi":r7,"reason":"No 5M Data - REJECT","payout":payout,"expiry":120,"atr":atr,"rejected":True}
+        else: return {"pair":pair,"dir":sig,"conf":45,"price":c_now,"rsi":r7,"reason":"No 5M Data - REJECT","payout":payout,"expiry":60,"atr":atr,"rejected":True}
         if is_green:
             if e9>e21>e50: score+=18; reasons.append("EMA Bull Align")
             elif e9>e21: score+=10
@@ -467,24 +471,24 @@ def analyze_sniper_v12(pair, sniper_mode=False):
         if not is_green and 20<stoch_val<50: score+=5
         if is_green and c_now>upper: score-=10
         if not is_green and c_now<lower: score-=10
-        if not has_pattern and score<88: return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":r7,"reason":"No Pattern - REJECT","payout":payout,"expiry":120,"atr":atr,"rejected":True}
+        if not has_pattern and score<88: return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":r7,"reason":"No Pattern - REJECT","payout":payout,"expiry":60,"atr":atr,"rejected":True}
         session_boost,session_name=get_session_boost(pair); score+=session_boost
         if session_boost!=0: reasons.append(f"{session_name} {session_boost:+d}")
-        if session_boost<=-10 and sniper_mode and score<92: return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":r7,"reason":f"{session_name} - Needs 92% - REJECT","payout":payout,"expiry":120,"atr":atr,"rejected":True}
+        if session_boost<=-10 and sniper_mode and score<92: return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":r7,"reason":f"{session_name} - Needs 92% - REJECT","payout":payout,"expiry":60,"atr":atr,"rejected":True}
         hour_boost,hour_txt=get_hour_boost(pair)
         if hour_boost!=0:
             score+=hour_boost; reasons.append(f"{hour_txt} {hour_boost:+d}")
-            if hour_boost<=-10 and sniper_mode and score<92: return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":r7,"reason":f"🧠 Bad Hour for {pair} - REJECT","payout":payout,"expiry":120,"atr":atr,"rejected":True}
+            if hour_boost<=-10 and sniper_mode and score<92: return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":r7,"reason":f"🧠 Bad Hour for {pair} - REJECT","payout":payout,"expiry":60,"atr":atr,"rejected":True}
         rsi_boost,rsi_txt=get_pair_rsi_boost(pair,r7,is_green)
         if rsi_boost!=0: score+=rsi_boost; reasons.append(f"{rsi_txt} {rsi_boost:+d}")
         brain=get_pair_stats(pair); boost=brain.get("score_boost",0); score+=boost
         if boost!=0: reasons.append(f"🧠 Brain {boost:+d}")
-        if boost<=-8 and sniper_mode and score<92: return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":r7,"reason":f"🧠 Weak pair {pair} needs 92%","payout":payout,"expiry":120,"atr":atr,"rejected":True}
+        if boost<=-8 and sniper_mode and score<92: return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":r7,"reason":f"🧠 Weak pair {pair} needs 92%","payout":payout,"expiry":60,"atr":atr,"rejected":True}
         score=max(40,min(96,score)); reason=" + ".join(reasons) if reasons else "Weak PA"
-        if sniper_mode and score<88: return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":r7,"reason":reason,"payout":payout,"expiry":120,"atr":atr,"rejected":True}
+        if sniper_mode and score<88: return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":r7,"reason":reason,"payout":payout,"expiry":60,"atr":atr,"rejected":True}
         trend_info=get_trend_and_expiry(df,df5,close,r7,r14,adx,macd_val,sig_val,mom1,mom3,stoch_val,c_now,upper,lower,is_green)
-        reason=reason+f" | {trend_info['trend_type']} | ⏱️ {trend_info['expiry_txt']}"
-        return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":r7,"reason":reason,"payout":payout,"expiry":trend_info['expiry'],"atr":atr,"rejected":False,"adx":adx,"trend_info":trend_info}
+        reason=reason+f" | {trend_info['trend_type']} | ⏱️ 1 Min"
+        return {"pair":pair,"dir":sig,"conf":score,"price":c_now,"rsi":r7,"reason":reason,"payout":payout,"expiry":60,"atr":atr,"rejected":False,"adx":adx,"trend_info":trend_info}
     except Exception as e: print(f"V18 err {pair} {e}"); return None
 def check_pullback_entry(pair, original_dir):
     if is_news_blocking_pair(pair, minutes=30): return None
@@ -496,9 +500,9 @@ def check_pullback_entry(pair, original_dir):
         near_ema=abs(c_now-e9)/c_now*100<0.05 or abs(c_now-e21)/c_now*100<0.05
         if not near_ema or payout<0.80: return None
         if original_dir=="CALL":
-            if 40<=r7<=55 and 42<=r14<=58 and r7>r7_prev and c_now>e21: return {"pair":pair,"dir":"CALL","conf":88,"price":c_now,"rsi":r7,"reason":f"Pullback CALL | RSI7 {r7:.0f}↑ RSI14 {r14:.0f} at EMA","payout":payout,"expiry":120,"atr":0,"rejected":False}
+            if 40<=r7<=55 and 42<=r14<=58 and r7>r7_prev and c_now>e21: return {"pair":pair,"dir":"CALL","conf":88,"price":c_now,"rsi":r7,"reason":f"Pullback CALL | RSI7 {r7:.0f}↑ RSI14 {r14:.0f} at EMA","payout":payout,"expiry":60,"atr":0,"rejected":False}
         else:
-            if 45<=r7<=60 and 42<=r14<=58 and r7<r7_prev and c_now<e21: return {"pair":pair,"dir":"PUT","conf":88,"price":c_now,"rsi":r7,"reason":f"Pullback PUT | RSI7 {r7:.0f}↓ RSI14 {r14:.0f} at EMA","payout":payout,"expiry":120,"atr":0,"rejected":False}
+            if 45<=r7<=60 and 42<=r14<=58 and r7<r7_prev and c_now<e21: return {"pair":pair,"dir":"PUT","conf":88,"price":c_now,"rsi":r7,"reason":f"Pullback PUT | RSI7 {r7:.0f}↓ RSI14 {r14:.0f} at EMA","payout":payout,"expiry":60,"atr":0,"rejected":False}
         return None
     except: return None
 def pullback_scanner_loop(cid, pair, original_dir):
@@ -511,7 +515,7 @@ def pullback_scanner_loop(cid, pair, original_dir):
         if d:
             levels=OTC_MARTI["levels"]; idx=OTC_MARTI["loss_streak"]; mult=levels[idx]; amt=OTC_MARTI["base"]*mult; names=["Real Entry","Martingale 1","Martingale 2","Martingale 3"]; dir_e="🟢 CALL ⬆️" if d['dir']=="CALL" else "🔴 PUT ⬇️"
             mk=types.InlineKeyboardMarkup(row_width=2); mk.add(types.InlineKeyboardButton("✅ WIN",callback_data=f"manual_win_{pair}"),types.InlineKeyboardButton("❌ LOSS",callback_data=f"manual_loss_{pair}_{d['dir']}")); mk.add(types.InlineKeyboardButton("⏭️ SKIP THIS TRADE",callback_data=f"skip_{pair}")); mk.add(types.InlineKeyboardButton("📤 Send to Channel",callback_data=f"send_channel_pb_{pair}_{d['dir']}"))
-            bot.send_message(cid,f"🎯 **PULLBACK ENTRY FOUND!**\n\n💱 {pair}\n📊 {dir_e} | {d['reason']}\n💸 Payout {int(d['payout']*100)}%\n💰 Next: **{names[idx]} - ${amt:.2f} Level {idx+1}/4 ({mult}x)**\n⏱️ Enter NOW - 2 Min - MANUAL\n\nPress WIN/LOSS/SKIP after result:",reply_markup=mk,parse_mode="Markdown")
+            bot.send_message(cid,f"🎯 **PULLBACK ENTRY FOUND!**\n\n💱 {pair}\n📊 {dir_e} | {d['reason']}\n💸 Payout {int(d['payout']*100)}%\n💰 Next: **{names[idx]} - ${amt:.2f} Level {idx+1}/4 ({mult}x)**\n⏱️ Enter NOW - 1 Min - MANUAL\n\nPress WIN/LOSS/SKIP after result:",reply_markup=mk,parse_mode="Markdown")
             PULLBACK_STATE[cid]["active"]=False; return
         time.sleep(10)
     PULLBACK_STATE[cid]={"active":False}; bot.send_message(cid,"⏱️ Pullback scan timeout (5 min) - No safe entry.")
@@ -687,20 +691,29 @@ def real_signal_scanner():
                 if candidates:
                     candidates.sort(key=lambda x:x[1]['conf'],reverse=True); pair,d=candidates[0]; now=datetime.now(tz); entry=now+timedelta(seconds=45); dir_e="🟢 CALL ⬆️" if d['dir']=="CALL" else "🔴 PUT ⬇️"; base=OTC_MARTI["base"]
                     mk=types.InlineKeyboardMarkup(row_width=2); mk.add(types.InlineKeyboardButton("✅ WIN - Reset",callback_data=f"manual_win_{pair}"),types.InlineKeyboardButton("❌ LOSS - Pullback Scan",callback_data=f"manual_loss_{pair}_{d['dir']}")); mk.add(types.InlineKeyboardButton("⏭️ SKIP THIS TRADE",callback_data=f"skip_{pair}")); mk.add(types.InlineKeyboardButton("📤 Send to Channel",callback_data=f"send_channel_{pair}_{d['dir']}"))
-                    wr=get_pair_winrate(pair); wr_txt=f" | 🧠 Brain WR {wr:.0f}%" if wr is not None else ""; ti=d.get('trend_info',{}); expiry_min=ti.get('expiry',120)//60; trend_type_txt=ti.get('trend_type','➡️ NORMAL TREND'); trends_txt=" | ".join(ti.get('trends',[])[:4])
+                    wr=get_pair_winrate(pair); wr_txt=f" | 🧠 Brain WR {wr:.0f}%" if wr is not None else ""; ti=d.get('trend_info',{}); expiry_min=1; trend_type_txt=ti.get('trend_type','➡️ NORMAL TREND'); trends_txt=" | ".join(ti.get('trends',[])[:4])
                     msg=f"📡 **REAL SIGNAL V18 TRAILBLAZER - MANUAL** 📡\n\n💱 {PAIR_EMOJI.get(pair,pair)}\n📊 {dir_e} | 🎯 {d['conf']:.0f}% SNIPER{wr_txt}\n📈 {d['reason']} | RSI {d['rsi']:.1f} | ATR {d['atr']:.5f}\n📊 Trend: {trend_type_txt}\n🔍 Trends: {trends_txt}\n💸 {int(d['payout']*100)}% | ⏱️ Suggested: {expiry_min} Min\n📅 Today: {STATS['daily_trades']}/30\n📰 News: ✅ Checked - No blocking news\n\n⏰ ENTRY: {entry.strftime('%H:%M:%S WAT')} (in 45s)\n\n**Real Entry:** ${base:.2f}\n**If LOSS ->** Martingale 1: ${base*2:.2f}\n**If LOSS ->** Martingale 2: ${base*4:.2f}\n**If LOSS ->** Martingale 3: ${base*8:.2f}\n\n⚠️ MANUAL - Press WIN / LOSS / SKIP\n"
-                    try: bot.send_message(OWNER_ID,msg,parse_mode="Markdown",reply_markup=mk); last_signal[pair]=time.time(); LAST_GLOBAL_SIGNAL["time"]=time.time(); start_signal(pair,d['dir'],d['conf'],d['rsi'],d.get('adx',30), price=d['price'], expiry=d.get('expiry',120))
+                    try: bot.send_message(OWNER_ID,msg,parse_mode="Markdown",reply_markup=mk); last_signal[pair]=time.time(); LAST_GLOBAL_SIGNAL["time"]=time.time(); start_signal(pair,d['dir'],d['conf'],d['rsi'],d.get('adx',30), price=d['price'], expiry=60)
                     except Exception as e: print(f"Send err {e}")
             time.sleep(25)
         except: time.sleep(30)
+# ========== MARATHON - SAFE + SMART COMPOUNDING + CUSTOM TARGET + 1 MIN ONLY ==========
 def marathon_stake():
-    bal = MARATHON["bal"]
-    base = max(1.0, round(bal * 0.01, 2))
-    MARATHON["base_stake"] = base
-    mult = [1, 2, 4, 8][min(MARATHON["marti_level"], 3)]
-    stake = round(base * mult, 2)
-    max_stake = round(bal * 0.20, 2)
+    bal = MARATHON["bal"]; start = MARATHON["start"]; target = MARATHON["target"]
+    progress = 0
+    if target > start:
+        progress = (bal - start) / (target - start)
+        progress = max(0, min(1, progress))
+    if progress < 0.25: pct = 0.10
+    elif progress < 0.50: pct = 0.12
+    elif progress < 0.75: pct = 0.13
+    else: pct = 0.14
+    if MARATHON["loss_streak"] >= 2: pct = 0.05
+    stake = round(bal * pct, 2)
+    stake = max(1.0, min(5.0, stake))
+    max_stake = round(bal * 0.15, 2)
     if stake > max_stake: stake = max(1.0, max_stake)
+    MARATHON["base_stake"] = stake
     return stake
 def analyze_marathon_30s(pair):
     df = get_candles(pair)
@@ -727,6 +740,7 @@ def analyze_marathon_30s(pair):
             return {"pair":pair,"dir":"PUT","conf":80,"price":c_now,"rsi":r7,"payout":payout}
     except: return None
 def marathon_auto_buy(pair, amount, direction):
+    # 1 MIN ONLY
     for attempt in range(3):
         try:
             with IQ_LOCK:
@@ -734,12 +748,12 @@ def marathon_auto_buy(pair, amount, direction):
                 iq.change_balance(MARATHON["bal_type"])
                 time.sleep(0.5)
                 bal = iq.get_balance()
-                print(f"[MARATHON BUY TRY {attempt+1}] Bal ${bal} | {pair} {direction} ${amount} | Type {MARATHON['bal_type']}")
+                print(f"[MARATHON BUY TRY {attempt+1}] Bal ${bal} | {pair} {direction} ${amount} | 1 MIN | Type {MARATHON['bal_type']}")
                 if bal < amount:
                     print(f"[MARATHON BUY FAIL] Low balance ${bal} < ${amount}")
                     return False, None
-                status, trade_id = iq.buy(amount, pair, direction.lower(), 1)
-                print(f"[MARATHON AUTO {MARATHON['bal_type']}] {pair} {direction} ${amount} -> {status} {trade_id}")
+                status, trade_id = iq.buy(amount, pair, direction.lower(), 1)  # 1 = 1 MIN
+                print(f"[MARATHON AUTO {MARATHON['bal_type']}] {pair} {direction} ${amount} 1MIN -> {status} {trade_id}")
                 if status: return True, trade_id
                 print(f"[MARATHON BUY REJECTED] Attempt {attempt+1} - IQ said False, retrying...")
                 time.sleep(2)
@@ -750,7 +764,7 @@ def marathon_auto_buy(pair, amount, direction):
     return False, None
 def marathon_check_win(trade_id):
     try:
-        print(f"[MARATHON CHECK] Waiting for trade {trade_id} to close...")
+        print(f"[MARATHON CHECK] Waiting for trade {trade_id} to close - 1 MIN...")
         for i in range(13):
             time.sleep(5)
             if not MARATHON["active"]: return None, 0
@@ -784,8 +798,8 @@ def marathon_check_win(trade_id):
     except Exception as e: print(f"[MARATHON CHECK ERR] {e}"); return None, 0
 def marathon_scan_all_text():
     if not IQ_CONNECTED: return "⏳ IQ not connected yet - wait 30s and try again", []
-    txt = "📊 **MARATHON SCAN ALL - 6 PAIRS**\n"
-    txt += f"💰 Mode: {MARATHON['bal_type']} | Payout 80%+\n\n"
+    txt = "📊 **MARATHON SCAN ALL - 6 PAIRS - 1 MIN ONLY**\n"
+    txt += f"💰 Mode: {MARATHON['bal_type']} | Payout 80%+ | Expiry 1 Min\n\n"
     results = []
     for pair in MARATHON_PAIRS:
         try:
@@ -810,8 +824,13 @@ def marathon_loop():
                 bot.send_message(MARATHON["cid"], "⏳ Waiting for IQ to connect... Marathon paused 10s")
                 time.sleep(10); continue
             if MARATHON["bal"] >= MARATHON["target"]:
-                bot.send_message(MARATHON["cid"], f"🏁 **MARATHON DONE! [{MARATHON['bal_type']}]**\n\n💰 Start: ${MARATHON['start']:.2f}\n🏆 Now: ${MARATHON['bal']:.2f}\n✅ DOUBLED - AUTO STOPPED\n\nW:{MARATHON['wins']} L:{MARATHON['loss']}")
+                bot.send_message(MARATHON["cid"], f"🏁 **MARATHON DONE! [{MARATHON['bal_type']}]**\n\n💰 Start: ${MARATHON['start']:.2f}\n🏆 Now: ${MARATHON['bal']:.2f}\n🎯 Target: ${MARATHON['target']:.2f} REACHED!\n✅ AUTO STOPPED\n\nW:{MARATHON['wins']} L:{MARATHON['loss']}")
                 MARATHON["active"] = False; clear_signal(); break
+            # STOP LOSS 30% - Protect, no chop full money
+            stop_loss = MARATHON["start"] * 0.70
+            if MARATHON["bal"] <= stop_loss:
+                bot.send_message(MARATHON["cid"], f"🛑 **MARATHON STOPPED - STOP LOSS HIT [{MARATHON['bal_type']}]**\n\n💰 Start: ${MARATHON['start']:.2f}\n📉 Now: ${MARATHON['bal']:.2f}\n🛡️ Lost 30% - I stop to protect your remaining money\nW:{MARATHON['wins']} L:{MARATHON['loss']}\n\nYou still get ${MARATHON['bal']:.2f} remain, no be $0")
+                MARATHON["active"] = False; break
             if MARATHON["bal"] <= 1:
                 bot.send_message(MARATHON["cid"], f"🛑 **MARATHON STOPPED - BALANCE LOW [{MARATHON['bal_type']}]**\nBal: ${MARATHON['bal']:.2f}")
                 MARATHON["active"] = False; break
@@ -830,15 +849,16 @@ def marathon_loop():
                     time.sleep(15); continue
             stake = marathon_stake()
             dir_e = "🟢 CALL ⬆️" if found['dir']=="CALL" else "🔴 PUT ⬇️"
-            mult_txt = [1,2,4,8][min(MARATHON["marti_level"],3)]
-            bot.send_message(MARATHON["cid"], f"🏁 **MARATHON AUTO-PLACING... [{MARATHON['bal_type']}]**\n\n💱 {PAIR_EMOJI.get(found['pair'],found['pair'])}\n📊 {dir_e} | RSI {found['rsi']:.0f} | Payout {int(found['payout']*100)}%\n💰 Auto Stake: ${stake:.2f} | Martingale Level {MARATHON['marti_level']+1}/4 ({mult_txt}x) | Bal: ${MARATHON['bal']:.2f} / Target ${MARATHON['target']:.2f}\n🤖 Placing on IQ {MARATHON['bal_type']} now...")
+            progress_pct = int((MARATHON['bal'] - MARATHON['start']) / (MARATHON['target'] - MARATHON['start']) * 100) if MARATHON['target'] > MARATHON['start'] else 0
+            progress_pct = max(0, min(100, progress_pct))
+            bot.send_message(MARATHON["cid"], f"🏁 **MARATHON AUTO-PLACING... [{MARATHON['bal_type']}]**\n\n💱 {PAIR_EMOJI.get(found['pair'],found['pair'])}\n📊 {dir_e} | RSI {found['rsi']:.0f} | Payout {int(found['payout']*100)}%\n💰 Stake: ${stake:.2f} (Smart Compounding {progress_pct}%) | Bal: ${MARATHON['bal']:.2f} / Target ${MARATHON['target']:.2f}\n⏱️ Expiry: 1 MIN ONLY\n🤖 Placing on IQ {MARATHON['bal_type']} now...")
             start_signal(found['pair'], found['dir'], found['conf'], found['rsi'], 30, price=found['price'], expiry=60)
             status, trade_id = marathon_auto_buy(found['pair'], stake, found['dir'])
             if not status:
                 bot.send_message(MARATHON["cid"], f"❌ **AUTO PLACE FAILED [{MARATHON['bal_type']}]**\n\n💱 {found['pair']} - IQ rejected / No connection\nRetrying in 15s...")
                 clear_signal(); time.sleep(15); continue
             last_trade_time = time.time()
-            bot.send_message(MARATHON["cid"], f"✅ **TRADE PLACED [{MARATHON['bal_type']}]** ID: {trade_id}\nWaiting for result... ⏳")
+            bot.send_message(MARATHON["cid"], f"✅ **TRADE PLACED [{MARATHON['bal_type']}]** ID: {trade_id}\n⏱️ Expiry: 1 MIN | Waiting for result... ⏳")
             win, profit = marathon_check_win(trade_id)
             clear_signal()
             last_trade_time = time.time()
@@ -848,17 +868,15 @@ def marathon_loop():
             if win:
                 MARATHON["bal"] += float(profit); MARATHON["wins"]+=1; MARATHON["win_streak"]+=1; MARATHON["loss_streak"]=0; MARATHON["marti_level"]=0
                 record_brain(found['pair'], True, 80, found['rsi'], 30)
-                bot.send_message(MARATHON["cid"], f"✅ **MARATHON WIN [{MARATHON['bal_type']}]** +${float(profit):.2f}\nBal: ${MARATHON['bal']:.2f} / Target ${MARATHON['target']:.2f}\n♻️ Martingale RESET to ${MARATHON['base_stake']:.2f} (Level 1)\n⏳ Resting 90s before next trade...")
+                progress2 = int((MARATHON['bal'] - MARATHON['start']) / (MARATHON['target'] - MARATHON['start']) * 100) if MARATHON['target'] > MARATHON['start'] else 0
+                progress2 = max(0, min(100, progress2))
+                bot.send_message(MARATHON["cid"], f"✅ **MARATHON WIN [{MARATHON['bal_type']}]** +${float(profit):.2f}\nBal: ${MARATHON['bal']:.2f} / Target ${MARATHON['target']:.2f}\n📈 Progress: {progress2}% | Next Stake: ${marathon_stake():.2f} (Compounding)\n⏱️ Expiry was 1 MIN\n⏳ Resting 90s...")
             else:
                 MARATHON["bal"] -= stake; MARATHON["loss"]+=1; MARATHON["loss_streak"]+=1; MARATHON["win_streak"]=0
-                if MARATHON["marti_level"] < 3: MARATHON["marti_level"] += 1
-                else: MARATHON["marti_level"] = 0; MARATHON["loss_streak"] = 0
                 record_brain(found['pair'], False, 80, found['rsi'], 30)
-                next_mult = [1,2,4,8][min(MARATHON['marti_level'],3)]
-                next_stake = round(MARATHON['base_stake'] * next_mult, 2)
-                bot.send_message(MARATHON["cid"], f"❌ **MARATHON LOSS [{MARATHON['bal_type']}]** -${stake:.2f}\nBal: ${MARATHON['bal']:.2f} / Target ${MARATHON['target']:.2f}\n🔁 Martingale Level {MARATHON['marti_level']+1}/4 - Next Stake: ${next_stake:.2f} ({next_mult}x)\n⏳ Resting 90s...")
-                if MARATHON["loss_streak"] >= 3:
-                    bot.send_message(MARATHON["cid"], "⏸️ 3 losses - Pausing 3 mins to protect balance..."); time.sleep(180)
+                bot.send_message(MARATHON["cid"], f"❌ **MARATHON LOSS [{MARATHON['bal_type']}]** -${stake:.2f}\nBal: ${MARATHON['bal']:.2f} / Target ${MARATHON['target']:.2f}\n📉 Compounding reduced - Next Stake: ${marathon_stake():.2f}\n⏳ Resting 90s...")
+                if MARATHON["loss_streak"] >= 2:
+                    bot.send_message(MARATHON["cid"], "⏸️ 2 losses - Pausing 5 mins to protect balance..."); time.sleep(300)
                     last_trade_time = time.time()
             time.sleep(10)
         except Exception as e:
@@ -866,15 +884,16 @@ def marathon_loop():
             try: bot.send_message(MARATHON["cid"], f"⚠️ Marathon error: {e} - retrying in 15s")
             except: pass
             time.sleep(15)
-def start_marathon(cid, amount):
-    MARATHON.update({"active":True,"start":float(amount),"target":float(amount)*2,"bal":float(amount),"wins":0,"loss":0,"win_streak":0,"loss_streak":0,"cid":cid,"base_stake":max(1.0, round(float(amount)*0.01,2)),"marti_level":0})
-    bot.send_message(cid, f"🏁 **MARATHON STARTED - AUTO + MARTINGALE [{MARATHON['bal_type']}]**\n\n💰 Start: ${amount:.2f}\n🎯 Target: ${amount*2:.2f}\n💱 Mode: {'Pick One: '+MARATHON_PICK['pair'] if MARATHON_PICK['pair'] else 'Scan All 6 Pairs'}\n⏱️ Expiry: 1 Min | OTC Evening\n🛡️ Payout 80%+\n🔁 Martingale: $1 -> $2 -> $4 -> $8 (Reset on WIN)\n🤖 AUTO PLACE: ON - Bot go place trade for IQ {MARATHON['bal_type']}\n\nScanning now...")
+def start_marathon(cid, amount, target=None):
+    if target is None: target = float(amount)*2
+    MARATHON.update({"active":True,"start":float(amount),"target":float(target),"bal":float(amount),"wins":0,"loss":0,"win_streak":0,"loss_streak":0,"cid":cid,"base_stake":1.0,"marti_level":0})
+    bot.send_message(cid, f"🏁 **MARATHON STARTED - SAFE + SMART COMPOUNDING [{MARATHON['bal_type']}]**\n\n💰 Start: ${float(amount):.2f}\n🎯 YOUR Target: ${float(target):.2f}\n💱 Mode: {'Pick One: '+MARATHON_PICK['pair'] if MARATHON_PICK['pair'] else 'Scan All 6 Pairs'}\n⏱️ Expiry: 1 MIN ONLY\n🛡️ Stop Loss: ${float(amount)*0.70:.2f} (Stop if lose 30%)\n📈 Smart Compounding: 10% -> 12% -> 13% -> 14% as you win\n🤖 AUTO PLACE: ON - Bot go place trade for IQ {MARATHON['bal_type']}\n\nScanning now...")
     threading.Thread(target=marathon_loop, daemon=True).start()
 def marathon_menu_text(cid):
     bal_type = MARATHON["bal_type"]
     emoji = "🟢 DEMO" if bal_type=="PRACTICE" else "🔴 REAL"
     picked = MARATHON_PICK["pair"] if MARATHON_PICK["pair"] else "Scan All 6 Pairs"
-    return f"🏁 **MARATHON MODE - AUTO + MARTINGALE**\n\n💰 Current Balance Mode: {emoji} **{bal_type}**\n🎯 Picked Pair: {picked}\n📊 Pairs: EURUSD, GBPUSD, USDJPY, EURJPY, AUDUSD, USDZAR OTC\n🔁 Martingale: $1 -> $2 -> $4 -> $8\n\n1️⃣ **SCAN ALL** - Bot scans all 6, shows table, picks best\n2️⃣ **PICK ONE** - You pick 1 pair, bot only trades that one\n3️⃣ **AUTO PLACE** - Bot places trade for you on IQ\n\n⚠️ If na REAL, na real money e go use. Double-check before you start!"
+    return f"🏁 **MARATHON MODE - SAFE + SMART COMPOUNDING + CUSTOM TARGET**\n\n💰 Current Balance Mode: {emoji} **{bal_type}**\n🎯 Picked Pair: {picked}\n📊 Pairs: EURUSD, GBPUSD, USDJPY, EURJPY, AUDUSD, USDZAR OTC\n⏱️ Expiry: 1 MIN ONLY\n📈 Smart Compounding: Stake grows as you win\n🛡️ Stop Loss: Stop if lose 30%\n🎯 Custom Target: You choose target\n\n1️⃣ **SCAN ALL** - Bot scans all 6, shows table, picks best\n2️⃣ **PICK ONE** - You pick 1 pair, bot only trades that one\n3️⃣ **AUTO PLACE** - Bot places trade for you on IQ\n\n⚠️ If na REAL, na real money e go use. Double-check before you start!"
 def marathon_menu_kb():
     mk = types.InlineKeyboardMarkup(row_width=1)
     if MARATHON["bal_type"]=="PRACTICE":
@@ -884,7 +903,8 @@ def marathon_menu_kb():
     mk.add(types.InlineKeyboardButton("📊 SCAN ALL 6 PAIRS NOW",callback_data="mar_scan_all"))
     mk.add(types.InlineKeyboardButton("🎯 PICK ONE PAIR",callback_data="mar_pick_menu"))
     mk.add(types.InlineKeyboardButton("📊 SCAN ALL MODE (Clear Pick)",callback_data="mar_scan_all_start"))
-    mk.add(types.InlineKeyboardButton("💰 $10 Marathon",callback_data="mar_start_10"), types.InlineKeyboardButton("💰 $20 Marathon",callback_data="mar_start_20"))
+    mk.add(types.InlineKeyboardButton("💰 $10 Start",callback_data="mar_ask_start_10"), types.InlineKeyboardButton("💰 $20 Start",callback_data="mar_ask_start_20"))
+    mk.add(types.InlineKeyboardButton("🎯 Custom Target",callback_data="mar_custom_target"))
     if MARATHON["active"]:
         mk.add(types.InlineKeyboardButton("🛑 STOP MARATHON",callback_data="mar_stop"))
     return mk
@@ -897,6 +917,18 @@ def welcome_new_member(m):
     except: pass
 @bot.message_handler(commands=['start','stop','mode','balance','results','brain','news','welcome','intro','ready','marathon','real','practice'])
 def start(m):
+    # Custom target typing - type number for target
+    if m.chat.id in MARATHON_TARGET_WAIT and m.text and m.text.replace('.','',1).isdigit():
+        start_amt = MARATHON_TARGET_WAIT.pop(m.chat.id)
+        target_amt = float(m.text.strip())
+        if target_amt <= start_amt:
+            bot.send_message(m.chat.id, f"❌ Target must be bigger than start ${start_amt:.0f}. Try again - type target:")
+            MARATHON_TARGET_WAIT[m.chat.id] = start_amt
+            return
+        mkc = types.InlineKeyboardMarkup(row_width=1)
+        mkc.add(types.InlineKeyboardButton(f"✅ START ${start_amt:.0f} -> ${target_amt:.0f} (1 MIN)",callback_data=f"mar_target_{start_amt}_{target_amt}"))
+        bot.send_message(m.chat.id, f"🎯 Target set: ${target_amt:.0f}\nPress START to begin:", reply_markup=mkc)
+        return
     if not is_allowed(m.from_user.id):
         if m.text and m.text.startswith('/welcome'):
             bot.send_message(m.chat.id, WELCOME_TEXT); return
@@ -953,7 +985,7 @@ def start(m):
         bot.send_message(m.chat.id,txt,parse_mode="Markdown"); return
     if m.text.startswith('/mode'):
         tz=pytz.timezone("Africa/Lagos"); now=datetime.now(tz); sb,sn=get_session_boost("EURUSD")
-        txt=f"📍 **MODE CHECK V18 TRAILBLAZER**\n\n{get_greeting()}\n⏰ Now: {now.strftime('%A %H:%M:%S WAT')}\n⏰ Session: {sn} ({sb:+d})\n📊 Mode: {get_mode_text()}\n💎 IQ: {'✅' if IQ_CONNECTED else '❌ False'}\n🛡️ Martingale: 1 Real + 3 Marti (1-2-4-8)\n📅 Today: {STATS['daily_trades']}/30 trades\n🧠 Brain: {'ON' if PAIR_BRAIN else 'ON - No data yet'}\n📰 News: {len(get_upcoming_news())} high impact in next 2h\n⏳ Active Signal: {ACTIVE_SIGNAL['pair'] if is_signal_active() else 'None'}\nOTC: ⛔ DISABLED - REAL only\n🥇 GOLD: ✅ XAUUSD Scanner ON\n🏁 MARATHON: {'🟢 ACTIVE' if MARATHON['active'] else '⚪ OFF'} | Balance: {MARATHON['bal_type']} | Pick: {MARATHON_PICK['pair'] or 'Scan All'} | Marti Level: {MARATHON['marti_level']+1}/4\n"
+        txt=f"📍 **MODE CHECK V18 TRAILBLAZER**\n\n{get_greeting()}\n⏰ Now: {now.strftime('%A %H:%M:%S WAT')}\n⏰ Session: {sn} ({sb:+d})\n📊 Mode: {get_mode_text()}\n💎 IQ: {'✅' if IQ_CONNECTED else '❌ False'}\n🛡️ Martingale: 1 Real + 3 Marti (1-2-4-8)\n📅 Today: {STATS['daily_trades']}/30 trades\n🧠 Brain: {'ON' if PAIR_BRAIN else 'ON - No data yet'}\n📰 News: {len(get_upcoming_news())} high impact in next 2h\n⏳ Active Signal: {ACTIVE_SIGNAL['pair'] if is_signal_active() else 'None'}\nOTC: ⛔ DISABLED - REAL only\n🥇 GOLD: ✅ XAUUSD Scanner ON\n🏁 MARATHON: {'🟢 ACTIVE' if MARATHON['active'] else '⚪ OFF'} | Balance: {MARATHON['bal_type']} | Pick: {MARATHON_PICK['pair'] or 'Scan All'} | Expiry: 1 MIN ONLY | Target: ${MARATHON['target']:.2f}\n"
         bot.send_message(m.chat.id,txt,parse_mode="Markdown"); return
     if m.text.startswith('/balance'):
         try:
@@ -963,9 +995,9 @@ def start(m):
         return
     try: bal_demo=get_real_balance("PRACTICE") if IQ_CONNECTED else STATS.get("real_balance",0.0)
     except: bal_demo=0.0
-    mk=types.InlineKeyboardMarkup(row_width=1); mk.add(types.InlineKeyboardButton(f"📈 TRADE REAL (15) AUTO EXPIRY - ${bal_demo:.2f}",callback_data="trade_real")); mk.add(types.InlineKeyboardButton("🏁 MARATHON 30s",callback_data="marathon_btn")); mk.add(types.InlineKeyboardButton("🚀 GET READY - Send To Channel",callback_data="ready_btn")); mk.add(types.InlineKeyboardButton("📊 MY STATS",callback_data="stats"),types.InlineKeyboardButton("🧠 AI BRAIN",callback_data="brain_btn"),types.InlineKeyboardButton("📰 NEWS CHECK",callback_data="news_btn"),types.InlineKeyboardButton("⚙️ SETTINGS",callback_data="settings"))
+    mk=types.InlineKeyboardMarkup(row_width=1); mk.add(types.InlineKeyboardButton(f"📈 TRADE REAL (15) AUTO EXPIRY - ${bal_demo:.2f}",callback_data="trade_real")); mk.add(types.InlineKeyboardButton("🏁 MARATHON 1 MIN",callback_data="marathon_btn")); mk.add(types.InlineKeyboardButton("🚀 GET READY - Send To Channel",callback_data="ready_btn")); mk.add(types.InlineKeyboardButton("📊 MY STATS",callback_data="stats"),types.InlineKeyboardButton("🧠 AI BRAIN",callback_data="brain_btn"),types.InlineKeyboardButton("📰 NEWS CHECK",callback_data="news_btn"),types.InlineKeyboardButton("⚙️ SETTINGS",callback_data="settings"))
     greet=get_greeting(); greet_msg=get_greeting_msg(); sb,sn=get_session_boost("EURUSD")
-    txt=f"{greet}\n\n{greet_msg}\n\n🤖 **Z-BOT V18 TRAILBLAZER - MANUAL** 🤖\n\n💎 IQ: {'✅' if IQ_CONNECTED else '❌ False - Retrying...'} | 💰 DEMO ${bal_demo:.2f}\n🏆 W:{STATS['wins']} L:{STATS['loss']} | 🔥 {STATS['streak']}\n📅 Today: {STATS['daily_trades']}/30\n🧠 Brain: Learning best pairs + best hours + sweet RSI\n⏰ Session: {sn} ({sb:+d})\n📰 News: Auto scanner ON\n🥇 GOLD: XAUUSD Scanner ON - Entry/SL/TP\n📍 {get_mode_text()}\n🏁 MARATHON: {MARATHON['bal_type']} - Type /marathon\n\n👇 **Select:**\n"
+    txt=f"{greet}\n\n{greet_msg}\n\n🤖 **Z-BOT V18 TRAILBLAZER - MANUAL** 🤖\n\n💎 IQ: {'✅' if IQ_CONNECTED else '❌ False - Retrying...'} | 💰 DEMO ${bal_demo:.2f}\n🏆 W:{STATS['wins']} L:{STATS['loss']} | 🔥 {STATS['streak']}\n📅 Today: {STATS['daily_trades']}/30\n🧠 Brain: Learning best pairs + best hours + sweet RSI\n⏰ Session: {sn} ({sb:+d})\n📰 News: Auto scanner ON\n🥇 GOLD: XAUUSD Scanner ON - Entry/SL/TP\n📍 {get_mode_text()}\n🏁 MARATHON: {MARATHON['bal_type']} - 1 MIN ONLY - Type /marathon\n\n👇 **Select:**\n"
     bot.send_message(m.chat.id,txt,reply_markup=mk,parse_mode="Markdown")
 @bot.callback_query_handler(func=lambda c: True)
 def cb(c):
@@ -985,7 +1017,7 @@ def cb(c):
     if data=="mar_scan_all":
         txt, results = marathon_scan_all_text()
         mk = types.InlineKeyboardMarkup(row_width=2)
-        if results: mk.add(types.InlineKeyboardButton(f"✅ AUTO TRADE BEST {results[0]['pair']}",callback_data="mar_start_10"))
+        if results: mk.add(types.InlineKeyboardButton(f"✅ AUTO TRADE BEST {results[0]['pair']}",callback_data="mar_ask_start_10"))
         mk.add(types.InlineKeyboardButton("🔄 RE-SCAN",callback_data="mar_scan_all"))
         mk.add(types.InlineKeyboardButton("🎯 PICK ONE",callback_data="mar_pick_menu"))
         bot.send_message(cid, txt, reply_markup=mk, parse_mode="Markdown"); return
@@ -994,30 +1026,59 @@ def cb(c):
         for p in MARATHON_PAIRS:
             mk.add(types.InlineKeyboardButton(f"{PAIR_EMOJI.get(p,p)}",callback_data=f"mar_pick_{p}"))
         mk.add(types.InlineKeyboardButton("📊 SCAN ALL INSTEAD",callback_data="mar_scan_all_start"))
-        bot.send_message(cid, "🎯 **PICK ONE PAIR FOR MARATHON**\n\nBot go only trade this pair until you stop.\nPick one:", reply_markup=mk, parse_mode="Markdown"); return
+        bot.send_message(cid, "🎯 **PICK ONE PAIR FOR MARATHON - 1 MIN ONLY**\n\nBot go only trade this pair until you stop.\nPick one:", reply_markup=mk, parse_mode="Markdown"); return
     if data.startswith("mar_pick_"):
         pair = data.replace("mar_pick_","")
         MARATHON_PICK["pair"] = pair
         mk = types.InlineKeyboardMarkup(row_width=2)
-        mk.add(types.InlineKeyboardButton("💰 $10 Marathon",callback_data="mar_start_10"), types.InlineKeyboardButton("💰 $20 Marathon",callback_data="mar_start_20"))
-        bot.send_message(cid, f"✅ **PICKED: {PAIR_EMOJI.get(pair,pair)}**\n💰 Balance: {MARATHON['bal_type']}\n\nNow choose $10 or $20 to start AUTO marathon on this pair only.", reply_markup=mk, parse_mode="Markdown"); return
+        mk.add(types.InlineKeyboardButton("💰 $10 Start",callback_data="mar_ask_start_10"), types.InlineKeyboardButton("💰 $20 Start",callback_data="mar_ask_start_20"))
+        bot.send_message(cid, f"✅ **PICKED: {PAIR_EMOJI.get(pair,pair)}**\n💰 Balance: {MARATHON['bal_type']} | ⏱️ Expiry: 1 MIN ONLY\n\nNow choose $10 or $20 to start, then choose your target.", reply_markup=mk, parse_mode="Markdown"); return
     if data=="mar_scan_all_start":
         MARATHON_PICK["pair"] = None
-        bot.send_message(cid, "📊 Scan All mode ON - Bot go pick best pair each time.", reply_markup=marathon_menu_kb(), parse_mode="Markdown"); return
+        bot.send_message(cid, "📊 Scan All mode ON - Bot go pick best pair each time. 1 MIN ONLY.", reply_markup=marathon_menu_kb(), parse_mode="Markdown"); return
+    if data=="mar_custom_target":
+        # Ask start first, then target
+        mk = types.InlineKeyboardMarkup(row_width=2)
+        mk.add(types.InlineKeyboardButton("💰 $10 Start",callback_data="mar_ask_start_10"), types.InlineKeyboardButton("💰 $20 Start",callback_data="mar_ask_start_20"))
+        bot.send_message(cid, "🎯 **CUSTOM TARGET**\n\nFirst pick your START amount, then you go choose target:", reply_markup=mk, parse_mode="Markdown"); return
+    if data.startswith("mar_ask_start_"):
+        amt = float(data.replace("mar_ask_start_",""))
+        MARATHON["start"] = amt
+        mk2 = types.InlineKeyboardMarkup(row_width=2)
+        mk2.add(types.InlineKeyboardButton(f"🎯 Target ${amt*1.5:.0f} (+50%)",callback_data=f"mar_target_{amt}_{amt*1.5}"))
+        mk2.add(types.InlineKeyboardButton(f"🎯 Target ${amt*2:.0f} (Double)",callback_data=f"mar_target_{amt}_{amt*2}"))
+        mk2.add(types.InlineKeyboardButton(f"🎯 Target ${amt*3:.0f} (Triple)",callback_data=f"mar_target_{amt}_{amt*3}"))
+        mk2.add(types.InlineKeyboardButton(f"✍️ Type My Own Target",callback_data=f"mar_type_target_{amt}"))
+        bot.send_message(cid, f"💰 Start: ${amt:.0f} | Balance: {MARATHON['bal_type']} | ⏱️ 1 MIN ONLY\n\n🎯 **Choose Your Target:**\nYou fit pick double, triple, or type your own.", reply_markup=mk2, parse_mode="Markdown"); return
+    if data.startswith("mar_type_target_"):
+        amt = float(data.replace("mar_type_target_",""))
+        MARATHON_TARGET_WAIT[cid] = amt
+        bot.send_message(cid, f"✍️ **Type your target amount**\n\nStart: ${amt:.0f}\n⏱️ Expiry: 1 MIN ONLY\nExample: type `25` if you want target $25\n\nJust type the number now:"); return
+    if data.startswith("mar_target_"):
+        parts = data.replace("mar_target_","").split("_")
+        start_amt = float(parts[0]); target_amt = float(parts[1])
+        if MARATHON["active"]: bot.answer_callback_query(c.id,"Marathon already running"); return
+        if MARATHON["bal_type"]=="REAL":
+            mk3 = types.InlineKeyboardMarkup(row_width=2)
+            mk3.add(types.InlineKeyboardButton(f"✅ YES REAL ${start_amt:.0f} -> ${target_amt:.0f} (1 MIN)",callback_data=f"mar_confirm_custom_{start_amt}_{target_amt}"), types.InlineKeyboardButton("❌ NO, PRACTICE",callback_data="mar_bal_PRACTICE"))
+            bot.send_message(cid, f"⚠️ **CONFIRM REAL MONEY - 1 MIN ONLY**\nStart ${start_amt:.0f} -> Target ${target_amt:.0f}\nPair: {MARATHON_PICK['pair'] or 'Scan All'}\nStop Loss: ${start_amt*0.70:.2f}", reply_markup=mk3, parse_mode="Markdown"); return
+        start_marathon(cid, start_amt, target_amt); return
+    if data.startswith("mar_confirm_custom_"):
+        parts = data.replace("mar_confirm_custom_","").split("_")
+        start_amt = float(parts[0]); target_amt = float(parts[1])
+        start_marathon(cid, start_amt, target_amt); return
     if data.startswith("mar_start_"):
         amt = float(data.replace("mar_start_",""))
         if MARATHON["active"]: bot.answer_callback_query(c.id,"Marathon already running"); return
-        if MARATHON["bal_type"]=="REAL":
-            mk = types.InlineKeyboardMarkup(row_width=2)
-            mk.add(types.InlineKeyboardButton(f"✅ YES, USE REAL ${amt:.0f}",callback_data=f"mar_confirm_{amt}"), types.InlineKeyboardButton("❌ NO, USE PRACTICE",callback_data="mar_bal_PRACTICE"))
-            bot.send_message(cid, f"⚠️ **CONFIRM REAL MONEY**\n\nYou are about to start Marathon with **REAL ${amt:.0f}**\nTarget: ${amt*2:.0f}\nPair: {MARATHON_PICK['pair'] or 'Scan All'}\n\nAre you sure?", reply_markup=mk, parse_mode="Markdown"); return
-        start_marathon(cid, amt); return
-    if data.startswith("mar_confirm_"):
-        amt = float(data.replace("mar_confirm_",""))
-        start_marathon(cid, amt); return
+        # Old button fallback - ask target
+        MARATHON["start"] = amt
+        mk2 = types.InlineKeyboardMarkup(row_width=2)
+        mk2.add(types.InlineKeyboardButton(f"🎯 Target ${amt*2:.0f} (Double)",callback_data=f"mar_target_{amt}_{amt*2}"))
+        mk2.add(types.InlineKeyboardButton(f"✍️ Type My Own",callback_data=f"mar_type_target_{amt}"))
+        bot.send_message(cid, f"💰 Start ${amt:.0f} - Choose target:", reply_markup=mk2, parse_mode="Markdown"); return
     if data == "mar_stop":
         MARATHON["active"] = False; clear_signal()
-        bot.send_message(cid, f"🛑 **MARATHON STOPPED [{MARATHON['bal_type']}]**\nBal: ${MARATHON['bal']:.2f} | W:{MARATHON['wins']} L:{MARATHON['loss']}"); return
+        bot.send_message(cid, f"🛑 **MARATHON STOPPED [{MARATHON['bal_type']}]**\nBal: ${MARATHON['bal']:.2f} | Target was ${MARATHON['target']:.2f} | W:{MARATHON['wins']} L:{MARATHON['loss']}"); return
     if data=="ready_btn":
         send_photo_to_channel_sync(READY_PHOTO, get_ready_text())
         bot.answer_callback_query(c.id,"✅ Get Ready sent to Channel!")
@@ -1030,7 +1091,7 @@ def cb(c):
             if idx < 1: idx = 1
             if idx > 3: idx = 3
             amt = OTC_MARTI["base"] * OTC_MARTI["levels"][idx]
-            expiry = ACTIVE_SIGNAL.get("expiry", 120)
+            expiry = ACTIVE_SIGNAL.get("expiry", 60)
             if pair=="XAUUSD": send_to_channel_sync(format_channel_pullback_gold_signal(dir_, entry_txt, idx, amt))
             else: send_to_channel_sync(format_channel_pullback_signal(pair, dir_, entry_txt, idx, amt, expiry))
             bot.answer_callback_query(c.id,"✅ Brief pullback sent to Channel!")
@@ -1041,7 +1102,7 @@ def cb(c):
         try:
             parts=data.replace("send_channel_","").rsplit("_",1); pair=parts[0]; dir_ = parts[1] if len(parts)>1 else ACTIVE_SIGNAL.get("dir","CALL")
             tz2=pytz.timezone("Africa/Lagos"); entry_txt=(datetime.now(tz2)+timedelta(seconds=45)).strftime('%H:%M:%S WAT')
-            expiry = ACTIVE_SIGNAL.get("expiry", 120)
+            expiry = ACTIVE_SIGNAL.get("expiry", 60)
             if pair=="XAUUSD":
                 if ACTIVE_SIGNAL.get("sl",0) and ACTIVE_SIGNAL.get("pair")=="XAUUSD":
                     d_gold = {"dir":dir_, "conf":ACTIVE_SIGNAL.get("conf",88), "price":ACTIVE_SIGNAL.get("price",0), "sl":ACTIVE_SIGNAL.get("sl",0), "tp1":ACTIVE_SIGNAL.get("tp1",0), "tp2":ACTIVE_SIGNAL.get("tp2",0)}
@@ -1100,11 +1161,11 @@ def cb(c):
         if not can_trade_today(): bot.send_message(cid,"⛔ Max 30 trades reached today. Come back tomorrow 7AM."); return
         bot.answer_callback_query(c.id,"Scanning 15 REAL pairs V18..."); scan_msg=bot.send_message(cid,"🔍 **SCANNING ALL 15 REAL PAIRS V18 TRAILBLAZER...**\n\n⏳ ~12 sec"); results=[]; datas={}
         for pair in REAL_PAIRS:
-            if is_pair_blocked(pair): results.append((pair,0,"-","🧠 Blocked","🔴 BLOCKED",120)); continue
+            if is_pair_blocked(pair): results.append((pair,0,"-","🧠 Blocked","🔴 BLOCKED",60)); continue
             nb=is_news_blocking_pair(pair,minutes=30)
-            if nb: results.append((pair,0,"-","📰 News Block","🔴 NEWS",120)); continue
+            if nb: results.append((pair,0,"-","📰 News Block","🔴 NEWS",60)); continue
             d=analyze_sniper_v12(pair,sniper_mode=False)
-            if not d: results.append((pair,0,"-","No data","🔴 NO TRADE",120)); continue
+            if not d: results.append((pair,0,"-","No data","🔴 NO TRADE",60)); continue
             conf=d['conf']; dir_=d['dir']; reason=d['reason']; exp=d['expiry']
             if conf>=88: status="🟢 READY"
             elif conf>=65: status="🟡 WAIT"
@@ -1126,9 +1187,8 @@ def cb(c):
         if best and best[1]>=88 and best[0] in datas:
             time.sleep(0.5); best_data=datas[best[0]]; tz=pytz.timezone("Africa/Lagos"); now=datetime.now(tz); entry=now+timedelta(seconds=45); dir_e="🟢 CALL ⬆️" if best_data['dir']=="CALL" else "🔴 PUT ⬇️"; base=OTC_MARTI["base"]
             mk2=types.InlineKeyboardMarkup(row_width=2); mk2.add(types.InlineKeyboardButton("✅ WIN - Reset",callback_data=f"manual_win_{best_data['pair']}"),types.InlineKeyboardButton("❌ LOSS - Pullback Scan",callback_data=f"manual_loss_{best_data['pair']}_{best_data['dir']}")); mk2.add(types.InlineKeyboardButton("⏭️ SKIP THIS TRADE",callback_data=f"skip_{best_data['pair']}")); mk2.add(types.InlineKeyboardButton("📤 Send to Channel",callback_data=f"send_channel_{best_data['pair']}_{best_data['dir']}"))
-            ti2=best_data.get('trend_info',{}); exp_min2=ti2.get('expiry',120)//60
-            signal_txt=f"📡 **REAL TOP SIGNAL V18 - MANUAL** 📡\n\n💱 {PAIR_EMOJI.get(best_data['pair'],best_data['pair'])}\n📊 {dir_e} | 🎯 {best_data['conf']:.0f}% SNIPER\n📈 {best_data['reason']} | RSI {best_data['rsi']:.1f}\n💸 {int(best_data['payout']*100)}% | 💰 {best_data['price']:.5f} | ⏱️ Suggested: {exp_min2} Min\n📊 Trend: {ti2.get('trend_type','➡️ NORMAL TREND')}\n📰 News: ✅ Checked\n\n⏰ ENTRY: {entry.strftime('%H:%M:%S WAT')} (in 45s)\n\n**Real Entry:** ${base:.2f}\n**Marti 1:** ${base*2:.2f} | **Marti 2:** ${base*4:.2f} | **Marti 3:** ${base*8:.2f}\n\n⚠️ MANUAL - Press WIN / LOSS / SKIP\n"
-            bot.send_message(cid,signal_txt,parse_mode="Markdown",reply_markup=mk2); start_signal(best_data['pair'],best_data['dir'],best_data['conf'],best_data['rsi'],best_data.get('adx',30), price=best_data['price'], expiry=best_data.get('expiry',120))
+            signal_txt=f"📡 **REAL TOP SIGNAL V18 - MANUAL** 📡\n\n💱 {PAIR_EMOJI.get(best_data['pair'],best_data['pair'])}\n📊 {dir_e} | 🎯 {best_data['conf']:.0f}% SNIPER\n📈 {best_data['reason']} | RSI {best_data['rsi']:.1f}\n💸 {int(best_data['payout']*100)}% | 💰 {best_data['price']:.5f} | ⏱️ Suggested: 1 Min\n📊 Trend: {best_data.get('trend_info',{}).get('trend_type','➡️ NORMAL TREND')}\n📰 News: ✅ Checked\n\n⏰ ENTRY: {entry.strftime('%H:%M:%S WAT')} (in 45s)\n\n**Real Entry:** ${base:.2f}\n**Marti 1:** ${base*2:.2f} | **Marti 2:** ${base*4:.2f} | **Marti 3:** ${base*8:.2f}\n\n⚠️ MANUAL - Press WIN / LOSS / SKIP\n"
+            bot.send_message(cid,signal_txt,parse_mode="Markdown",reply_markup=mk2); start_signal(best_data['pair'],best_data['dir'],best_data['conf'],best_data['rsi'],best_data.get('adx',30), price=best_data['price'], expiry=60)
         return
     if data.startswith("real_pair_"):
         pair=data.replace("real_pair_","")
@@ -1136,6 +1196,7 @@ def cb(c):
             bot.answer_callback_query(c.id,"Scanning GOLD..."); d=analyze_xauusd()
             if not d: bot.send_message(cid,"⚠️ **No safe GOLD trade now**\n\n📊 Conf < 88% or ADX / News block\nTry again in 5 min."); return
             tz=pytz.timezone("Africa/Lagos"); now=datetime.now(tz); entry_time=now+timedelta(seconds=45); dir_e="🟢 BUY ⬆️" if d['dir']=="CALL" else "🔴 SELL ⬇️"; base=OTC_MARTI["base"]
+            mk=types.InlineKeyboardMarkup(row_width=2); mk.add(types.InlineKeyboardButton("✅ WIN```python
             mk=types.InlineKeyboardMarkup(row_width=2); mk.add(types.InlineKeyboardButton("✅ WIN - Reset",callback_data="manual_win_XAUUSD"),types.InlineKeyboardButton("❌ LOSS - Pullback Scan",callback_data=f"manual_loss_XAUUSD_{d['dir']}")); mk.add(types.InlineKeyboardButton("⏭️ SKIP THIS TRADE",callback_data="skip_XAUUSD")); mk.add(types.InlineKeyboardButton("📤 Send to Channel",callback_data=f"send_channel_XAUUSD_{d['dir']}"))
             msg=f"🥇🥇🥇 **XAU/USD GOLD SIGNAL** 🥇🥇🥇\n\n{dir_e} | 🎯 {d['conf']:.0f}% SNIPER GOLD\n📈 {d['reason']} | RSI {d['rsi']:.1f} | ATR {d['atr']:.2f}\n⏰ Session: {d['session']}\n\n━━━━━━━━━━━━━━━━━━\n⏰ ENTRY TIME: {entry_time.strftime('%H:%M:%S WAT')}\n💰 ENTRY: {d['price']:.2f}\n🛑 SL: {d['sl']:.2f}\n🎯 TP1: {d['tp1']:.2f} (1:1 Secure)\n🎯 TP2: {d['tp2']:.2f} (1:2 Runner)\n━━━━━━━━━━━━━━━━━━\n\n💵 **Stake:** ${base:.2f}\n⚠️ MANUAL - Press WIN / LOSS / SKIP\n"
             bot.send_message(cid,msg,parse_mode="Markdown",reply_markup=mk); start_signal("XAUUSD",d['dir'],d['conf'],d['rsi'],d.get('adx',30), price=d['price'], sl=d['sl'], tp1=d['tp1'], tp2=d['tp2']); return
@@ -1146,19 +1207,19 @@ def cb(c):
         bot.answer_callback_query(c.id,f"Scanning {pair} V18..."); scan_msg=bot.send_message(cid,f"🔍 **V18 TRAILBLAZER SCAN {PAIR_EMOJI.get(pair,pair)}**\n\n0%\n🚀 Sniper..."); legit_live_scan(cid,scan_msg.message_id,pair); d=analyze_sniper_v12(pair,sniper_mode=False)
         if not d or d['conf']<88:
             mk=types.InlineKeyboardMarkup(); mk.add(types.InlineKeyboardButton("🔄 RETRY",callback_data=f"real_pair_{pair}"),types.InlineKeyboardButton("📈 SCAN ALL",callback_data="scan_all_real")); bot.send_message(cid,f"⚠️ **No safe trade now for {pair}**\n\n📊 Conf: {d['conf'] if d else 0}% < 88%\n🛡️ {d['reason'] if d else 'No data'}",reply_markup=mk); return
-        tz=pytz.timezone("Africa/Lagos"); now=datetime.now(tz); entry=now+timedelta(seconds=45); dir_e="🟢 CALL ⬆️" if d['dir']=="CALL" else "🔴 PUT ⬇️"; base=OTC_MARTI["base"]; ti3=d.get('trend_info',{}); exp_min3=ti3.get('expiry',120)//60
-        signal_txt=f"📡 **REAL SIGNAL V18 TRAILBLAZER - MANUAL** 📡\n\n💱 {PAIR_EMOJI.get(pair,pair)}\n📊 {dir_e} | 🎯 {d['conf']:.0f}% SNIPER\n📈 {d['reason']} | RSI {d['rsi']:.1f} | ATR {d['atr']:.5f}\n📊 Trend: {ti3.get('trend_type','➡️ NORMAL TREND')}\n🔍 Trends: {' | '.join(ti3.get('trends',[])[:4])}\n💸 {int(d['payout']*100)}% | 💰 {d['price']:.5f} | ⏱️ Suggested: {exp_min3} Min\n📰 News: ✅ Checked\n\n⏰ ENTRY: {entry.strftime('%H:%M:%S WAT')} (in 45s)\n⏱️ EXPIRY: {exp_min3} Min Suggested\n\n**Real Entry:** ${base:.2f}\n**Marti 1:** ${base*2:.2f} | **Marti 2:** ${base*4:.2f} | **Marti 3:** ${base*8:.2f}\n\n⚠️ **MANUAL PLACE - Press WIN / LOSS / SKIP**\n"
+        tz=pytz.timezone("Africa/Lagos"); now=datetime.now(tz); entry=now+timedelta(seconds=45); dir_e="🟢 CALL ⬆️" if d['dir']=="CALL" else "🔴 PUT ⬇️"; base=OTC_MARTI["base"]
+        signal_txt=f"📡 **REAL SIGNAL V18 TRAILBLAZER - MANUAL** 📡\n\n💱 {PAIR_EMOJI.get(pair,pair)}\n📊 {dir_e} | 🎯 {d['conf']:.0f}% SNIPER\n📈 {d['reason']} | RSI {d['rsi']:.1f} | ATR {d['atr']:.5f}\n📊 Trend: {d.get('trend_info',{}).get('trend_type','➡️ NORMAL TREND')}\n🔍 Trends: {' | '.join(d.get('trend_info',{}).get('trends',[])[:4])}\n💸 {int(d['payout']*100)}% | 💰 {d['price']:.5f} | ⏱️ Suggested: 1 Min\n📰 News: ✅ Checked\n\n⏰ ENTRY: {entry.strftime('%H:%M:%S WAT')} (in 45s)\n\n**Real Entry:** ${base:.2f}\n**Marti 1:** ${base*2:.2f} | **Marti 2:** ${base*4:.2f} | **Marti 3:** ${base*8:.2f}\n\n⚠️ **MANUAL PLACE - Press WIN / LOSS / SKIP**\n"
         mk=types.InlineKeyboardMarkup(row_width=2); mk.add(types.InlineKeyboardButton("✅ WIN - Reset",callback_data=f"manual_win_{pair}"),types.InlineKeyboardButton("❌ LOSS - Pullback Scan",callback_data=f"manual_loss_{pair}_{d['dir']}")); mk.add(types.InlineKeyboardButton("⏭️ SKIP THIS TRADE",callback_data=f"skip_{pair}")); mk.add(types.InlineKeyboardButton("📤 Send to Channel",callback_data=f"send_channel_{pair}_{d['dir']}")); mk.add(types.InlineKeyboardButton("🔁 SAME PAIR",callback_data=f"real_pair_{pair}"),types.InlineKeyboardButton("📈 SCAN ALL",callback_data="scan_all_real"))
-        bot.send_message(cid,signal_txt,reply_markup=mk,parse_mode="Markdown"); start_signal(pair,d['dir'],d['conf'],d['rsi'],d.get('adx',30), price=d['price'], expiry=d.get('expiry',120)); return
+        bot.send_message(cid,signal_txt,reply_markup=mk,parse_mode="Markdown"); start_signal(pair,d['dir'],d['conf'],d['rsi'],d.get('adx',30), price=d['price'], expiry=60); return
     if data=="trade" or data=="scan_all_otc" or data=="auto_setup" or data.startswith("auto_pair_") or data.startswith("auto_bal_") or data.startswith("auto_amt_") or data.startswith("pair_"):
         bot.answer_callback_query(c.id,"OTC Disabled"); bot.send_message(cid,"⛔ **OTC DISABLED**\n\nOTC is causing delays. Bot will only send REAL signals from 7AM.\n\nUse TRADE REAL for now."); return
     if data=="stop_auto":
         if cid in AUTO_STATE: AUTO_STATE[cid]['running']=False; bot.send_message(cid,"🛑 Stopping..."); return
     if data=="stats":
-        total=STATS['wins']+STATS['loss']; wr=(STATS['wins']/total*100) if total else 0; bal=get_real_balance("PRACTICE"); sb,sn=get_session_boost("EURUSD"); bot.send_message(cid,f"📊 **STATS V18**\n📍 {get_mode_text()}\n{get_greeting()}\n⏰ Session: {sn} ({sb:+d})\n🏆 Wins: {STATS['wins']}\n❌ Loss: {STATS['loss']}\n📈 Winrate: {wr:.1f}%\n🔥 Streak: {STATS['streak']}\n💰 Bal: ${bal:.2f}\n📅 Today: {STATS['daily_trades']}/30\n🧠 Brain pairs: {len(PAIR_BRAIN)}\n📰 News in 2h: {len(get_upcoming_news())}\n📦 OTC: DISABLED | REAL only\n🥇 GOLD: XAUUSD ON\n🏁 MARATHON: {MARATHON['bal_type']} | Marti Level: {MARATHON['marti_level']+1}/4",parse_mode="Markdown")
-    if data=="settings": bot.send_message(cid,f"⚙️ **SETTINGS V18 TRAILBLAZER MANUAL**\n\n🛡️ V18: 5M Trend + ADX 25+ + MACD + Stochastic + BB + Payout 80%+ + News Block + Session Boost + Brain + Pullback\n🔁 Marathon Martingale: 1x -> 2x -> 4x -> 8x, Reset on WIN\n\n📢 Channel: @KEVINTRAILBLAZE\nUse /welcome, /intro and /ready to post to channel.")
+        total=STATS['wins']+STATS['loss']; wr=(STATS['wins']/total*100) if total else 0; bal=get_real_balance("PRACTICE"); sb,sn=get_session_boost("EURUSD"); bot.send_message(cid,f"📊 **STATS V18**\n📍 {get_mode_text()}\n{get_greeting()}\n⏰ Session: {sn} ({sb:+d})\n🏆 Wins: {STATS['wins']}\n❌ Loss: {STATS['loss']}\n📈 Winrate: {wr:.1f}%\n🔥 Streak: {STATS['streak']}\n💰 Bal: ${bal:.2f}\n📅 Today: {STATS['daily_trades']}/30\n🧠 Brain pairs: {len(PAIR_BRAIN)}\n📰 News in 2h: {len(get_upcoming_news())}\n📦 OTC: DISABLED | REAL only\n🥇 GOLD: XAUUSD ON\n🏁 MARATHON: {MARATHON['bal_type']} | 1 MIN ONLY | Target: ${MARATHON['target']:.2f}",parse_mode="Markdown")
+    if data=="settings": bot.send_message(cid,f"⚙️ **SETTINGS V18 TRAILBLAZER MANUAL**\n\n🛡️ V18: 5M Trend + ADX 25+ + MACD + Stochastic + BB + Payout 80%+ + News Block + Session Boost + Brain + Pullback\n📈 Marathon: Smart Compounding 10% -> 14% | Stop Loss 30% | 1 MIN ONLY | Custom Target\n\n📢 Channel: @KEVINTRAILBLAZE\nUse /welcome, /intro and /ready to post to channel.")
 if __name__ == "__main__":
-    print("Starting Trailblazer Bot...")
+    print("Starting Trailblazer Bot - SAFE + COMPOUNDING + CUSTOM TARGET + 1 MIN MARATHON...")
     try:
         bot.remove_webhook()
         time.sleep(1)
