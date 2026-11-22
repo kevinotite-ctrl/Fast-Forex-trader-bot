@@ -24,9 +24,9 @@ ENABLE_OTC = False
 REAL_PAIRS = ["EURUSD","GBPUSD","EURGBP","AUDUSD","USDCAD","USDCHF","EURAUD","GBPCHF","EURCHF","NZDUSD","GBPAUD","EURCAD","AUDCAD","GBPCAD","AUDNZD",]
 OTC_PAIRS = ["EURUSD-OTC","GBPUSD-OTC"]
 PAIR_EMOJI = {"EURUSD":"EUR/USD REAL","GBPUSD":"GBP/USD REAL","EURGBP":"EUR/GBP REAL","AUDUSD":"AUD/USD REAL","USDCAD":"USD/CAD REAL","USDCHF":"USD/CHF REAL","EURAUD":"EUR/AUD REAL","GBPCHF":"GBP/CHF REAL","EURCHF":"EUR/CHF REAL","NZDUSD":"NZD/USD REAL","GBPAUD":"GBP/AUD REAL","EURCAD":"EUR/CAD REAL","AUDCAD":"AUD/CAD REAL","GBPCAD":"GBP/CAD REAL","AUDNZD":"AUD/NZD REAL","XAUUSD":"XAU/USD GOLD","EURUSD-OTC":"EUR/USD OTC","GBPUSD-OTC":"GBP/USD OTC"}
-# ===== MARATHON = ONLY 2 PAIRS =====
 MARATHON_PAIRS = ["EURUSD-OTC","GBPUSD-OTC"]
-MARATHON = {"active": False, "start": 0.0, "target": 0.0, "bal": 0.0, "wins": 0, "loss": 0, "win_streak": 0, "loss_streak": 0, "cid": None, "bal_type": "PRACTICE", "base_stake": 1.0, "marti_level": 0, "custom_target": False}
+# ===== MARATHON + SMART RECOVERY STATE =====
+MARATHON = {"active": False, "start": 0.0, "target": 0.0, "bal": 0.0, "wins": 0, "loss": 0, "win_streak": 0, "loss_streak": 0, "cid": None, "bal_type": "PRACTICE", "base_stake": 1.0, "marti_level": 0, "custom_target": False, "recovery_loss": 0.0, "cycle_profit": 0.0, "max_stake_used": 0.0}
 MARATHON_PICK = {"pair": None}
 MARATHON_TARGET_WAIT = {}
 MARATHON_BALANCE_WAIT = {}
@@ -620,7 +620,7 @@ def trailblazer_market_scanner():
                 except: pass
             time.sleep(60)
         except: time.sleep(60)
-# ===== MARATHON - 2 PAIRS ONLY + DUAL SCAN + NAIRA REAL / DOLLAR DEMO =====
+# ===== MARATHON - DUAL SCAN + SMART RECOVERY + COMPOUNDING =====
 def mar_currency():
     return "₦" if MARATHON["bal_type"] == "REAL" else "$"
 def mar_fmt(amount):
@@ -628,20 +628,41 @@ def mar_fmt(amount):
         return f"₦{float(amount):,.0f}"
     else:
         return f"${float(amount):.2f}"
+# --- SMART RECOVERY CORE ---
+# Base = 2% of current balance (compounding)
+# If in recovery (lost before): Stake = (RecoveryLoss + BaseProfit) / Payout
+# Cap = 10% of balance max, Min = base
+# Example: Bal 20000, base 400, loss 400 -> next = (400+340)/0.85 = 870
+def marathon_smart_stake(payout=0.85):
+    bal = MARATHON["bal"]
+    base = bal * 0.02  # 2% compounding base
+    # If balance small for DEMO, ensure min $1
+    if MARATHON["bal_type"] == "PRACTICE" and base < 1.0:
+        base = 1.0
+    if MARATHON["bal_type"] == "REAL" and base < 100:
+        base = 100
+    recovery = MARATHON.get("recovery_loss", 0.0)
+    if recovery <= 0:
+        # Normal trade - compounding 2%
+        return base, "BASE 2% COMPOUND", base, 0.0
+    # Recovery trade - calculate exact stake to recover + 1 base profit
+    target_profit = base * payout  # we want to make 1 base profit on top of recovery
+    needed = (recovery + target_profit) / max(payout, 0.70)
+    cap = bal * 0.10  # NEVER risk more than 10% in 1 trade
+    if needed > cap:
+        # Cannot fully recover in 1 trade - use cap, partial recovery
+        return cap, f"SMART RECOVERY CAPPED 10% (Need {mar_fmt(needed)} but capped)", base, recovery
+    return needed, f"SMART RECOVERY - Recover {mar_fmt(recovery)} + Profit", base, recovery
 def marathon_stake():
-    bal = MARATHON["bal"]; start = MARATHON["start"]; target = MARATHON["target"]
-    if target <= start: return bal * 0.07
-    progress = (bal - start) / (target - start)
-    if progress < 0.30: return bal * 0.07
-    elif progress < 0.60: return bal * 0.08
-    else: return bal * 0.09
+    # Keep old name for compatibility - returns smart stake
+    s, _, _, _ = marathon_smart_stake(0.85)
+    return s
 def analyze_marathon_30s(pair):
     d = analyze_sniper_v12(pair, sniper_mode=True)
     if not d or d.get("rejected"): return None
     if d["conf"] < 88: return None
     return d
 def analyze_marathon_dual():
-    # SCAN BOTH PAIRS, PICK BEST - EURUSD-OTC + GBPUSD-OTC
     best = None
     results = []
     for pair in MARATHON_PAIRS:
@@ -709,7 +730,7 @@ def marathon_loop():
                 bot.send_message(MARATHON["cid"], "Waiting for IQ to connect... Marathon paused 10s")
                 time.sleep(10); continue
             if MARATHON["bal"] >= MARATHON["target"]:
-                bot.send_message(MARATHON["cid"], f"MARATHON DONE! [{MARATHON['bal_type']}]\n\nStart: {mar_fmt(MARATHON['start'])}\nNow: {mar_fmt(MARATHON['bal'])}\nTarget: {mar_fmt(MARATHON['target'])} REACHED!\nAUTO STOPPED\n\nW:{MARATHON['wins']} L:{MARATHON['loss']}")
+                bot.send_message(MARATHON["cid"], f"MARATHON DONE! [{MARATHON['bal_type']}]\n\nStart: {mar_fmt(MARATHON['start'])}\nNow: {mar_fmt(MARATHON['bal'])}\nTarget: {mar_fmt(MARATHON['target'])} REACHED!\nAUTO STOPPED\n\nW:{MARATHON['wins']} L:{MARATHON['loss']} | Recovery: {mar_fmt(MARATHON.get('recovery_loss',0))} cleared")
                 MARATHON["active"] = False; clear_signal(); break
             stop_loss = MARATHON["start"] * 0.70
             if MARATHON["bal"] <= stop_loss:
@@ -718,26 +739,40 @@ def marathon_loop():
             if MARATHON["bal"] <= 1:
                 bot.send_message(MARATHON["cid"], f"MARATHON STOPPED - BALANCE LOW [{MARATHON['bal_type']}]\nBal: {mar_fmt(MARATHON['bal'])}")
                 MARATHON["active"] = False; break
-            # ===== DUAL SCAN BOTH PAIRS =====
             found, results = analyze_marathon_dual()
             scan_count += 1
             if not found:
-                # Tell user every 5 scans why no trade, so e no dey silent
                 if scan_count % 5 == 0:
-                    bot.send_message(MARATHON["cid"], f"DUAL SCAN - No trade yet [{MARATHON['bal_type']}]\n\nEUR/USD OTC: Waiting for 88%\nGBP/USD OTC: Waiting for 88%\nBal: {mar_fmt(MARATHON['bal'])} / Target {mar_fmt(MARATHON['target'])}\nScanning both again in 30s...")
+                    bot.send_message(MARATHON["cid"], f"DUAL SCAN - No trade yet [{MARATHON['bal_type']}]\n\nEUR/USD OTC: Waiting for 88%\nGBP/USD OTC: Waiting for 88%\nBal: {mar_fmt(MARATHON['bal'])} / Target {mar_fmt(MARATHON['target'])}\nRecovery Loss: {mar_fmt(MARATHON.get('recovery_loss',0))}\nScanning both again in 30s...")
                 time.sleep(30); continue
-            stake = marathon_stake()
+            # SMART STAKE - use real payout of this pair
+            payout_real = found.get("payout", 0.85)
+            stake, mode_txt, base_stake, recovery_amt = marathon_smart_stake(payout_real)
+            # Round stake nicely
+            if MARATHON["bal_type"] == "REAL":
+                stake = round(stake)  # Naira no kobo
+            else:
+                stake = round(stake, 2)
+            if stake > MARATHON["bal"] * 0.10:
+                stake = MARATHON["bal"] * 0.10
+            if stake < 1 and MARATHON["bal_type"] == "PRACTICE":
+                stake = 1.0
+            MARATHON["max_stake_used"] = max(MARATHON.get("max_stake_used",0), stake)
             dir_e = "CALL UP" if found['dir']=="CALL" else "PUT DOWN"
             progress_pct = int((MARATHON['bal'] - MARATHON['start']) / (MARATHON['target'] - MARATHON['start']) * 100) if MARATHON['target'] > MARATHON['start'] else 0
             progress_pct = max(0, min(100, progress_pct))
-            bot.send_message(MARATHON["cid"], f"MARATHON AUTO-PLACING... [{MARATHON['bal_type']}]\n\nBEST OF 2: {PAIR_EMOJI.get(found['pair'],found['pair'])} - {found['conf']:.0f}%\n{dir_e} | RSI {found['rsi']:.0f} | Payout {int(found['payout']*100)}%\nStake: {mar_fmt(stake)} (7-9% Fixed {progress_pct}%) | Bal: {mar_fmt(MARATHON['bal'])} / Target {mar_fmt(MARATHON['target'])}\nExpiry: 1 MIN ONLY\nPlacing on IQ {MARATHON['bal_type']} now...")
+            if recovery_amt > 0:
+                rec_txt = f"\nSMART RECOVERY: Recovering {mar_fmt(recovery_amt)} | Mode: {mode_txt}"
+            else:
+                rec_txt = f"\nMode: {mode_txt} | Base: {mar_fmt(base_stake)}"
+            bot.send_message(MARATHON["cid"], f"MARATHON AUTO-PLACING... [{MARATHON['bal_type']}]\n\nBEST OF 2: {PAIR_EMOJI.get(found['pair'],found['pair'])} - {found['conf']:.0f}%\n{dir_e} | RSI {found['rsi']:.0f} | Payout {int(payout_real*100)}%\nStake: {mar_fmt(stake)} ({stake/MARATHON['bal']*100:.1f}% of Bal){rec_txt}\nBal: {mar_fmt(MARATHON['bal'])} / Target {mar_fmt(MARATHON['target'])} | Progress {progress_pct}%\nExpiry: 1 MIN ONLY\nPlacing on IQ {MARATHON['bal_type']} now...")
             start_signal(found['pair'], found['dir'], found['conf'], found['rsi'], 30, price=found['price'], expiry=60)
             status, trade_id = marathon_auto_buy(found['pair'], stake, found['dir'])
             if not status:
                 bot.send_message(MARATHON["cid"], f"AUTO PLACE FAILED [{MARATHON['bal_type']}]\n\n{found['pair']} - IQ rejected / No connection\nRetrying in 15s...")
                 clear_signal(); time.sleep(15); continue
             last_trade_time = time.time()
-            bot.send_message(MARATHON["cid"], f"TRADE PLACED [{MARATHON['bal_type']}] ID: {trade_id}\nExpiry: 1 MIN | Waiting for result...")
+            bot.send_message(MARATHON["cid"], f"TRADE PLACED [{MARATHON['bal_type']}] ID: {trade_id}\nStake: {mar_fmt(stake)} | Expiry: 1 MIN | Waiting for result...")
             win, profit = marathon_check_win(trade_id)
             clear_signal()
             last_trade_time = time.time()
@@ -745,17 +780,31 @@ def marathon_loop():
                 bot.send_message(MARATHON["cid"], "Could not confirm result, resting 30s...")
                 time.sleep(30); continue
             if win:
+                # WIN - profit comes from IQ
                 MARATHON["bal"] += float(profit); MARATHON["wins"]+=1; MARATHON["win_streak"]+=1; MARATHON["loss_streak"]=0; MARATHON["marti_level"]=0
                 record_brain(found['pair'], True, 80, found['rsi'], 30)
+                # SMART RECOVERY LOGIC: profit first covers recovery, rest is real profit
+                if MARATHON["recovery_loss"] > 0:
+                    if float(profit) >= MARATHON["recovery_loss"]:
+                        leftover = float(profit) - MARATHON["recovery_loss"]
+                        bot.send_message(MARATHON["cid"], f"SMART RECOVERY COMPLETE! ✅\nRecovered {mar_fmt(MARATHON['recovery_loss'])} + Extra Profit {mar_fmt(leftover)}\nBack to BASE 2% mode.")
+                        MARATHON["recovery_loss"] = 0.0
+                    else:
+                        MARATHON["recovery_loss"] -= float(profit)
+                        bot.send_message(MARATHON["cid"], f"PARTIAL RECOVERY ✅\nRecovered {mar_fmt(float(profit))} | Still to recover: {mar_fmt(MARATHON['recovery_loss'])}\nNext stake go increase smartly.")
                 progress2 = int((MARATHON['bal'] - MARATHON['start']) / (MARATHON['target'] - MARATHON['start']) * 100) if MARATHON['target'] > MARATHON['start'] else 0
                 progress2 = max(0, min(100, progress2))
-                bot.send_message(MARATHON["cid"], f"MARATHON WIN [{MARATHON['bal_type']}] +{mar_fmt(float(profit))}\nBal: {mar_fmt(MARATHON['bal'])} / Target {mar_fmt(MARATHON['target'])}\nProgress: {progress2}% | Next Stake: {mar_fmt(marathon_stake())}\nExpiry was 1 MIN\nResting 90s...")
+                next_stake, _, _, _ = marathon_smart_stake(payout_real)
+                bot.send_message(MARATHON["cid"], f"MARATHON WIN [{MARATHON['bal_type']}] +{mar_fmt(float(profit))}\nBal: {mar_fmt(MARATHON['bal'])} / Target {mar_fmt(MARATHON['target'])}\nProgress: {progress2}% | Next Stake (Compounding): {mar_fmt(next_stake)}\nRecovery Left: {mar_fmt(MARATHON.get('recovery_loss',0))}\nExpiry was 1 MIN\nResting 90s...")
             else:
+                # LOSS - add stake to recovery pile
                 MARATHON["bal"] -= stake; MARATHON["loss"]+=1; MARATHON["loss_streak"]+=1; MARATHON["win_streak"]=0
+                MARATHON["recovery_loss"] += stake
                 record_brain(found['pair'], False, 80, found['rsi'], 30)
-                bot.send_message(MARATHON["cid"], f"MARATHON LOSS [{MARATHON['bal_type']}] -{mar_fmt(stake)}\nBal: {mar_fmt(MARATHON['bal'])} / Target {mar_fmt(MARATHON['target'])}\nNext Stake: {mar_fmt(marathon_stake())}\nResting 90s...")
-                if MARATHON["loss_streak"] >= 2:
-                    bot.send_message(MARATHON["cid"], "2 losses - Pausing 10 mins to protect balance..."); time.sleep(600)
+                next_stake, next_mode, _, _ = marathon_smart_stake(payout_real)
+                bot.send_message(MARATHON["cid"], f"MARATHON LOSS [{MARATHON['bal_type']}] -{mar_fmt(stake)}\nBal: {mar_fmt(MARATHON['bal'])} / Target {mar_fmt(MARATHON['target'])}\nTotal To Recover: {mar_fmt(MARATHON['recovery_loss'])}\nNext Stake (Smart): {mar_fmt(next_stake)} | {next_mode}\nResting 90s...")
+                if MARATHON["loss_streak"] >= 3:
+                    bot.send_message(MARATHON["cid"], f"3 losses in row - SMART PAUSE 10 mins\nNo go chase loss. Recovery pile: {mar_fmt(MARATHON['recovery_loss'])}\nBot go rest, then come back with calculated stake."); time.sleep(600)
                     last_trade_time = time.time()
             time.sleep(10)
         except Exception as e:
@@ -765,8 +814,9 @@ def marathon_loop():
             time.sleep(15)
 def start_marathon(cid, amount, target=None):
     if target is None: target = float(amount)*2
-    MARATHON.update({"active":True,"start":float(amount),"target":float(target),"bal":float(amount),"wins":0,"loss":0,"win_streak":0,"loss_streak":0,"cid":cid,"base_stake":1.0,"marti_level":0})
-    bot.send_message(cid, f"MARATHON STARTED - DUAL SCAN [{MARATHON['bal_type']}]\n\nPairs: EUR/USD OTC + GBP/USD OTC (Scanning BOTH)\nStart: {mar_fmt(amount)}\nYOUR Target: {mar_fmt(target)}\nExpiry: 1 MIN ONLY\nStop Loss: {mar_fmt(float(amount)*0.70)} (Stop if lose 30%)\nStake: 7%-9% Fixed in {mar_currency()}\nAUTO PLACE: ON - Bot go place trade for IQ {MARATHON['bal_type']}\n\nScanning BOTH pairs now...")
+    MARATHON.update({"active":True,"start":float(amount),"target":float(target),"bal":float(amount),"wins":0,"loss":0,"win_streak":0,"loss_streak":0,"cid":cid,"base_stake":1.0,"marti_level":0,"recovery_loss":0.0,"cycle_profit":0.0,"max_stake_used":0.0})
+    base = float(amount)*0.02
+    bot.send_message(cid, f"MARATHON STARTED - SMART RECOVERY + DUAL SCAN [{MARATHON['bal_type']}]\n\nPairs: EUR/USD OTC + GBP/USD OTC (Scanning BOTH)\nStart: {mar_fmt(amount)}\nYOUR Target: {mar_fmt(target)}\nExpiry: 1 MIN ONLY\nStop Loss: {mar_fmt(float(amount)*0.70)} (Stop if lose 30%)\n\nSMART MONEY:\nBase Stake: {mar_fmt(base)} (2% Compounding - grows as balance grows)\nRecovery: (Loss + Profit) / Payout - Calculated, not blind 2x\nMax Risk Per Trade: 10% of Balance - NEVER more\nPause: After 3 losses, rest 10 mins\n\nAUTO PLACE: ON\n\nScanning BOTH pairs now...")
     threading.Thread(target=marathon_loop, daemon=True).start()
 def marathon_menu_text(cid):
     bal_type = MARATHON["bal_type"]
@@ -776,7 +826,7 @@ def marathon_menu_text(cid):
     else:
         emoji = "DEMO $"
         cur_note = "Currency: DOLLAR ($) - Demo na Dollar"
-    return f"MARATHON MODE - DUAL SCAN (2 PAIRS)\n\nBalance Mode: {emoji} {bal_type}\n{cur_note}\nPairs: EUR/USD OTC + GBP/USD OTC - Bot scans BOTH, picks BEST\nExpiry: 1 MIN ONLY\nStake: 7% - 9% Fixed\nStop Loss: 30%\n\nHOW E GO GO:\n1. Pick Balance (or Type Your Own) - No need pick pair again, bot scans both\n2. Pick Target (or Type Your Own)\n3. Bot Start - Scans BOTH pairs\n\nPick Balance below:"
+    return f"MARATHON MODE - SMART RECOVERY + DUAL SCAN\n\nBalance Mode: {emoji} {bal_type}\n{cur_note}\nPairs: EUR/USD OTC + GBP/USD OTC - Bot scans BOTH, picks BEST\nExpiry: 1 MIN ONLY\n\nSMART RECOVERY:\nBase: 2% Compounding\nLoss? Next stake = (Loss + Profit) / Payout\nMax: 10% per trade | Pause after 3 losses\nStop Loss: 30%\n\nHOW E GO GO:\n1. Pick Balance (or Type Your Own)\n2. Pick Target (or Type Your Own)\n3. Bot Start - Scans BOTH pairs\n\nPick Balance below:"
 def marathon_menu_kb():
     mk = types.InlineKeyboardMarkup(row_width=2)
     mk.add(types.InlineKeyboardButton("START WITH EUR/USD OTC + GBP/USD OTC", callback_data="mar_pick_both"))
@@ -900,7 +950,7 @@ def start(m):
         bot.send_message(m.chat.id,txt,parse_mode="Markdown"); return
     if m.text.startswith('/mode'):
         tz=pytz.timezone("Africa/Lagos"); now=datetime.now(tz); sb,sn=get_session_boost("EURUSD")
-        txt=f"MODE CHECK V19 TRAILBLAZER\n\n{get_greeting()}\nNow: {now.strftime('%A %H:%M:%S WAT')}\nSession: {sn} ({sb:+d})\nMode: {get_mode_text()}\nIQ: {'YES' if IQ_CONNECTED else 'NO'}\nMartingale: 1 Real + 3 Marti (1-2-4-8)\nToday: {STATS['daily_trades']}/30 trades\nBrain: {'ON' if PAIR_BRAIN else 'ON - No data yet'}\nNews: {len(get_upcoming_news())} high impact in next 2h\nActive Signal: {ACTIVE_SIGNAL['pair'] if is_signal_active() else 'None'}\nOTC: DISABLED - REAL only\nGOLD: XAUUSD Scanner ON\nMARATHON: {'ACTIVE' if MARATHON['active'] else 'OFF'} | Balance: {MARATHON['bal_type']} ({mar_currency()}) | Pairs: EUR/USD OTC + GBP/USD OTC | Expiry: 1 MIN ONLY | Target: {mar_fmt(MARATHON['target'])}\n"
+        txt=f"MODE CHECK V19 TRAILBLAZER\n\n{get_greeting()}\nNow: {now.strftime('%A %H:%M:%S WAT')}\nSession: {sn} ({sb:+d})\nMode: {get_mode_text()}\nIQ: {'YES' if IQ_CONNECTED else 'NO'}\nMartingale: SMART RECOVERY - (Loss+Profit)/Payout | Max 10%\nToday: {STATS['daily_trades']}/30 trades\nBrain: {'ON' if PAIR_BRAIN else 'ON - No data yet'}\nNews: {len(get_upcoming_news())} high impact in next 2h\nActive Signal: {ACTIVE_SIGNAL['pair'] if is_signal_active() else 'None'}\nOTC: DISABLED - REAL only\nGOLD: XAUUSD Scanner ON\nMARATHON: {'ACTIVE' if MARATHON['active'] else 'OFF'} | Balance: {MARATHON['bal_type']} ({mar_currency()}) | Pairs: EUR/USD OTC + GBP/USD OTC | Recovery: {mar_fmt(MARATHON.get('recovery_loss',0))} | Expiry: 1 MIN ONLY | Target: {mar_fmt(MARATHON['target'])}\n"
         bot.send_message(m.chat.id,txt,parse_mode="Markdown"); return
     if m.text.startswith('/balance'):
         try:
@@ -910,9 +960,9 @@ def start(m):
         return
     try: bal_demo=get_real_balance("PRACTICE") if IQ_CONNECTED else STATS.get("real_balance",0.0)
     except: bal_demo=0.0
-    mk=types.InlineKeyboardMarkup(row_width=1); mk.add(types.InlineKeyboardButton(f"TRADE REAL (15) AUTO EXPIRY - ${bal_demo:.2f}",callback_data="trade_real")); mk.add(types.InlineKeyboardButton("MARATHON 1 MIN - DUAL SCAN",callback_data="marathon_btn")); mk.add(types.InlineKeyboardButton("GET READY - Send To Channel",callback_data="ready_btn")); mk.add(types.InlineKeyboardButton("MY STATS",callback_data="stats"),types.InlineKeyboardButton("AI BRAIN",callback_data="brain_btn"),types.InlineKeyboardButton("NEWS CHECK",callback_data="news_btn"),types.InlineKeyboardButton("SETTINGS",callback_data="settings"))
+    mk=types.InlineKeyboardMarkup(row_width=1); mk.add(types.InlineKeyboardButton(f"TRADE REAL (15) AUTO EXPIRY - ${bal_demo:.2f}",callback_data="trade_real")); mk.add(types.InlineKeyboardButton("MARATHON 1 MIN - SMART RECOVERY",callback_data="marathon_btn")); mk.add(types.InlineKeyboardButton("GET READY - Send To Channel",callback_data="ready_btn")); mk.add(types.InlineKeyboardButton("MY STATS",callback_data="stats"),types.InlineKeyboardButton("AI BRAIN",callback_data="brain_btn"),types.InlineKeyboardButton("NEWS CHECK",callback_data="news_btn"),types.InlineKeyboardButton("SETTINGS",callback_data="settings"))
     greet=get_greeting(); greet_msg=get_greeting_msg(); sb,sn=get_session_boost("EURUSD")
-    txt=f"{greet}\n\n{greet_msg}\n\nZ-BOT V19 TRAILBLAZER - MANUAL\n\nIQ: {'YES' if IQ_CONNECTED else 'NO - Retrying...'} | DEMO ${bal_demo:.2f}\nW:{STATS['wins']} L:{STATS['loss']} | {STATS['streak']}\nToday: {STATS['daily_trades']}/30\nBrain: Learning best pairs + best hours + sweet RSI\nSession: {sn} ({sb:+d})\nNews: Auto scanner ON\nGOLD: XAUUSD Scanner ON - Entry/SL/TP\n{get_mode_text()}\nMARATHON: {MARATHON['bal_type']} ({mar_currency()}) - 1 MIN ONLY - DUAL SCAN EUR/USD OTC + GBP/USD OTC - Type /marathon\n\nSelect:\n"
+    txt=f"{greet}\n\n{greet_msg}\n\nZ-BOT V19 TRAILBLAZER - MANUAL\n\nIQ: {'YES' if IQ_CONNECTED else 'NO - Retrying...'} | DEMO ${bal_demo:.2f}\nW:{STATS['wins']} L:{STATS['loss']} | {STATS['streak']}\nToday: {STATS['daily_trades']}/30\nBrain: Learning best pairs + best hours + sweet RSI\nSession: {sn} ({sb:+d})\nNews: Auto scanner ON\nGOLD: XAUUSD Scanner ON - Entry/SL/TP\n{get_mode_text()}\nMARATHON: {MARATHON['bal_type']} ({mar_currency()}) - SMART RECOVERY + DUAL SCAN - Type /marathon\n\nSelect:\n"
     bot.send_message(m.chat.id,txt,reply_markup=mk,parse_mode="Markdown")
 @bot.callback_query_handler(func=lambda c: True)
 def cb(c):
@@ -966,7 +1016,7 @@ def cb(c):
         start_marathon(cid, start_amt, target_amt); return
     if data == "mar_stop":
         MARATHON["active"] = False; clear_signal()
-        bot.send_message(cid, f"MARATHON STOPPED [{MARATHON['bal_type']}]\nBal: {mar_fmt(MARATHON['bal'])} | Target was {mar_fmt(MARATHON['target'])} | W:{MARATHON['wins']} L:{MARATHON['loss']}"); return
+        bot.send_message(cid, f"MARATHON STOPPED [{MARATHON['bal_type']}]\nBal: {mar_fmt(MARATHON['bal'])} | Target was {mar_fmt(MARATHON['target'])} | W:{MARATHON['wins']} L:{MARATHON['loss']} | Recovery Left: {mar_fmt(MARATHON.get('recovery_loss',0))}"); return
     if data=="ready_btn":
         send_photo_to_channel_sync(READY_PHOTO, get_ready_text())
         bot.answer_callback_query(c.id,"Get Ready sent to Channel!")
@@ -1110,10 +1160,10 @@ def cb(c):
     if data=="stop_auto":
         if cid in AUTO_STATE: AUTO_STATE[cid]['running']=False; bot.send_message(cid,"Stopping..."); return
     if data=="stats":
-        total=STATS['wins']+STATS['loss']; wr=(STATS['wins']/total*100) if total else 0; bal=get_real_balance("PRACTICE"); sb,sn=get_session_boost("EURUSD"); bot.send_message(cid,f"STATS V19\n{get_mode_text()}\n{get_greeting()}\nSession: {sn} ({sb:+d})\nWins: {STATS['wins']}\nLoss: {STATS['loss']}\nWinrate: {wr:.1f}%\nStreak: {STATS['streak']}\nBal: ${bal:.2f}\nToday: {STATS['daily_trades']}/30\nBrain pairs: {len(PAIR_BRAIN)}\nNews in 2h: {len(get_upcoming_news())}\nOTC: DISABLED | REAL only\nGOLD: XAUUSD ON\nMARATHON: {MARATHON['bal_type']} ({mar_currency()}) | 1 MIN ONLY | Target: {mar_fmt(MARATHON['target'])}",parse_mode="Markdown")
-    if data=="settings": bot.send_message(cid,f"SETTINGS V19 TRAILBLAZER MANUAL\n\nV19: 5M Trend + ADX 25+ + MACD + Stochastic + BB + Payout 80%+ + News Block + Session Boost + Brain + Pullback\nMarathon: DUAL SCAN EUR/USD OTC + GBP/USD OTC | 7%-9% Fixed Stake | Stop Loss 30% | 1 MIN ONLY | Custom Target - No Lock\nDEMO = $ Dollar | REAL = ₦ Naira\n\nChannel: @KEVINTRAILBLAZE\nUse /welcome, /intro and /ready to post to channel.")
+        total=STATS['wins']+STATS['loss']; wr=(STATS['wins']/total*100) if total else 0; bal=get_real_balance("PRACTICE"); sb,sn=get_session_boost("EURUSD"); bot.send_message(cid,f"STATS V19\n{get_mode_text()}\n{get_greeting()}\nSession: {sn} ({sb:+d})\nWins: {STATS['wins']}\nLoss: {STATS['loss']}\nWinrate: {wr:.1f}%\nStreak: {STATS['streak']}\nBal: ${bal:.2f}\nToday: {STATS['daily_trades']}/30\nBrain pairs: {len(PAIR_BRAIN)}\nNews in 2h: {len(get_upcoming_news())}\nOTC: DISABLED | REAL only\nGOLD: XAUUSD ON\nMARATHON: {MARATHON['bal_type']} ({mar_currency()}) | 1 MIN ONLY | Recovery: {mar_fmt(MARATHON.get('recovery_loss',0))} | Target: {mar_fmt(MARATHON['target'])}",parse_mode="Markdown")
+    if data=="settings": bot.send_message(cid,f"SETTINGS V19 TRAILBLAZER MANUAL\n\nV19: 5M Trend + ADX 25+ + MACD + Stochastic + BB + Payout 80%+ + News Block + Session Boost + Brain + Pullback\nMarathon: DUAL SCAN EUR/USD OTC + GBP/USD OTC | SMART RECOVERY (Loss+Profit)/Payout | Base 2% Compounding | Max 10% | Pause after 3 losses | Stop Loss 30% | 1 MIN ONLY\nDEMO = $ Dollar | REAL = ₦ Naira\n\nChannel: @KEVINTRAILBLAZE\nUse /welcome, /intro and /ready to post to channel.")
 if __name__ == "__main__":
-    print("Starting Trailblazer Bot V19 - DUAL SCAN 2 PAIRS EURUSD-OTC + GBPUSD-OTC + START FIXED + NAIRA REAL...")
+    print("Starting Trailblazer Bot V19 - SMART RECOVERY + COMPOUNDING + DUAL SCAN 2 PAIRS...")
     try:
         bot.remove_webhook()
         time.sleep(1)
