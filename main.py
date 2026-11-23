@@ -726,10 +726,35 @@ def auto_buy(pair, stake, direction, expiry_sec):
         with IQ_LOCK:
             logging.disable(logging.CRITICAL)
             iq.change_balance(AUTO_TRADE["bal_type"])
+            # CHECK 1: Is pair open for Binary/Turbo?
+            try:
+                open_time = iq.get_all_open_time()
+                # open_time structure: {'binary': {pair: {'open': True}}, 'turbo': {...}}
+                is_open = False
+                for k in ['binary', 'turbo']:
+                    if k in open_time and pair in open_time[k]:
+                        if open_time[k][pair].get('open'):
+                            is_open = True
+                            break
+                if not is_open:
+                    print(f"[AUTO BUY] {pair} CLOSED for Binary - Skipping, no Blitz")
+                    return False, None
+            except Exception as e:
+                print(f"[AUTO BUY] Open check failed {e} - trying anyway")
+            # CHECK 2: Balance enough?
+            bal = iq.get_balance()
+            if bal < stake:
+                print(f"[AUTO BUY] Low balance ${bal} < ${stake}")
+                return False, None
+            # CHECK 3: Try buy - IQ expects "call" / "put" lower
             status, tid = iq.buy(stake, pair, direction.lower(), exp_min)
-            print(f"[AUTO BUY] {pair} {direction} ${stake} {exp_min}M -> {status} {tid}")
+            print(f"[AUTO BUY] {pair} {direction} ${stake} {exp_min}M -> {status} {tid} | Bal ${bal}")
+            if not status:
+                print(f"[AUTO BUY] IQ REJECTED - Pair maybe Blitz only or Payout closed. Tid: {tid}")
             return status, tid
-    except Exception as e: print(f"[AUTO BUY ERR] {e}"); return False, None
+    except Exception as e:
+        print(f"[AUTO BUY ERR] {e}")
+        return False, None
 def auto_check_win(tid, expiry_sec):
     wait = int(expiry_sec) + 10
     elapsed = 0
