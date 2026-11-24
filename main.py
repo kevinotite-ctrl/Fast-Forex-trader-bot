@@ -96,8 +96,6 @@ DAILY_SUMMARY_SENT = ""
 MARKET_GOOD_SENT = {"date": "", "last_alert": 0}
 MORNING_GREET_SENT = ""
 NEWS_CACHE = {"data": [], "time": 0}
-# ===== ONLY ADDED: AUTO REAL TRADE STATE - No other logic touched =====
-AUTO_TRADE = {"enabled": True, "bal_type": "PRACTICE", "recovery_loss": 0.0, "base_stake": 1.0, "last_bal": 0.0}
 def send_to_channel_sync(text):
     try:
         bot.send_message(CHANNEL_ID, text, parse_mode="Markdown")
@@ -184,6 +182,7 @@ Hold The Trade Until It Hits Take Profit Or Stop Loss. Do Not Close Early.
 📢 Channel: @KEVINTRAILBLAZE
 Let Us Grow Together! 🔥
 """
+# BRIEF PULLBACK SIGNAL FOR CHANNEL - Short, Fast, No Long Guide
 def format_channel_pullback_signal(pair, dir_, entry_time_txt, level_idx=1, amount=2.0, expiry=120):
     if dir_ == "CALL":
         action = "🟢 BUY / CALL ⬆️"
@@ -461,7 +460,7 @@ def get_mode_text(): return "REAL SIGNAL (7AM-8PM)" if is_real_hours() else "OTC
 def can_trade_today(): check_and_reset_new_day(); return STATS["daily_trades"] < 30
 def count_trade(): STATS["daily_trades"] += 1
 @app.route("/")
-def home(): return f"V18 TRAILBLAZER+XAUUSD RUNNING IQ:{IQ_CONNECTED} {datetime.now(pytz.timezone('Africa/Lagos')).strftime('%H:%M:%S')}" if False else f"V18 TRAILBLAZER AUTO REAL RUNNING IQ:{IQ_CONNECTED} {datetime.now(pytz.timezone('Africa/Lagos')).strftime('%H:%M:%S')}"
+def home(): return f"V18 TRAILBLAZER+XAUUSD RUNNING IQ:{IQ_CONNECTED} {datetime.now(pytz.timezone('Africa/Lagos')).strftime('%H:%M:%S')}"
 @app.route(f"/{BOT_TOKEN}",methods=['POST'])
 def wh(): bot.process_new_updates([telebot.types.Update.de_json(request.get_data().decode("utf-8"))]); return "ok"
 def background_iq():
@@ -708,118 +707,6 @@ def check_pullback_entry(pair, original_dir):
             if 45<=r7<=60 and 42<=r14<=58 and r7<r7_prev and c_now<e21: return {"pair":pair,"dir":"PUT","conf":88,"price":c_now,"rsi":r7,"reason":f"Pullback PUT | RSI7 {r7:.0f}↓ RSI14 {r14:.0f} at EMA","payout":payout,"expiry":120,"atr":0,"rejected":False}
         return None
     except: return None
-# ===== ONLY ADDED: AUTO PLACE + SMART RECOVERY + AUTO PULLBACK =====
-def auto_smart_stake(payout):
-    try: bal = get_real_balance(AUTO_TRADE["bal_type"])
-    except: bal = 100.0
-    if bal <= 0: bal = 100.0
-    base = max(1.0, bal * 0.02)
-    rec = AUTO_TRADE.get("recovery_loss", 0.0)
-    if rec <= 0: return round(base,2), base, rec, bal
-    need = (rec + base * payout) / max(payout, 0.70)
-    cap = bal * 0.10
-    if need > cap: need = cap
-    return round(need,2), base, rec, bal
-def auto_buy(pair, stake, direction, expiry_sec):
-    try:
-        exp_min = max(1, int(expiry_sec // 60))
-        with IQ_LOCK:
-            logging.disable(logging.CRITICAL)
-            iq.change_balance(AUTO_TRADE["bal_type"])
-            # CHECK 1: Is pair open for Binary/Turbo?
-            try:
-                open_time = iq.get_all_open_time()
-                # open_time structure: {'binary': {pair: {'open': True}}, 'turbo': {...}}
-                is_open = False
-                for k in ['binary', 'turbo']:
-                    if k in open_time and pair in open_time[k]:
-                        if open_time[k][pair].get('open'):
-                            is_open = True
-                            break
-                if not is_open:
-                    print(f"[AUTO BUY] {pair} CLOSED for Binary - Skipping, no Blitz")
-                    return False, None
-            except Exception as e:
-                print(f"[AUTO BUY] Open check failed {e} - trying anyway")
-            # CHECK 2: Balance enough?
-            bal = iq.get_balance()
-            if bal < stake:
-                print(f"[AUTO BUY] Low balance ${bal} < ${stake}")
-                return False, None
-            # CHECK 3: Try buy - IQ expects "call" / "put" lower
-            status, tid = iq.buy(stake, pair, direction.lower(), exp_min)
-            print(f"[AUTO BUY] {pair} {direction} ${stake} {exp_min}M -> {status} {tid} | Bal ${bal}")
-            if not status:
-                print(f"[AUTO BUY] IQ REJECTED - Pair maybe Blitz only or Payout closed. Tid: {tid}")
-            return status, tid
-    except Exception as e:
-        print(f"[AUTO BUY ERR] {e}")
-        return False, None
-def auto_check_win(tid, expiry_sec):
-    wait = int(expiry_sec) + 10
-    elapsed = 0
-    while elapsed < wait + 60:
-        time.sleep(5); elapsed += 5
-        if elapsed >= wait:
-            try:
-                with IQ_LOCK:
-                    logging.disable(logging.CRITICAL)
-                    win, profit = iq.check_win_v2(tid)
-                    if win is not None: return win, float(profit or 0)
-            except: pass
-    return None, 0
-def auto_execute_one(pair, d, is_pullback=False):
-    # stake + place using signal expiry
-    payout = d.get("payout", 0.85)
-    expiry = int(d.get("expiry", 120))
-    stake, base, rec, bal = auto_smart_stake(payout)
-    dir_e = "🟢 CALL ⬆️" if d['dir']=="CALL" else "🔴 PUT ⬇️"
-    exp_min = expiry // 60
-    tag = "♻️ PULLBACK RECOVERY" if is_pullback else "🤖 AUTO SIGNAL"
-    rec_txt = f"\n♻️ Smart Recovery: Recovering ${rec:.2f} | Stake calculated (Loss+Profit)/Payout" if rec>0 else f"\n📊 Mode: 🟢 BASE 2% Compound | Base ${base:.2f}"
-    bot.send_message(OWNER_ID, f"🔥 {tag} 🔥\n\n💱 {PAIR_EMOJI.get(pair,pair)}\n📊 {dir_e} | 🎯 {d['conf']:.0f}% SNIPER\n📈 {d['reason']}\n⏱️ Expiry: {exp_min} Min - Bot go use this expiry ✅\n💵 Stake: ${stake:.2f}{rec_txt}\n💰 Bal: ${bal:.2f}\n\n🤖 Placing on IQ {AUTO_TRADE['bal_type']} now...")
-    start_signal(pair, d['dir'], d['conf'], d['rsi'], d.get('adx',30), price=d['price'], expiry=expiry)
-    status, tid = auto_buy(pair, stake, d['dir'], expiry)
-    if not status:
-        bot.send_message(OWNER_ID, f"❌ AUTO PLACE FAILED ❌\n💱 {pair} - IQ rejected / No connection\n🔄 Retrying next scan in 30s..."); clear_signal(); return None
-    bot.send_message(OWNER_ID, f"✅ TRADE PLACED ✅\n💱 {pair} {dir_e}\n🆔 ID: {tid}\n💵 Stake: ${stake:.2f} | ⏱️ Expiry: {exp_min} Min | ⏰ Waiting {exp_min} min for result... 👀")
-    win, profit = auto_check_win(tid, expiry)
-    clear_signal()
-    if win is None:
-        bot.send_message(OWNER_ID, "❓ Could not confirm result, resting 30s... 😴"); time.sleep(30); return None
-    if win:
-        record_brain(pair, True, d['conf'], d['rsi'], d.get('adx',30)); STATS['wins']+=1; count_trade(); OTC_MARTI["loss_streak"]=0
-        if AUTO_TRADE["recovery_loss"]>0:
-            if profit >= AUTO_TRADE["recovery_loss"]:
-                leftover = profit - AUTO_TRADE["recovery_loss"]
-                bot.send_message(OWNER_ID, f"♻️ SMART RECOVERY COMPLETE! ✅🎉\n💱 {pair} {dir_e}\n💰 Profit: +${profit:.2f}\n♻️ Recovered ${AUTO_TRADE['recovery_loss']:.2f} + Extra ${leftover:.2f} 💰\n🔙 Back to BASE 2% mode 🟢"); AUTO_TRADE["recovery_loss"]=0.0
-            else:
-                AUTO_TRADE["recovery_loss"] -= profit
-                bot.send_message(OWNER_ID, f"♻️ PARTIAL RECOVERY ✅\n💰 Recovered ${profit:.2f} | Still to recover: ${AUTO_TRADE['recovery_loss']:.2f}")
-        else:
-            bot.send_message(OWNER_ID, f"🎉 TRADE WIN 🎉\n\n💱 {PAIR_EMOJI.get(pair,pair)}\n📊 {dir_e} | 🎯 {d['conf']:.0f}%\n💰 Profit: +${profit:.2f} 💵\n✅ W:{STATS['wins']} ❌ L:{STATS['loss']} | 📅 Today: {STATS['daily_trades']}/30\n😴 Resting 90s... 🔍")
-        return True
-    else:
-        record_brain(pair, False, d['conf'], d['rsi'], d.get('adx',30)); STATS['loss']+=1; count_trade(); OTC_MARTI["loss_streak"]+=1; AUTO_TRADE["recovery_loss"]+=stake
-        bot.send_message(OWNER_ID, f"😔 TRADE LOSS 😔\n\n💱 {PAIR_EMOJI.get(pair,pair)}\n📊 {dir_e}\n📉 Loss: -${stake:.2f}\n♻️ Total To Recover: ${AUTO_TRADE['recovery_loss']:.2f}\n\n🔍 PULLBACK SCAN FIRST - Same pair, same direction 👀\n⏳ Scanning every 10s, timeout 5 min...")
-        if OTC_MARTI["loss_streak"]>=4:
-            OTC_MARTI["loss_streak"]=0; bot.send_message(OWNER_ID, f"⛔ CHAIN FINISHED - 4 losses\n♻️ RESET to Base $1\n✅ Next signal can now come. 💪"); return False
-        return auto_pullback_flow(pair, d['dir'])
-def auto_pullback_flow(pair, orig_dir):
-    start=time.time()
-    while time.time()-start<300:
-        if check_and_reset_new_day(): return False
-        if not can_trade_today(): return False
-        if not is_real_hours(): return False
-        d = check_pullback_entry(pair, orig_dir)
-        if d:
-            dir_e = "🟢 CALL ⬆️" if d['dir']=="CALL" else "🔴 PUT ⬇️"
-            bot.send_message(OWNER_ID, f"🎯 PULLBACK ENTRY FOUND! 🎯\n\n💱 {PAIR_EMOJI.get(pair,pair)}\n📊 {dir_e} | {d['reason']}\n💸 Payout {int(d['payout']*100)}%\n⏱️ Expiry: 2 Min - Pullback expiry\n🤖 Placing recovery trade now...")
-            res = auto_execute_one(pair, d, is_pullback=True)
-            return res
-        time.sleep(10)
-    bot.send_message(OWNER_ID, "⏱️ Pullback scan timeout (5 min) - No safe entry. 😴\n🔍 Back to scanning all 15 REAL pairs...")
-    return False
 def pullback_scanner_loop(cid, pair, original_dir):
     start=time.time(); PULLBACK_STATE[cid]={"pair":pair,"dir":original_dir,"active":True}
     bot.send_message(cid, f"🔍 **Pullback Scan ON**\n\n💱 {pair} looking for {original_dir} pullback\n📊 Scanning every 10 sec...\n📍 RSI7 + RSI14 both safe + RSI turning + Price at EMA\n📰 News check ON\n⏳ Timeout 5 min\n\nPress ✅ WIN / ❌ LOSS / ⏭️ SKIP")
@@ -897,7 +784,7 @@ def morning_greet_loop():
             now=datetime.now(tz); today=now.strftime("%Y-%m-%d")
             if now.hour==7 and now.minute<5 and MORNING_GREET_SENT!=today:
                 MORNING_GREET_SENT=today
-                msg="""🌅🌅🌅 **GOOD MORNING TRAILBLAZER** 🌅🌅🌅\n\n☀️ Rise and shine! It is 7AM - Market just opened!\n\n💰 **New day, new money to earn!** 💰\n\n📊 **Today's Plan:**\n✅ Bot is now scanning 15 REAL pairs + XAUUSD GOLD\n✅ Only 88%+ SNIPER signals\n✅ Max 30 trades\n🧠 Brain is ready\n⏭️ SKIP button\n📰 News scanner ON\n⏰ Session boost ON\n🤖 AUTO REAL: Bot go place trades itself with signal expiry ✅\n\n🔥 **LET US EARN TODAY!** 🚀💰🔥\n"""
+                msg="""🌅🌅🌅 **GOOD MORNING TRAILBLAZER** 🌅🌅🌅\n\n☀️ Rise and shine! It is 7AM - Market just opened!\n\n💰 **New day, new money to earn!** 💰\n\n📊 **Today's Plan:**\n✅ Bot is now scanning 15 REAL pairs + XAUUSD GOLD\n✅ Only 88%+ SNIPER signals\n✅ Max 30 trades\n🧠 Brain is ready\n⏭️ SKIP button\n📰 News scanner ON\n⏰ Session boost ON\n\n🔥 **LET US EARN TODAY!** 🚀💰🔥\n"""
                 try: bot.send_message(OWNER_ID,msg,parse_mode="Markdown")
                 except: pass
             time.sleep(60)
@@ -985,7 +872,6 @@ def xauusd_signal_scanner():
             time.sleep(25)
         except: time.sleep(30)
 def real_signal_scanner():
-    # ONLY CHANGED: Now auto-places REAL trades instead of only sending manual message. Strategy/scan logic untouched.
     last_signal={}; tz=pytz.timezone("Africa/Lagos")
     while True:
         try:
@@ -1003,16 +889,11 @@ def real_signal_scanner():
                     time.sleep(3)
                 if candidates:
                     candidates.sort(key=lambda x:x[1]['conf'],reverse=True); pair,d=candidates[0]; now=datetime.now(tz); entry=now+timedelta(seconds=45); dir_e="🟢 CALL ⬆️" if d['dir']=="CALL" else "🔴 PUT ⬇️"; base=OTC_MARTI["base"]
+                    mk=types.InlineKeyboardMarkup(row_width=2); mk.add(types.InlineKeyboardButton("✅ WIN - Reset",callback_data=f"manual_win_{pair}"),types.InlineKeyboardButton("❌ LOSS - Pullback Scan",callback_data=f"manual_loss_{pair}_{d['dir']}")); mk.add(types.InlineKeyboardButton("⏭️ SKIP THIS TRADE",callback_data=f"skip_{pair}")); mk.add(types.InlineKeyboardButton("📤 Send to Channel",callback_data=f"send_channel_{pair}_{d['dir']}"))
                     wr=get_pair_winrate(pair); wr_txt=f" | 🧠 Brain WR {wr:.0f}%" if wr is not None else ""; ti=d.get('trend_info',{}); expiry_min=ti.get('expiry',120)//60; trend_type_txt=ti.get('trend_type','➡️ NORMAL TREND'); trends_txt=" | ".join(ti.get('trends',[])[:4])
-                    # AUTO PLACE - same signal, same expiry
-                    last_signal[pair]=time.time(); LAST_GLOBAL_SIGNAL["time"]=time.time()
-                    if AUTO_TRADE["enabled"]:
-                        auto_execute_one(pair, d, is_pullback=False)
-                    else:
-                        mk=types.InlineKeyboardMarkup(row_width=2); mk.add(types.InlineKeyboardButton("✅ WIN - Reset",callback_data=f"manual_win_{pair}"),types.InlineKeyboardButton("❌ LOSS - Pullback Scan",callback_data=f"manual_loss_{pair}_{d['dir']}")); mk.add(types.InlineKeyboardButton("⏭️ SKIP THIS TRADE",callback_data=f"skip_{pair}")); mk.add(types.InlineKeyboardButton("📤 Send to Channel",callback_data=f"send_channel_{pair}_{d['dir']}"))
-                        msg=f"""📡 **REAL SIGNAL V18 TRAILBLAZER - MANUAL** 📡\n\n💱 {PAIR_EMOJI.get(pair,pair)}\n📊 {dir_e} | 🎯 {d['conf']:.0f}% SNIPER{wr_txt}\n📈 {d['reason']} | RSI {d['rsi']:.1f} | ATR {d['atr']:.5f}\n📊 Trend: {trend_type_txt}\n🔍 Trends: {trends_txt}\n💸 {int(d['payout']*100)}% | ⏱️ Suggested: {expiry_min} Min\n📅 Today: {STATS['daily_trades']}/30\n📰 News: ✅ Checked - No blocking news\n\n⏰ ENTRY: {entry.strftime('%H:%M:%S WAT')} (in 45s)\n\n**Real Entry:** ${base:.2f}\n**If LOSS ->** Martingale 1: ${base*2:.2f}\n**If LOSS ->** Martingale 2: ${base*4:.2f}\n**If LOSS ->** Martingale 3: ${base*8:.2f}\n\n⚠️ MANUAL - Press WIN / LOSS / SKIP\n"""
-                        try: bot.send_message(OWNER_ID,msg,parse_mode="Markdown",reply_markup=mk); start_signal(pair,d['dir'],d['conf'],d['rsi'],d.get('adx',30), price=d['price'], expiry=d.get('expiry',120))
-                        except Exception as e: print(f"Send err {e}")
+                    msg=f"""📡 **REAL SIGNAL V18 TRAILBLAZER - MANUAL** 📡\n\n💱 {PAIR_EMOJI.get(pair,pair)}\n📊 {dir_e} | 🎯 {d['conf']:.0f}% SNIPER{wr_txt}\n📈 {d['reason']} | RSI {d['rsi']:.1f} | ATR {d['atr']:.5f}\n📊 Trend: {trend_type_txt}\n🔍 Trends: {trends_txt}\n💸 {int(d['payout']*100)}% | ⏱️ Suggested: {expiry_min} Min\n📅 Today: {STATS['daily_trades']}/30\n📰 News: ✅ Checked - No blocking news\n\n⏰ ENTRY: {entry.strftime('%H:%M:%S WAT')} (in 45s)\n\n**Real Entry:** ${base:.2f}\n**If LOSS ->** Martingale 1: ${base*2:.2f}\n**If LOSS ->** Martingale 2: ${base*4:.2f}\n**If LOSS ->** Martingale 3: ${base*8:.2f}\n\n⚠️ MANUAL - Press WIN / LOSS / SKIP\n"""
+                    try: bot.send_message(OWNER_ID,msg,parse_mode="Markdown",reply_markup=mk); last_signal[pair]=time.time(); LAST_GLOBAL_SIGNAL["time"]=time.time(); start_signal(pair,d['dir'],d['conf'],d['rsi'],d.get('adx',30), price=d['price'], expiry=d.get('expiry',120))
+                    except Exception as e: print(f"Send err {e}")
             time.sleep(25)
         except: time.sleep(30)
 @bot.message_handler(content_types=['new_chat_members'])
@@ -1071,7 +952,7 @@ def start(m):
         bot.send_message(m.chat.id,txt,parse_mode="Markdown"); return
     if m.text.startswith('/mode'):
         tz=pytz.timezone("Africa/Lagos"); now=datetime.now(tz); sb,sn=get_session_boost("EURUSD")
-        txt=f"""📍 **MODE CHECK V18 TRAILBLAZER**\n\n{get_greeting()}\n⏰ Now: {now.strftime('%A %H:%M:%S WAT')}\n⏰ Session: {sn} ({sb:+d})\n📊 Mode: {get_mode_text()}\n💎 IQ: {'✅' if IQ_CONNECTED else '❌ False'}\n🛡️ Martingale: 1 Real + 3 Marti (1-2-4-8)\n📅 Today: {STATS['daily_trades']}/30 trades\n🧠 Brain: {'ON' if PAIR_BRAIN else 'ON - No data yet'}\n📰 News: {len(get_upcoming_news())} high impact in next 2h\n⏳ Active Signal: {ACTIVE_SIGNAL['pair'] if is_signal_active() else 'None'}\nOTC: ⛔ DISABLED - REAL only\n🥇 GOLD: ✅ XAUUSD Scanner ON\n🤖 AUTO REAL: {'✅ ON - Bot places trades itself' if AUTO_TRADE['enabled'] else '❌ OFF'} | ♻️ Recovery: ${AUTO_TRADE['recovery_loss']:.2f}\n"""
+        txt=f"""📍 **MODE CHECK V18 TRAILBLAZER**\n\n{get_greeting()}\n⏰ Now: {now.strftime('%A %H:%M:%S WAT')}\n⏰ Session: {sn} ({sb:+d})\n📊 Mode: {get_mode_text()}\n💎 IQ: {'✅' if IQ_CONNECTED else '❌ False'}\n🛡️ Martingale: 1 Real + 3 Marti (1-2-4-8)\n📅 Today: {STATS['daily_trades']}/30 trades\n🧠 Brain: {'ON' if PAIR_BRAIN else 'ON - No data yet'}\n📰 News: {len(get_upcoming_news())} high impact in next 2h\n⏳ Active Signal: {ACTIVE_SIGNAL['pair'] if is_signal_active() else 'None'}\nOTC: ⛔ DISABLED - REAL only\n🥇 GOLD: ✅ XAUUSD Scanner ON\n"""
         bot.send_message(m.chat.id,txt,parse_mode="Markdown"); return
     if m.text.startswith('/balance'):
         try:
@@ -1083,7 +964,7 @@ def start(m):
     except: bal_demo=0.0
     mk=types.InlineKeyboardMarkup(row_width=1); mk.add(types.InlineKeyboardButton(f"📈 TRADE REAL (15) AUTO EXPIRY - ${bal_demo:.2f}",callback_data="trade_real")); mk.add(types.InlineKeyboardButton("🚀 GET READY - Send To Channel",callback_data="ready_btn")); mk.add(types.InlineKeyboardButton("📊 MY STATS",callback_data="stats"),types.InlineKeyboardButton("🧠 AI BRAIN",callback_data="brain_btn"),types.InlineKeyboardButton("📰 NEWS CHECK",callback_data="news_btn"),types.InlineKeyboardButton("⚙️ SETTINGS",callback_data="settings"))
     greet=get_greeting(); greet_msg=get_greeting_msg(); sb,sn=get_session_boost("EURUSD")
-    txt=f"""{greet}\n\n{greet_msg}\n\n🤖 **Z-BOT V18 TRAILBLAZER - MANUAL** 🤖\n\n💎 IQ: {'✅' if IQ_CONNECTED else '❌ False - Retrying...'} | 💰 DEMO ${bal_demo:.2f}\n🏆 W:{STATS['wins']} L:{STATS['loss']} | 🔥 {STATS['streak']}\n📅 Today: {STATS['daily_trades']}/30\n🧠 Brain: Learning best pairs + best hours + sweet RSI\n⏰ Session: {sn} ({sb:+d})\n📰 News: Auto scanner ON\n🥇 GOLD: XAUUSD Scanner ON - Entry/SL/TP\n📍 {get_mode_text()}\n⛔ OTC Disabled - REAL signals start 7AM\n🤖 AUTO REAL: ✅ ON - Bot places REAL trades itself 7AM-8PM\n\n👇 **Select:**\n"""
+    txt=f"""{greet}\n\n{greet_msg}\n\n🤖 **Z-BOT V18 TRAILBLAZER - MANUAL** 🤖\n\n💎 IQ: {'✅' if IQ_CONNECTED else '❌ False - Retrying...'} | 💰 DEMO ${bal_demo:.2f}\n🏆 W:{STATS['wins']} L:{STATS['loss']} | 🔥 {STATS['streak']}\n📅 Today: {STATS['daily_trades']}/30\n🧠 Brain: Learning best pairs + best hours + sweet RSI\n⏰ Session: {sn} ({sb:+d})\n📰 News: Auto scanner ON\n🥇 GOLD: XAUUSD Scanner ON - Entry/SL/TP\n📍 {get_mode_text()}\n⛔ OTC Disabled - REAL signals start 7AM\n\n👇 **Select:**\n"""
     bot.send_message(m.chat.id,txt,reply_markup=mk,parse_mode="Markdown")
 @bot.callback_query_handler(func=lambda c: True)
 def cb(c):
@@ -1230,8 +1111,8 @@ def cb(c):
     if data=="stop_auto":
         if cid in AUTO_STATE: AUTO_STATE[cid]['running']=False; bot.send_message(cid,"🛑 Stopping..."); return
     if data=="stats":
-        total=STATS['wins']+STATS['loss']; wr=(STATS['wins']/total*100) if total else 0; bal=get_real_balance("PRACTICE"); sb,sn=get_session_boost("EURUSD"); bot.send_message(cid,f"📊 **STATS V18**\n📍 {get_mode_text()}\n{get_greeting()}\n⏰ Session: {sn} ({sb:+d})\n🏆 Wins: {STATS['wins']}\n❌ Loss: {STATS['loss']}\n📈 Winrate: {wr:.1f}%\n🔥 Streak: {STATS['streak']}\n💰 Bal: ${bal:.2f}\n📅 Today: {STATS['daily_trades']}/30\n🧠 Brain pairs: {len(PAIR_BRAIN)}\n📰 News in 2h: {len(get_upcoming_news())}\n📦 OTC: DISABLED | REAL only\n🥇 GOLD: XAUUSD ON\n🤖 AUTO: {'✅ ON' if AUTO_TRADE['enabled'] else '❌ OFF'} | ♻️ Recovery: ${AUTO_TRADE['recovery_loss']:.2f}",parse_mode="Markdown")
-    if data=="settings": bot.send_message(cid,f"⚙️ **SETTINGS V18 TRAILBLAZER MANUAL**\n\n🛡️ V18: 5M Trend + ADX 25+ + MACD + Stochastic + BB + Payout 80%+ + News Block + Session Boost + Brain + Pullback\n🤖 AUTO REAL: Bot places trades itself 7AM-8PM, expiry follows signal, LOSS -> Pullback first, Smart Recovery (Loss+Profit)/Payout\n\n📢 Channel: @KEVINTRAILBLAZE\nUse /welcome, /intro and /ready to post to channel.")
+        total=STATS['wins']+STATS['loss']; wr=(STATS['wins']/total*100) if total else 0; bal=get_real_balance("PRACTICE"); sb,sn=get_session_boost("EURUSD"); bot.send_message(cid,f"📊 **STATS V18**\n📍 {get_mode_text()}\n{get_greeting()}\n⏰ Session: {sn} ({sb:+d})\n🏆 Wins: {STATS['wins']}\n❌ Loss: {STATS['loss']}\n📈 Winrate: {wr:.1f}%\n🔥 Streak: {STATS['streak']}\n💰 Bal: ${bal:.2f}\n📅 Today: {STATS['daily_trades']}/30\n🧠 Brain pairs: {len(PAIR_BRAIN)}\n📰 News in 2h: {len(get_upcoming_news())}\n📦 OTC: DISABLED | REAL only\n🥇 GOLD: XAUUSD ON",parse_mode="Markdown")
+    if data=="settings": bot.send_message(cid,f"⚙️ **SETTINGS V18 TRAILBLAZER MANUAL**\n\n🛡️ V18: 5M Trend + ADX 25+ + MACD + Stochastic + BB + Payout 80%+ + News Block + Session Boost + Brain + Pullback\n\n📢 Channel: @KEVINTRAILBLAZE\nUse /welcome, /intro and /ready to post to channel.")
 if __name__ == "__main__":
     print("Starting Trailblazer Bot...")
     threading.Thread(target=background_iq, daemon=True).start()
