@@ -40,17 +40,8 @@ def save_users():
 load_users()
 def is_admin(uid):
     return uid == OWNER_ID
-def is_user(uid):
+def is_allowed(uid):
     return uid == OWNER_ID or uid in ALLOWED_USERS
-def send_to_all_users(text):
-    sent = 0
-    for uid in [OWNER_ID] + list(ALLOWED_USERS):
-        try:
-            bot.send_message(uid, text, parse_mode="Markdown")
-            sent += 1
-        except Exception as e:
-            print("send fail " + str(uid) + " " + str(e))
-    return sent
 
 # --- PER USER BRAIN ---
 USER_DATA_FILE = "user_data.json"
@@ -120,14 +111,14 @@ def save_auto():
         pass
 load_auto()
 
-ENABLE_OTC = False
 REAL_PAIRS = ["EURUSD","GBPUSD","EURGBP","AUDUSD","USDCAD","USDCHF","EURAUD","GBPCHF","EURCHF","NZDUSD","GBPAUD","EURCAD","AUDCAD","GBPCAD","AUDNZD"]
 OTC_PAIRS = ["EURUSD-OTC","GBPUSD-OTC","AUDUSD-OTC","USDCAD-OTC","EURGBP-OTC","EURAUD-OTC","GBPAUD-OTC","NZDUSD-OTC","GBPCHF-OTC","EURCHF-OTC","USDCHF-OTC","AUDCAD-OTC","EURCAD-OTC"]
-PAIR_EMOJI = {"EURUSD":"EUR/USD REAL","GBPUSD":"GBP/USD REAL","EURGBP":"EUR/GBP REAL","AUDUSD":"AUD/USD REAL","USDCAD":"USD/CAD REAL","USDCHF":"USD/CHF REAL","EURAUD":"EUR/AUD REAL","GBPCHF":"GBP/CHF REAL","EURCHF":"EUR/CHF REAL","NZDUSD":"NZD/USD REAL","GBPAUD":"GBP/AUD REAL","EURCAD":"EUR/CAD REAL","AUDCAD":"AUD/CAD REAL","GBPCAD":"GBP/CAD REAL","AUDNZD":"AUD/NZD REAL","XAUUSD":"XAU/USD GOLD","EURUSD-OTC":"EUR/USD OTC","GBPUSD-OTC":"GBP/USD OTC","EURGBP-OTC":"EUR/GBP OTC","AUDUSD-OTC":"AUD/USD OTC","USDCHF-OTC":"USD/CHF OTC","EURAUD-OTC":"EUR/AUD OTC","GBPAUD-OTC":"GBP/AUD OTC","NZDUSD-OTC":"NZD/USD OTC","GBPCHF-OTC":"GBP/CHF OTC","EURCHF-OTC":"EUR/CHF OTC","USDCAD-OTC":"USD/CAD OTC","AUDCAD-OTC":"AUD/CAD OTC","EURCAD-OTC":"EUR/CAD OTC"}
-WELCOME_TEXT = "WELCOME TO TRAILBLAZER SIGNALS\nForex and GOLD Sniper Signals 88%+ Accuracy\nStake $1, $2, $4, $8 - Do Not Be Greedy\nMax 30 Signals Per Day\nType /intro For Full Guide\nChannel: @KEVINTRAILBLAZE"
-INTRO_TEXT = "TRAILBLAZER INTRO\nForex = Predict UP or DOWN.\nEUR/USD Example: If Euro Strong, BUY/CALL. If Weak, SELL/PUT.\nStake $1, Win = $1.85 back. Lose = Martingale $1-$2-$4-$8.\nGOLD works same with SL/TP.\nStart: iqoption.com -> Verify -> Demo $10000 -> KYC -> Deposit $10-$20 -> Trade with us."
+PAIR_EMOJI = {"EURUSD":"🇪🇺 EUR/USD REAL","GBPUSD":"🇬🇧 GBP/USD REAL","EURGBP":"🇪🇺 EUR/GBP REAL","AUDUSD":"🇦🇺 AUD/USD REAL","USDCAD":"🇺🇸 USD/CAD REAL","USDCHF":"🇺🇸 USD/CHF REAL","EURAUD":"🇪🇺 EUR/AUD REAL","GBPCHF":"🇬🇧 GBP/CHF REAL","EURCHF":"🇪🇺 EUR/CHF REAL","NZDUSD":"🇳🇿 NZD/USD REAL","GBPAUD":"🇬🇧 GBP/AUD REAL","EURCAD":"🇪🇺 EUR/CAD REAL","AUDCAD":"🇦🇺 AUD/CAD REAL","GBPCAD":"🇬🇧 GBP/CAD REAL","AUDNZD":"🇦🇺 AUD/NZD REAL","XAUUSD":"🥇 XAU/USD GOLD","EURUSD-OTC":"🇪🇺 EUR/USD OTC","GBPUSD-OTC":"🇬🇧 GBP/USD OTC","EURGBP-OTC":"🇪🇺 EUR/GBP OTC","AUDUSD-OTC":"🇦🇺 AUD/USD OTC","USDCHF-OTC":"🇺🇸 USD/CHF OTC","EURAUD-OTC":"🇪🇺 EUR/AUD OTC","GBPAUD-OTC":"🇬🇧 GBP/AUD OTC","NZDUSD-OTC":"🇳🇿 NZD/USD OTC","GBPCHF-OTC":"🇬🇧 GBP/CHF OTC","EURCHF-OTC":"🇪🇺 EUR/CHF OTC","USDCAD-OTC":"🇺🇸 USD/CAD OTC","AUDCAD-OTC":"🇦🇺 AUD/CAD OTC","EURCAD-OTC":"🇪🇺 EUR/CAD OTC"}
+
+WELCOME_TEXT = "🔥🔥🔥 WELCOME TO TRAILBLAZER SIGNALS 🔥🔥🔥\n━━━━━━━━━━━━━━━━━━\n👋 Welcome Trader! You don arrive for right place.\n\n🥇 WHAT WE DO HERE\n📈 Forex and GOLD Sniper Signals\n🎯 88%+ Accuracy Only\n🧠 Smart System Wey Dey Learn From Every Win and Loss\n💰 Martingale 1-2-4-8 To Recover Losses\n\n📜 CHANNEL RULES\n✅ 1. Follow The Stake - $1, $2, $4, $8 - No Greedy\n✅ 2. No Overtrade - Max 30 Signals Per Day\n✅ 3. Enter Exactly At Entry Time\n✅ 4. Press WIN or LOSS After Every Trade\n❌ 5. No Spam, No DM Admin For Signals\n❌ 6. No Borrow Money To Trade\n\n🚀 NEW HERE? Type /intro For Full Guide\n📊 Type /mystats To See Your Result\n📢 Channel: @KEVINTRAILBLAZE\n\n━━━━━━━━━━━━━━━━━━\n💪 Good Luck Trader! Make We Grow Together! 🤑\n🏆 TRAILBLAZER - WE MOVE! 🔥"
+INTRO_TEXT = "📚📚 TRAILBLAZER INTRO 📚📚\n━━━━━━━━━━━━━━━━━━\n💱 WHAT IS FOREX?\nForex Means Foreign Exchange. You Predict If Price Go UP ⬆️ Or DOWN ⬇️\nExample: EUR/USD - Euro Against Dollar.\nIf Euro Strong, Press BUY / CALL 🟢\nIf Euro Weak, Press SELL / PUT 🔴\n\n📈 HOW YOU DEY MAKE MONEY?\n1️⃣ Enter With $1\n2️⃣ If You Correct, IQ Pay You 85% = $1.85 Back 🤑\n3️⃣ If You Wrong, We Use Martingale $1 ➡️ $2 ➡️ $4 ➡️ $8 To Recover\n\n🥇 GOLD (XAU/USD) SAME WAY\nGold Price Go Up and Down. We Trade Am With Stop Loss and Take Profit.\n\n🚀 HOW TO START ON IQ OPTION\n1️⃣ CREATE ACCOUNT - iqoption.com -> Sign Up\n2️⃣ VERIFY EMAIL 📧\n3️⃣ PRACTICE WITH DEMO 🎮 - $10,000 Demo, Practice 2-3 Days\n4️⃣ VERIFY ACCOUNT (KYC) 🪪 - Upload ID and Selfie\n5️⃣ DEPOSIT 💳 - Start With $10-$20 Only\n6️⃣ TRADE WITH US 🔥 - Wait For Signal, Enter At ENTRY TIME\n\n⚠️ RULES:\n• No Overtrade - Max 30 Per Day\n• Follow Stake - $1, $2, $4, $8\n• Only Trade Money You Fit Lose\n\n📢 Channel: @KEVINTRAILBLAZE\n👋 Welcome Again! Make We Go! 🚀"
+
 STATS = {"balance":0.0,"real_balance":0.0,"wins":0,"loss":0,"streak":0,"daily_trades":0,"daily_date":""}
-user_states = {}
 AUTO_STATE = {}
 IQ_LOCK = threading.Lock()
 IQ_CONNECTED = False
@@ -163,11 +154,11 @@ def send_photo_to_channel_sync(photo_url, caption):
 
 def format_channel_signal(pair, dir_, conf, price, entry_time_txt, expiry=120):
     if dir_ == "CALL":
-        action = "BUY / CALL UP"
-        meaning = "Price Expected To Go UP, Press GREEN BUY / CALL"
+        action = "🟢 BUY / CALL ⬆️"
+        meaning = "Price Expected To Go UP, Press GREEN BUY / CALL Button In IQ Option"
     else:
-        action = "SELL / PUT DOWN"
-        meaning = "Price Expected To Go DOWN, Press RED SELL / PUT"
+        action = "🔴 SELL / PUT ⬇️"
+        meaning = "Price Expected To Go DOWN, Press RED SELL / PUT Button In IQ Option"
     pair_name = PAIR_EMOJI.get(pair, pair)
     if price and price != 0:
         price_txt = "{:.5f}".format(price)
@@ -175,17 +166,26 @@ def format_channel_signal(pair, dir_, conf, price, entry_time_txt, expiry=120):
         price_txt = "Market Price"
     expiry_min = int(expiry // 60) if expiry else 2
     conf_txt = "{:.0f}".format(conf)
-    out = "TRAILBLAZER SIGNAL\n\n"
-    out += "Pair: " + pair_name + "\n"
-    out += "Signal: " + action + "\n"
-    out += "Confidence: " + conf_txt + "%\n\n"
-    out += "What It Means:\n" + meaning + "\n\n"
-    out += "ENTRY TIME: " + entry_time_txt + "\n"
-    out += "ENTRY PRICE: " + price_txt + "\n"
-    out += "STAKE: $1 (Lose = $2, Then $4, Then $8)\n"
-    out += "EXPIRY: " + str(expiry_min) + " Minutes\n\n"
-    out += "Open IQ Option -> Search " + pair + " -> Wait Till " + entry_time_txt + " -> Press " + action + "\n"
-    out += "Channel: @KEVINTRAILBLAZE"
+    out = "🔥🔥🔥 TRAILBLAZER SIGNAL 🔥🔥🔥\n\n"
+    out += "💱 Pair: " + pair_name + "\n"
+    out += "📊 Signal: " + action + "\n"
+    out += "🎯 Confidence: " + conf_txt + "%\n\n"
+    out += "💡 What It Means:\n" + meaning + "\n\n"
+    out += "━━━━━━━━━━━━━━━━━━\n"
+    out += "⏰ ENTRY TIME: " + entry_time_txt + "\n"
+    out += "💰 ENTRY PRICE: " + price_txt + "\n"
+    out += "💵 STAKE: $1 (If You Lose, Next Is $2, Then $4, Then $8)\n"
+    out += "⏱️ EXPIRY: " + str(expiry_min) + " Minutes - Use Same Expiry\n"
+    out += "━━━━━━━━━━━━━━━━━━\n\n"
+    out += "👣 HOW TO TRADE:\n"
+    out += "1️⃣ Open IQ Option App\n"
+    out += "2️⃣ Search For " + pair + "\n"
+    out += "3️⃣ Wait Till " + entry_time_txt + "\n"
+    out += "4️⃣ Set Expiry To " + str(expiry_min) + " Min\n"
+    out += "5️⃣ Press " + action + "\n"
+    out += "6️⃣ Enter With $1 And Wait\n\n"
+    out += "⚠️ RULES:\n✅ Enter Exactly At Entry Time\n✅ No Greedy - Follow $1, $2, $4, $8\n❌ No Overtrade\n\n"
+    out += "📢 Channel: @KEVINTRAILBLAZE\nGood Luck! 💪🤑"
     return out
 
 def format_channel_gold_signal(d, entry_time_txt):
@@ -196,28 +196,32 @@ def format_channel_gold_signal(d, entry_time_txt):
     tp1 = d["tp1"]
     tp2 = d["tp2"]
     if dir_ == "CALL":
-        dir_e = "BUY UP"
-        what = "Gold Expected To Go UP, Press GREEN BUY"
+        dir_e = "🟢 BUY ⬆️"
+        what = "Gold Price Expected To Go UP, Press GREEN BUY"
     else:
-        dir_e = "SELL DOWN"
-        what = "Gold Expected To Go DOWN, Press RED SELL"
-    out = "GOLD SIGNAL - XAU/USD\n\n"
-    out += "Signal: " + dir_e + "\n"
-    out += "Confidence: {:.0f}%\n\n".format(conf)
-    out += "What: " + what + "\n\n"
-    out += "ENTRY TIME: " + entry_time_txt + "\n"
-    out += "ENTRY: {:.2f}\n".format(price)
-    out += "STOP LOSS: {:.2f}\n".format(sl)
-    out += "TAKE PROFIT 1: {:.2f}\n".format(tp1)
-    out += "TAKE PROFIT 2: {:.2f}\n".format(tp2)
-    out += "Channel: @KEVINTRAILBLAZE"
+        dir_e = "🔴 SELL ⬇️"
+        what = "Gold Price Expected To Go DOWN, Press RED SELL"
+    out = "🥇🥇🥇 GOLD SIGNAL - XAU/USD 🥇🥇🥇\n\n"
+    out += "📊 Signal: " + dir_e + "\n"
+    out += "🎯 Confidence: {:.0f}%\n\n".format(conf)
+    out += "💡 What It Means:\n" + what + "\n\n"
+    out += "━━━━━━━━━━━━━━━━━━\n"
+    out += "⏰ ENTRY TIME: " + entry_time_txt + "\n"
+    out += "💰 ENTRY: {:.2f}\n".format(price)
+    out += "🛑 STOP LOSS: {:.2f}\n".format(sl)
+    out += "🎯 TAKE PROFIT 1: {:.2f} (Small Profit)\n".format(tp1)
+    out += "🎯 TAKE PROFIT 2: {:.2f} (Bigger Profit)\n".format(tp2)
+    out += "━━━━━━━━━━━━━━━━━━\n\n"
+    out += "👣 Open IQ Option -> GOLD / XAU/USD -> Wait Till " + entry_time_txt + " -> Press " + dir_e + "\n"
+    out += "⚠️ GOLD: Hold Till TP or SL. No Close Early.\n\n"
+    out += "📢 Channel: @KEVINTRAILBLAZE\nMake We Grow Together! 🔥"
     return out
 
 def format_channel_pullback_signal(pair, dir_, entry_time_txt, level_idx=1, amount=2.0, expiry=120):
     if dir_ == "CALL":
-        action = "BUY / CALL UP"
+        action = "🟢 BUY / CALL ⬆️"
     else:
-        action = "SELL / PUT DOWN"
+        action = "🔴 SELL / PUT ⬇️"
     pair_name = PAIR_EMOJI.get(pair, pair)
     level_names = ["", "Martingale 1", "Martingale 2", "Martingale 3"]
     if 1 <= level_idx <= 3:
@@ -225,30 +229,30 @@ def format_channel_pullback_signal(pair, dir_, entry_time_txt, level_idx=1, amou
     else:
         level_name = "Martingale " + str(level_idx)
     expiry_min = int(expiry // 60) if expiry else 2
-    out = level_name.upper() + " - " + pair_name + "\n\n"
-    out += action + "\n"
-    out += "Entry: " + entry_time_txt + "\n"
-    out += "Stake: ${:.2f}\n".format(amount)
-    out += "Expiry: " + str(expiry_min) + " Min\n\n"
-    out += "Open IQ Option -> Search " + pair + " -> Press " + action + "\n"
-    out += "@KEVINTRAILBLAZE"
+    out = "🔁 " + level_name.upper() + " - " + pair_name + "\n\n"
+    out += "📊 " + action + "\n"
+    out += "⏰ Entry: " + entry_time_txt + "\n"
+    out += "💵 Stake: ${:.2f}\n".format(amount)
+    out += "⏱️ Expiry: " + str(expiry_min) + " Min\n\n"
+    out += "👉 Open IQ Option -> Search " + pair + " -> Press " + action + " At Entry Time.\n\n"
+    out += "📢 @KEVINTRAILBLAZE"
     return out
 
 def format_channel_pullback_gold_signal(dir_, entry_time_txt, level_idx=1, amount=2.0):
     if dir_ == "CALL":
-        dir_e = "BUY UP"
+        dir_e = "🟢 BUY ⬆️"
     else:
-        dir_e = "SELL DOWN"
+        dir_e = "🔴 SELL ⬇️"
     level_names = ["", "Martingale 1", "Martingale 2", "Martingale 3"]
     if 1 <= level_idx <= 3:
         level_name = level_names[level_idx]
     else:
         level_name = "Martingale " + str(level_idx)
-    out = level_name.upper() + " - GOLD XAU/USD\n\n"
-    out += dir_e + "\n"
-    out += "Entry: " + entry_time_txt + "\n"
-    out += "Stake: ${:.2f}\n".format(amount)
-    out += "@KEVINTRAILBLAZE"
+    out = "🔁 " + level_name.upper() + " - 🥇 GOLD XAU/USD\n\n"
+    out += "📊 " + dir_e + "\n"
+    out += "⏰ Entry: " + entry_time_txt + "\n"
+    out += "💵 Stake: ${:.2f}\n\n".format(amount)
+    out += "👉 Open IQ Option -> GOLD -> Press " + dir_e + "\nUse Same SL / TP As First Signal.\n\n📢 @KEVINTRAILBLAZE"
     return out
 
 def get_lagos_day():
@@ -272,43 +276,43 @@ def get_greeting():
     tz = pytz.timezone("Africa/Lagos")
     hour = datetime.now(tz).hour
     if 5 <= hour < 12:
-        return "GOOD MORNING TRAILBLAZER"
+        return "🌅 GOOD MORNING TRAILBLAZER ☀️"
     elif 12 <= hour < 17:
-        return "GOOD AFTERNOON TRAILBLAZER"
+        return "☀️ GOOD AFTERNOON TRAILBLAZER 🔥"
     elif 17 <= hour < 21:
-        return "GOOD EVENING TRAILBLAZER"
+        return "🌇 GOOD EVENING TRAILBLAZER 🌙"
     else:
-        return "GOOD NIGHT TRAILBLAZER"
+        return "🌙 GOOD NIGHT TRAILBLAZER 💤"
 def get_session_boost(pair):
     tz = pytz.timezone("Africa/Lagos")
     now = datetime.now(tz)
     hour = now.hour + now.minute / 60
     if pair == "XAUUSD":
         if 14.5 <= hour < 17:
-            return 10, "GOLD LONDON+NY OVERLAP"
+            return 10, "🥇🇬🇧🇺🇸 GOLD LONDON+NY OVERLAP 🔥"
         if 8 <= hour < 11:
-            return 8, "LONDON OPEN GOLD"
+            return 8, "🥇 LONDON OPEN GOLD"
         if 12 <= hour < 13.5:
-            return -10, "LUNCH DEAD ZONE"
+            return -10, "😴 LUNCH DEAD ZONE"
         if 18 <= hour < 20:
-            return -5, "EVENING SLOW"
-        return 0, "GOLD NORMAL"
+            return -5, "🌙 EVENING SLOW"
+        return 0, "🥇 GOLD NORMAL"
     if 8 <= hour < 11:
-        return 8, "LONDON OPEN"
+        return 8, "🇬🇧 LONDON OPEN"
     elif 14.5 <= hour < 17:
-        return 10, "LONDON + NY OVERLAP"
+        return 10, "🇬🇧🇺🇸 LONDON + NY OVERLAP 🔥"
     elif 14 <= hour < 14.5:
-        return 4, "NY PRE-OPEN"
+        return 4, "🇺🇸 NY PRE-OPEN"
     elif 12 <= hour < 13.5:
-        return -10, "LUNCH DEAD ZONE"
+        return -10, "😴 LUNCH DEAD ZONE"
     elif 18 <= hour < 20:
-        return -5, "EVENING SLOW"
+        return -5, "🌙 EVENING SLOW"
     elif 11 <= hour < 12:
-        return 3, "LONDON MORNING"
+        return 3, "🇬🇧 LONDON MORNING"
     elif 17 <= hour < 18:
-        return 2, "NY AFTERNOON"
+        return 2, "🇺🇸 NY AFTERNOON"
     else:
-        return 0, "NORMAL"
+        return 0, "🌍 NORMAL"
 def get_upcoming_news():
     try:
         if time.time() - NEWS_CACHE["time"] < 300:
@@ -366,18 +370,20 @@ def is_news_blocking_pair(pair, minutes=30):
 def format_news_alert(news_list):
     if not news_list:
         return ""
-    txt = "UPCOMING HIGH IMPACT NEWS\n\n"
+    txt = "📰 **UPCOMING HIGH IMPACT NEWS** 📰\n\n"
     for n in news_list:
         nc = n["country"]
         title = n["title"]
         nin = n["in_min"]
+        flag_map = {"USD":"🇺🇸","EUR":"🇪🇺","GBP":"🇬🇧","AUD":"🇦🇺","CAD":"🇨🇦","NZD":"🇳🇿","CHF":"🇨🇭"}
+        flag = flag_map.get(nc, "🌍")
         if nin < 0:
             when = "Started " + str(-nin) + " min ago"
         elif nin == 0:
-            when = "RIGHT NOW"
+            when = "⚡ RIGHT NOW!"
         else:
             when = "In " + str(nin) + " min"
-        txt += nc + " - " + title + "\n" + when + "\n\n"
+        txt += "🔴 " + flag + " " + nc + " - " + title + "\n⏰ " + when + "\n\n"
     return txt
 def get_ready_text():
     tz = pytz.timezone("Africa/Lagos")
@@ -385,19 +391,19 @@ def get_ready_text():
     sb, sn = get_session_boost("EURUSD")
     news = get_upcoming_news()
     if not news:
-        news_txt = "No High Impact News In Next 2 Hours"
+        news_txt = "✅ No High Impact News In Next 2 Hours - Clean Market"
     else:
-        news_txt = str(len(news)) + " High Impact News In Next 2 Hours"
-    out = "GET READY TRAILBLAZERS\n\n"
-    out += get_greeting() + "\n"
-    out += "Time: " + now.strftime("%A, %d %b %Y - %H:%M WAT") + "\n"
-    out += "Session: " + sn + "\n"
-    out += "Mode: " + get_mode_text() + "\n"
-    out += "News: " + news_txt + "\n"
-    out += "Today: " + str(STATS["daily_trades"]) + "/30\n\n"
-    out += "CHECKLIST: Open IQ Option, Balance $15+, Internet Strong, Phone Charged, Stake $1, Chart 1 Min\n"
-    out += "Rules: Follow $1-$2-$4-$8, Max 30, Enter At Entry Time Only\n"
-    out += "Channel: @KEVINTRAILBLAZE"
+        news_txt = "⚠️ " + str(len(news)) + " High Impact News In Next 2 Hours - Bot Will Avoid Those Pairs"
+    out = "🚀🚀🚀 GET READY TRAILBLAZERS 🚀🚀🚀\n\n"
+    out += get_greeting() + "\n\n"
+    out += "⏰ Time: " + now.strftime("%A, %d %b %Y - %H:%M WAT") + "\n"
+    out += "⏰ Session: " + sn + "\n"
+    out += "📊 Mode: " + get_mode_text() + "\n"
+    out += "📰 News: " + news_txt + "\n"
+    out += "📅 Today: " + str(STATS["daily_trades"]) + "/30 Trades Used\n\n"
+    out += "━━━━━━━━━━━━━━━━━━\n✅ CHECKLIST - DO THIS NOW:\n━━━━━━━━━━━━━━━━━━\n\n"
+    out += "1️⃣ OPEN IQ OPTION APP 📱\n2️⃣ CHECK BALANCE 💰 - At Least $15-$20\n3️⃣ CHECK INTERNET 🌐 - Strong WiFi/Data\n4️⃣ CHARGE PHONE 🔋 - At Least 50%\n5️⃣ SET STAKE TO $1 💵 - Martingale $1->$2->$4->$8\n6️⃣ SET CHART TO 1 MINUTE 📊\n7️⃣ CLEAR YOUR MIND 🧠\n\n"
+    out += "━━━━━━━━━━━━━━━━━━\n📋 TODAY:\n🎯 Only 88%+ Sniper Signals\n💱 15 Forex + GOLD\n⏱️ Enter Exactly At Entry Time\n✅ Win - Go Back To $1\n❌ Lose - Wait For Martingale\n⏭️ Miss - Skip, No Chase\n\n🔥 SIGNALS COMING SOON - STAY READY! 🔥\n📢 Channel: @KEVINTRAILBLAZE"
     return out
 
 PAIR_BRAIN = {}
@@ -504,13 +510,13 @@ def get_hour_boost(pair):
         return 0, ""
     wr = st["wins"]/total*100
     if wr >= 70:
-        return 8, "Best Hour " + hour + ":00 {:.0f}%".format(wr)
+        return 8, "🧠 Best Hour " + hour + ":00 {:.0f}%".format(wr)
     elif wr >= 60:
-        return 4, "Good Hour " + hour + ":00 {:.0f}%".format(wr)
+        return 4, "🧠 Good Hour " + hour + ":00 {:.0f}%".format(wr)
     elif wr < 40:
-        return -10, "Bad Hour " + hour + ":00 {:.0f}%".format(wr)
+        return -10, "🧠 Bad Hour " + hour + ":00 {:.0f}%".format(wr)
     elif wr < 50:
-        return -5, "Weak Hour " + hour + ":00 {:.0f}%".format(wr)
+        return -5, "🧠 Weak Hour " + hour + ":00 {:.0f}%".format(wr)
     return 0, ""
 def get_pair_rsi_boost(pair, current_rsi, is_call):
     s = get_pair_stats(pair)
@@ -521,10 +527,10 @@ def get_pair_rsi_boost(pair, current_rsi, is_call):
     low = rng[0]
     high = rng[1]
     if low <= current_rsi <= high:
-        return 6, "RSI Sweet Spot {:.0f} in [{:.0f}-{:.0f}]".format(current_rsi, low, high)
+        return 6, "🧠 RSI Sweet Spot {:.0f} in [{:.0f}-{:.0f}]".format(current_rsi, low, high)
     dist = min(abs(current_rsi - low), abs(current_rsi - high))
     if dist > 15:
-        return -6, "RSI Off {:.0f} vs Sweet [{:.0f}-{:.0f}]".format(current_rsi, low, high)
+        return -6, "🧠 RSI Off {:.0f} vs Sweet [{:.0f}-{:.0f}]".format(current_rsi, low, high)
     return 0, ""
 load_brain()
 def is_signal_active():
@@ -535,8 +541,6 @@ def start_signal(pair, dir_, conf=0, rsi=0, adx=0, price=0, sl=0, tp1=0, tp2=0, 
     ACTIVE_SIGNAL.update({"active":True,"pair":pair,"dir":dir_,"conf":conf,"rsi":rsi,"adx":adx,"started":time.time(),"day":get_lagos_day(),"price":price,"sl":sl,"tp1":tp1,"tp2":tp2,"expiry":expiry})
 def clear_signal():
     ACTIVE_SIGNAL.update({"active":False,"pair":None,"dir":None,"conf":0,"rsi":0,"adx":0,"started":0,"day":"","price":0,"sl":0,"tp1":0,"tp2":0,"expiry":120})
-def is_allowed(uid):
-    return uid == OWNER_ID or uid in ALLOWED_USERS
 def is_real_hours():
     try:
         tz = pytz.timezone("Africa/Lagos")
@@ -563,7 +567,7 @@ def count_trade():
 @app.route("/")
 def home():
     t = datetime.now(pytz.timezone("Africa/Lagos")).strftime("%H:%M:%S")
-    return "V18 TRAILBLAZER RUNNING IQ:" + str(IQ_CONNECTED) + " " + t
+    return "V4 TRAILBLAZER EMOJI RUNNING IQ:" + str(IQ_CONNECTED) + " " + t
 @app.route("/" + str(BOT_TOKEN), methods=["POST"])
 def wh():
     bot.process_new_updates([telebot.types.Update.de_json(request.get_data().decode("utf-8"))])
@@ -729,70 +733,70 @@ def get_trend_and_expiry(df, df5, close, r7, r14, adx, macd_val, sig_val, mom1, 
     e21 = float(close.ewm(21).mean().iloc[-1])
     e50 = float(close.ewm(50).mean().iloc[-1])
     if e9 > e21 > e50:
-        trends.append("EMA Strong Uptrend")
+        trends.append("📈 EMA Strong Uptrend")
         trend_score += 2
     elif e9 < e21 < e50:
-        trends.append("EMA Strong Downtrend")
+        trends.append("📉 EMA Strong Downtrend")
         trend_score += 2
     elif e9 > e21:
-        trends.append("EMA Weak Uptrend")
+        trends.append("↗️ EMA Weak Uptrend")
         trend_score += 1
     elif e9 < e21:
-        trends.append("EMA Weak Downtrend")
+        trends.append("↘️ EMA Weak Downtrend")
         trend_score += 1
     else:
-        trends.append("EMA Flat")
+        trends.append("➡️ EMA Flat")
     if df5 is not None:
         c5 = df5["close"]
         e9_5 = float(c5.ewm(9).mean().iloc[-1])
         e21_5 = float(c5.ewm(21).mean().iloc[-1])
         if e9_5 > e21_5:
-            trends.append("5M Uptrend")
+            trends.append("📈 5M Uptrend")
         else:
-            trends.append("5M Downtrend")
+            trends.append("📉 5M Downtrend")
         if (is_green and e9_5 > e21_5) or (not is_green and e9_5 < e21_5):
-            trends.append("1M + 5M AGREE")
+            trends.append("✅ 1M + 5M AGREE")
             trend_score += 3
         else:
-            trends.append("1M vs 5M CONFLICT")
+            trends.append("⚠️ 1M vs 5M CONFLICT")
             trend_score -= 2
     if adx >= 35:
-        trends.append("ADX Very Strong {:.0f}".format(adx))
+        trends.append("💪 ADX Very Strong {:.0f}".format(adx))
         trend_score += 3
     elif adx >= 28:
-        trends.append("ADX Strong {:.0f}".format(adx))
+        trends.append("🔥 ADX Strong {:.0f}".format(adx))
         trend_score += 2
     elif adx >= 25:
-        trends.append("ADX OK {:.0f}".format(adx))
+        trends.append("👍 ADX OK {:.0f}".format(adx))
         trend_score += 1
     else:
-        trends.append("ADX Weak {:.0f}".format(adx))
+        trends.append("😴 ADX Weak {:.0f}".format(adx))
     if macd_val > sig_val:
-        trends.append("MACD Bullish")
+        trends.append("📈 MACD Bullish")
         trend_score += 1
     else:
-        trends.append("MACD Bearish")
+        trends.append("📉 MACD Bearish")
         trend_score += 1
     if trend_score >= 7:
         expiry = 300
         expiry_txt = "5 Min - STRONG TREND"
-        trend_type = "STRONG TREND"
+        trend_type = "🔥 STRONG TREND"
     elif trend_score >= 5:
         expiry = 180
         expiry_txt = "3 Min - GOOD TREND"
-        trend_type = "GOOD TREND"
+        trend_type = "📈 GOOD TREND"
     elif trend_score >= 3:
         expiry = 120
         expiry_txt = "2 Min - NORMAL TREND"
-        trend_type = "NORMAL TREND"
+        trend_type = "➡️ NORMAL TREND"
     elif trend_score >= 1:
         expiry = 60
         expiry_txt = "1 Min - WEAK"
-        trend_type = "WEAK / RANGING"
+        trend_type = "😴 WEAK / RANGING"
     else:
         expiry = 60
         expiry_txt = "1 Min - CONFLICT"
-        trend_type = "CONFLICT TREND"
+        trend_type = "⚠️ CONFLICT TREND"
     return {"trends": trends, "trend_score": trend_score, "expiry": expiry, "expiry_txt": expiry_txt, "trend_type": trend_type}
 
 def analyze_sniper_v12(pair, sniper_mode=False):
@@ -856,12 +860,12 @@ def analyze_sniper_v12(pair, sniper_mode=False):
         else:
             sig = "PUT"
         if is_pair_blocked(pair):
-            return {"pair": pair, "dir": sig, "conf": 40, "price": c_now, "rsi": r7, "reason": "BRAIN Blocked", "payout": payout, "expiry": 120, "atr": atr, "rejected": True}
+            return {"pair": pair, "dir": sig, "conf": 40, "price": c_now, "rsi": r7, "reason": "🧠 BRAIN Blocked", "payout": payout, "expiry": 120, "atr": atr, "rejected": True}
         news_block = is_news_blocking_pair(pair, minutes=30)
         if news_block:
             nb_title = news_block["title"]
             nb_in = news_block["in_min"]
-            return {"pair": pair, "dir": sig, "conf": 40, "price": c_now, "rsi": r7, "reason": "NEWS BLOCK " + str(nb_in) + "min " + nb_title[:25], "payout": payout, "expiry": 120, "atr": atr, "rejected": True}
+            return {"pair": pair, "dir": sig, "conf": 40, "price": c_now, "rsi": r7, "reason": "📰 NEWS BLOCK " + str(nb_in) + "min " + nb_title[:25], "payout": payout, "expiry": 120, "atr": atr, "rejected": True}
         if adx < 25:
             return {"pair": pair, "dir": sig, "conf": 42, "price": c_now, "rsi": r7, "reason": "Choppy - ADX Low", "payout": payout, "expiry": 120, "atr": atr, "rejected": True}
         if body < atr * 0.30:
@@ -1063,16 +1067,16 @@ def pullback_scanner_loop(cid, pair, original_dir):
     PULLBACK_STATE[cid] = {"pair": pair, "dir": original_dir, "active": True}
     is_user_pullback = cid != OWNER_ID
     if is_user_pullback:
-        bot.send_message(cid, "YOUR Pullback Scan ON\nPair " + pair + " looking for " + original_dir + " pullback for YOU only\nTimeout 5 min\nPress MY WIN / MY LOSS / SKIP")
+        bot.send_message(cid, "🔍 **YOUR Pullback Scan ON**\n\n💱 " + pair + " looking for " + original_dir + " pullback for YOU only\n📊 Scanning every 10 sec...\n⏳ Timeout 5 min\n\nPress ✅ MY WIN / ❌ MY LOSS / ⏭️ SKIP")
     else:
-        bot.send_message(cid, "Pullback Scan ON\nPair " + pair + " looking for " + original_dir + "\nTimeout 5 min\nPress WIN / LOSS / SKIP")
+        bot.send_message(cid, "🔍 **Pullback Scan ON**\n\n💱 " + pair + " looking for " + original_dir + " pullback\n📊 Scanning every 10 sec...\n⏳ Timeout 5 min\n\nPress ✅ WIN / ❌ LOSS / ⏭️ SKIP")
     while PULLBACK_STATE.get(cid, {}).get("active") and time.time() - start < 300:
         if check_and_reset_new_day():
-            bot.send_message(cid, "New day started - pullback stopped")
+            bot.send_message(cid, "🔄 New day started - pullback stopped")
             PULLBACK_STATE[cid]["active"] = False
             return
         if not is_user_pullback and not can_trade_today():
-            bot.send_message(cid, "Max 30 trades reached today")
+            bot.send_message(cid, "⛔ Max 30 trades reached today")
             PULLBACK_STATE[cid]["active"] = False
             return
         d = check_pullback_entry(pair, original_dir)
@@ -1091,7 +1095,7 @@ def pullback_scanner_loop(cid, pair, original_dir):
                 mk = types.InlineKeyboardMarkup(row_width=2)
                 mk.add(types.InlineKeyboardButton("✅ MY WIN", callback_data="user_win_" + pair), types.InlineKeyboardButton("❌ MY LOSS", callback_data="user_loss_" + pair + "_" + dd))
                 mk.add(types.InlineKeyboardButton("⏭️ SKIP", callback_data="user_skip_" + pair))
-                msg = "YOUR PULLBACK ENTRY FOUND\n\nPair " + pair + "\n" + dd + " | " + reason + "\nNext: " + names[idx] + " - ${:.2f} Level {}/4".format(amt, idx+1) + "\nEnter NOW - 2 Min"
+                msg = "🎯 **YOUR PULLBACK ENTRY FOUND!**\n\n💱 " + pair + "\n📊 " + dd + " | " + reason + "\n💰 Next: **" + names[idx] + " - ${:.2f} Level {}/4 ({}x)**\n⏱️ Enter NOW - 2 Min".format(amt, idx+1, mult)
                 bot.send_message(cid, msg, parse_mode="Markdown", reply_markup=mk)
             else:
                 idx = OTC_MARTI["loss_streak"]
@@ -1103,13 +1107,13 @@ def pullback_scanner_loop(cid, pair, original_dir):
                 mk.add(types.InlineKeyboardButton("⏭️ SKIP THIS TRADE", callback_data="skip_" + pair))
                 mk.add(types.InlineKeyboardButton("📤 Send to Channel", callback_data="send_channel_pb_" + pair + "_" + dd))
                 mk.add(types.InlineKeyboardButton("📤👥 Send to Both Me + Users", callback_data="send_both_pb_" + pair + "_" + dd))
-                msg = "PULLBACK ENTRY FOUND\n\nPair " + pair + "\n" + dd + " | " + reason + "\nPayout {:.0f}%\nNext: ".format(payout*100) + names[idx] + " - ${:.2f}".format(amt) + "\nEnter NOW - 2 Min"
+                msg = "🎯 **PULLBACK ENTRY FOUND!**\n\n💱 " + pair + "\n📊 " + dd + " | " + reason + "\n💸 Payout {:.0f}%\n💰 Next: **".format(payout*100) + names[idx] + " - ${:.2f} Level {}/4**\n⏱️ Enter NOW - 2 Min".format(amt, idx+1)
                 bot.send_message(cid, msg, parse_mode="Markdown", reply_markup=mk)
             PULLBACK_STATE[cid]["active"] = False
             return
         time.sleep(10)
     PULLBACK_STATE[cid] = {"active": False}
-    bot.send_message(cid, "Pullback scan timeout (5 min) - No safe entry.")
+    bot.send_message(cid, "⏱️ Pullback scan timeout (5 min) - No safe entry.")
 
 def daily_summary_loop():
     global DAILY_SUMMARY_SENT
@@ -1125,8 +1129,8 @@ def daily_summary_loop():
                     wr = STATS["wins"] / total * 100
                 else:
                     wr = 0
-                msg = "DAILY SUMMARY - " + today_str + "\n\nWins: " + str(STATS["wins"]) + "\nLoss: " + str(STATS["loss"]) + "\nWin Rate: {:.1f}%\n".format(wr)
-                msg += "Trades Today: " + str(STATS["daily_trades"]) + "/30"
+                msg = "📊 **DAILY SUMMARY - " + today_str + "** 📊\n\n🕗 Trading closed (8PM)\n\n🏆 Wins: " + str(STATS["wins"]) + "\n❌ Losses: " + str(STATS["loss"]) + "\n📈 Win Rate: {:.1f}%\n".format(wr)
+                msg += "📅 Trades Today: " + str(STATS["daily_trades"]) + "/30\n\n🌙 Rest well Trailblazer! 💰"
                 try:
                     bot.send_message(OWNER_ID, msg, parse_mode="Markdown")
                 except:
@@ -1148,7 +1152,7 @@ def trailblazer_market_scanner():
             if urgent_news and time.time() - last_news_alert > 3600:
                 last_news_alert = time.time()
                 news_txt = format_news_alert(urgent_news)
-                msg = "NEWS ALERT\n\n" + news_txt + "\nDo not trade pairs with that currency now"
+                msg = "📰📰📰 **TRAILBLAZER NEWS ALERT** 📰📰📰\n\n" + get_greeting() + "\n\n⚠️ **HIGH IMPACT NEWS COMING!** ⚠️\n\n" + news_txt + "🚨 No trade pairs with that currency now\n⏳ Wait 15 min AFTER news"
                 try:
                     bot.send_message(OWNER_ID, msg, parse_mode="Markdown")
                 except:
@@ -1186,7 +1190,7 @@ def trailblazer_market_scanner():
                 greet = get_greeting()
                 pairs_txt = " • ".join(strong_pairs[:5])
                 sb2, sn2 = get_session_boost("EURUSD")
-                msg = "MARKET IS GOOD\n\n" + greet + "\nHot Pairs: " + pairs_txt + "\nSession: " + sn2 + "\nBot scanning 88%+ only"
+                msg = "🔥🔥🔥 **TRAILBLAZER MARKET IS GOOD** 🔥🔥🔥\n\n" + greet + "\n\n🚀 **SIGNALS COMING SOON - GET READY** 💰💰💰\n\n📊 Market Check:\n✅ " + str(good_pairs) + "/5 Major Pairs Strong\n✅ ADX 25+ - Market moving\n✅ Payout 80%+\n💱 Hot Pairs: " + pairs_txt + "\n⏰ Session: " + sn2 + "\n\n💪 Get IQ Option ready!\n💰 **IT IS TIME TO EARN!** 🚀🚀🚀"
                 try:
                     bot.send_message(OWNER_ID, msg, parse_mode="Markdown")
                 except:
@@ -1204,7 +1208,7 @@ def morning_greet_loop():
             today = now.strftime("%Y-%m-%d")
             if now.hour == 7 and now.minute < 5 and MORNING_GREET_SENT != today:
                 MORNING_GREET_SENT = today
-                msg = "GOOD MORNING TRAILBLAZER\nIt is 7AM - Market opened\nBot scanning 15 REAL + GOLD, 88%+ only, Max 30"
+                msg = "🌅🌅🌅 **GOOD MORNING TRAILBLAZER** 🌅🌅🌅\n\n☀️ Rise and shine! 7AM - Market opened!\n\n💰 **New day, new money!** 💰\n\n📊 Today: Bot scanning 15 REAL + GOLD, 88%+ only, Max 30\n\n🔥 **LET US EARN TODAY!** 🚀💰🔥"
                 try:
                     bot.send_message(OWNER_ID, msg, parse_mode="Markdown")
                 except:
@@ -1400,22 +1404,22 @@ def xauusd_signal_scanner():
                     payout = d["payout"]
                     adx_v = d["adx"]
                     if dir_ == "CALL":
-                        dir_e = "BUY UP"
+                        dir_e = "🟢 BUY ⬆️"
                     else:
-                        dir_e = "SELL DOWN"
+                        dir_e = "🔴 SELL ⬇️"
                     base = OTC_MARTI["base"]
                     mk = types.InlineKeyboardMarkup(row_width=2)
                     mk.add(types.InlineKeyboardButton("✅ WIN - Reset", callback_data="manual_win_XAUUSD"), types.InlineKeyboardButton("❌ LOSS - Pullback Scan", callback_data="manual_loss_XAUUSD_" + dir_))
                     mk.add(types.InlineKeyboardButton("⏭️ SKIP THIS TRADE", callback_data="skip_XAUUSD"))
                     mk.add(types.InlineKeyboardButton("📤 Send to Channel", callback_data="send_channel_XAUUSD_" + dir_))
                     mk.add(types.InlineKeyboardButton("📤👥 Send to Both Me + Users", callback_data="send_both_XAUUSD_" + dir_))
-                    msg = "GOLD SIGNAL XAU/USD\n\n" + dir_e + " | {:.0f}% SNIPER GOLD\n".format(conf)
-                    msg += reason + " | RSI {:.1f} | ATR {:.2f}\n".format(rsi_v, atr_v)
-                    msg += "Session: " + sess + "\nToday: " + str(STATS["daily_trades"]) + "/30\n\n"
-                    msg += "ENTRY TIME: " + entry_time.strftime("%H:%M:%S WAT") + "\n"
-                    msg += "ENTRY: {:.2f}\nSL: {:.2f}\nTP1: {:.2f}\nTP2: {:.2f}\n\n".format(price, sl, tp1, tp2)
-                    msg += "Stake: ${:.2f}\nPayout: {:.0f}%\n".format(base, payout*100)
-                    msg += "MANUAL - Press WIN / LOSS / SKIP"
+                    msg = "🥇🥇🥇 **XAU/USD GOLD SIGNAL** 🥇🥇🥇\n\n" + dir_e + " | {:.0f}% SNIPER GOLD\n".format(conf)
+                    msg += "📈 " + reason + " | RSI {:.1f} | ATR {:.2f}\n".format(rsi_v, atr_v)
+                    msg += "⏰ Session: " + sess + "\n📰 News: ✅ Checked\n📅 Today: " + str(STATS["daily_trades"]) + "/30\n\n"
+                    msg += "━━━━━━━━━━━━━━━━━━\n⏰ ENTRY TIME: " + entry_time.strftime("%H:%M:%S WAT") + "\n"
+                    msg += "💰 ENTRY: {:.2f}\n🛑 SL: {:.2f}\n🎯 TP1: {:.2f}\n🎯 TP2: {:.2f}\n".format(price, sl, tp1, tp2)
+                    msg += "━━━━━━━━━━━━━━━━━━\n\n💵 **Stake:** ${:.2f}\n".format(base)
+                    msg += "💸 Payout: {:.0f}%\n\n⚠️ MANUAL - Press WIN / LOSS / SKIP".format(payout*100)
                     bot.send_message(OWNER_ID, msg, parse_mode="Markdown", reply_markup=mk)
                     if AUTO_SEND_90 and conf >= 90:
                         send_signal_to_users("XAUUSD", dir_, msg)
@@ -1467,12 +1471,12 @@ def real_signal_scanner():
                     expiry_v = d.get("expiry", 120)
                     ti = d.get("trend_info", {})
                     expiry_min = ti.get("expiry", 120) // 60
-                    trend_type_txt = ti.get("trend_type", "NORMAL TREND")
+                    trend_type_txt = ti.get("trend_type", "➡️ NORMAL TREND")
                     trends_txt = " | ".join(ti.get("trends", [])[:4])
                     if dir_ == "CALL":
-                        dir_e = "CALL UP"
+                        dir_e = "🟢 CALL ⬆️"
                     else:
-                        dir_e = "PUT DOWN"
+                        dir_e = "🔴 PUT ⬇️"
                     base = OTC_MARTI["base"]
                     pair_label = PAIR_EMOJI.get(pair, pair)
                     mk = types.InlineKeyboardMarkup(row_width=2)
@@ -1482,17 +1486,17 @@ def real_signal_scanner():
                     mk.add(types.InlineKeyboardButton("📤👥 Send to Both Me + Users", callback_data="send_both_" + pair + "_" + dir_))
                     wr = get_pair_winrate(pair)
                     if wr is not None:
-                        wr_txt = " | Brain WR {:.0f}%".format(wr)
+                        wr_txt = " | 🧠 Brain WR {:.0f}%".format(wr)
                     else:
                         wr_txt = ""
-                    msg = "REAL SIGNAL V18 - MANUAL\n\n" + pair_label + "\n" + dir_e + " | {:.0f}% SNIPER".format(conf) + wr_txt + "\n"
-                    msg += reason + " | RSI {:.1f} | ATR {:.5f}\n".format(rsi_v, atr_v)
-                    msg += "Trend: " + trend_type_txt + "\n" + trends_txt + "\n"
-                    msg += "Payout {:.0f}% | Suggested: {} Min\n".format(payout*100, expiry_min)
-                    msg += "Today: " + str(STATS["daily_trades"]) + "/30\n"
-                    msg += "ENTRY: " + entry.strftime("%H:%M:%S WAT") + " (in 45s)\n\n"
-                    msg += "Real Entry: ${:.2f}\nMarti 1: ${:.2f}\nMarti 2: ${:.2f}\nMarti 3: ${:.2f}\n".format(base, base*2, base*4, base*8)
-                    msg += "MANUAL - Press WIN / LOSS / SKIP"
+                    msg = "📡 **REAL SIGNAL V18 TRAILBLAZER - MANUAL** 📡\n\n💱 " + pair_label + "\n📊 " + dir_e + " | 🎯 {:.0f}% SNIPER".format(conf) + wr_txt + "\n"
+                    msg += "📈 " + reason + " | RSI {:.1f} | ATR {:.5f}\n".format(rsi_v, atr_v)
+                    msg += "📊 Trend: " + trend_type_txt + "\n🔍 Trends: " + trends_txt + "\n"
+                    msg += "💸 {:.0f}% | ⏱️ Suggested: {} Min\n".format(payout*100, expiry_min)
+                    msg += "📅 Today: " + str(STATS["daily_trades"]) + "/30\n📰 News: ✅ Checked\n\n"
+                    msg += "⏰ ENTRY: " + entry.strftime("%H:%M:%S WAT") + " (in 45s)\n\n"
+                    msg += "**Real Entry:** ${:.2f}\n**Marti 1:** ${:.2f} | **Marti 2:** ${:.2f} | **Marti 3:** ${:.2f}\n\n".format(base, base*2, base*4, base*8)
+                    msg += "⚠️ MANUAL - Press WIN / LOSS / SKIP"
                     try:
                         bot.send_message(OWNER_ID, msg, parse_mode="Markdown", reply_markup=mk)
                         if AUTO_SEND_90 and conf >= 90:
@@ -1511,18 +1515,28 @@ def welcome_new_member(m):
     try:
         for member in m.new_chat_members:
             name = member.first_name or "Trader"
-            bot.send_message(m.chat.id, "Welcome " + name + " to Trailblazer Signals! Forex and GOLD 88%+ only. Type /welcome for rules.")
+            bot.send_message(m.chat.id, "👋 Welcome " + name + " to Trailblazer Signals! 🔥\n\n🥇 Forex and GOLD Sniper Signals\n📈 88%+ Accuracy Only\n💰 Stake $1 - Follow Martingale\n📢 Channel: @KEVINTRAILBLAZE\n\nType /welcome to see rules.\nGood luck! 💪")
     except:
         pass
 
-@bot.message_handler(commands=["start","stop","mode","balance","results","brain","news","welcome","intro","ready","add","remove","list","users","auto","auto90","autostop","autostart","userstats","mystats","myresults"])
+@bot.message_handler(commands=["start","help","stop","mode","balance","results","brain","news","welcome","intro","ready","add","remove","list","users","auto","auto90","autostop","autostart","userstats","mystats","myresults"])
 def start(m):
     global AUTO_SEND_90
     txt_in = m.text or ""
-    # MYSTATS
+    # --- HELP FOR BOTH ---
+    if txt_in.startswith("/help"):
+        if not is_allowed(m.from_user.id):
+            bot.send_message(m.chat.id, "❌ Private - Ask admin to add you with /add")
+            return
+        if is_admin(m.from_user.id):
+            bot.send_message(m.chat.id, "👑 ADMIN COMMANDS:\n\n➕ /add 123 - Add user\n➖ /remove 123 - Remove user\n👥 /list - List users\n📊 /userstats - All users stats\n🤖 /auto90 on/off - Auto 90+\n📢 /welcome /intro /ready - Send to Channel\n📍 /mode /brain /results")
+        else:
+            bot.send_message(m.chat.id, "🙋 YOUR COMMANDS:\n\n🚀 /start - Start\n❓ /help - Help\n📊 /mystats - YOUR wins/loss/next stake\n👋 /welcome - Rules\n📚 /intro - How to trade\n🚀 /ready - Get ready checklist\n\nAfter signal press:\n✅ MY WIN\n❌ MY LOSS\n⏭️ SKIP")
+        return
+    # --- MYSTATS USER ---
     if txt_in.startswith("/mystats") or txt_in.startswith("/myresults"):
         if not is_allowed(m.from_user.id):
-            bot.send_message(m.chat.id, "Private")
+            bot.send_message(m.chat.id, "❌ Private")
             return
         uid = str(m.from_user.id)
         u = get_user_data(uid)
@@ -1546,15 +1560,15 @@ def start(m):
             next_txt = names[idx]
         else:
             next_txt = "Real Entry $1"
-        txt = "MY RESULTS\n\n"
-        txt += "Your ID: " + uid + "\n"
-        txt += "Wins: " + str(uw) + "\nLoss: " + str(ul) + "\n"
-        txt += "Win Rate: {:.1f}%\n".format(wr)
-        txt += "Streak: " + str(ustreak) + "\nTrades Today: " + str(udaily) + "\n"
-        txt += "Next Stake: " + next_txt + " (${:.2f})\n\n".format(next_amt)
-        txt += "Your Pairs:\n"
+        txt = "📊 **MY RESULTS** 📊\n\n"
+        txt += "🆔 Your ID: " + uid + "\n"
+        txt += "🏆 Your Wins: " + str(uw) + "\n❌ Your Loss: " + str(ul) + "\n"
+        txt += "📈 Your Win Rate: {:.1f}%\n".format(wr)
+        txt += "🔥 Your Streak: " + str(ustreak) + "\n📅 Your Trades Today: " + str(udaily) + "\n"
+        txt += "💵 Your Next Stake: " + next_txt + " (${:.2f})\n\n".format(next_amt)
+        txt += "📊 **Your Pairs:**\n"
         if not u["pairs"]:
-            txt += "No trades yet. Press MY WIN / MY LOSS."
+            txt += "No trades yet. Wait for signal and press MY WIN / MY LOSS."
         else:
             for pair, s in u["pairs"].items():
                 pw = s["wins"]
@@ -1567,17 +1581,17 @@ def start(m):
                 txt += "• " + pair + ": W" + str(pw) + " L" + str(pl) + " = {:.0f}%\n".format(w)
         bot.send_message(m.chat.id, txt, parse_mode="Markdown")
         return
-    # USERSTATS ADMIN
+    # --- USERSTATS ADMIN ---
     if txt_in.startswith("/userstats"):
         if not is_admin(m.from_user.id):
-            bot.send_message(m.chat.id, "Only admin. Use /mystats")
+            bot.send_message(m.chat.id, "❌ Only admin. Use /mystats")
             return
         parts = txt_in.split()
         if len(parts) < 2:
             if not USER_DATA:
-                bot.send_message(m.chat.id, "No user data yet.")
+                bot.send_message(m.chat.id, "📭 No user data yet.")
                 return
-            txt = "ALL USERS STATS\n\n"
+            txt = "👥 **ALL USERS STATS** 👥\n\n"
             for uid, u in USER_DATA.items():
                 uw = u["wins"]
                 ul = u["loss"]
@@ -1587,13 +1601,13 @@ def start(m):
                 else:
                     wr = 0
                 lvl = u["marti_streak"] + 1
-                txt += "ID " + uid + "\nW" + str(uw) + " L" + str(ul) + " = {:.0f}% | Next Level: {}/4\n\n".format(wr, lvl)
+                txt += "🆔 " + uid + "\n🏆 W" + str(uw) + " ❌ L" + str(ul) + " = {:.0f}% | Next Level: {}/4\n\n".format(wr, lvl)
             txt += "Detail: /userstats 123456789"
             bot.send_message(m.chat.id, txt, parse_mode="Markdown")
             return
         target = parts[1].strip()
         if target not in USER_DATA:
-            bot.send_message(m.chat.id, "No data for " + target + " yet.")
+            bot.send_message(m.chat.id, "📭 No data for " + target + " yet.")
             return
         u = USER_DATA[target]
         uw = u["wins"]
@@ -1611,12 +1625,12 @@ def start(m):
             next_amt = 1.0 * levels[idx]
         else:
             next_amt = 1.0
-        txt = "USER " + target + " STATS\n\n"
-        txt += "Wins: " + str(uw) + "\nLoss: " + str(ul) + "\n"
-        txt += "Win Rate: {:.1f}%\n".format(wr)
-        txt += "Streak: " + str(ustreak) + "\nTrades: " + str(udaily) + "\n"
-        txt += "Next Stake: ${:.2f} (Level {}/4)\n\n".format(next_amt, idx+1)
-        txt += "Pairs:\n"
+        txt = "👤 **USER " + target + " STATS**\n\n"
+        txt += "🏆 Wins: " + str(uw) + "\n❌ Loss: " + str(ul) + "\n"
+        txt += "📈 Win Rate: {:.1f}%\n".format(wr)
+        txt += "🔥 Streak: " + str(ustreak) + "\n📅 Trades: " + str(udaily) + "\n"
+        txt += "💵 Next Stake: ${:.2f} (Level {}/4)\n\n".format(next_amt, idx+1)
+        txt += "📊 **Pairs:**\n"
         if not u["pairs"]:
             txt += "No trades yet."
         else:
@@ -1631,18 +1645,18 @@ def start(m):
                 txt += "• " + pair + ": W" + str(pw) + " L" + str(pl) + " = {:.0f}%\n".format(w)
         bot.send_message(m.chat.id, txt, parse_mode="Markdown")
         return
-    # ADD
+    # --- ADD / REMOVE / LIST ADMIN ---
     if txt_in.startswith("/add"):
         if not is_admin(m.from_user.id):
-            bot.send_message(m.chat.id, "Only admin can add")
+            bot.send_message(m.chat.id, "❌ Only admin can add")
             return
         try:
             new_id = int(txt_in.split()[1])
             ALLOWED_USERS.add(new_id)
             save_users()
-            bot.send_message(m.chat.id, "Added user " + str(new_id) + "\nTotal: " + str(len(ALLOWED_USERS)), parse_mode="Markdown")
+            bot.send_message(m.chat.id, "✅ Added user " + str(new_id) + "\nTotal: " + str(len(ALLOWED_USERS)), parse_mode="Markdown")
             try:
-                bot.send_message(new_id, "Welcome to TRAILBLAZER SIGNALS! You have been added. Type /start to begin.")
+                bot.send_message(new_id, "🔥 Welcome to TRAILBLAZER SIGNALS!\n\nYou have been added by admin. You go receive signals when admin send am.\n\nType /start to begin.")
             except:
                 pass
         except:
@@ -1650,90 +1664,100 @@ def start(m):
         return
     if txt_in.startswith("/remove"):
         if not is_admin(m.from_user.id):
-            bot.send_message(m.chat.id, "Only admin")
+            bot.send_message(m.chat.id, "❌ Only admin")
             return
         try:
             rem_id = int(txt_in.split()[1])
             ALLOWED_USERS.discard(rem_id)
             save_users()
-            bot.send_message(m.chat.id, "Removed " + str(rem_id) + "\nTotal: " + str(len(ALLOWED_USERS)))
+            bot.send_message(m.chat.id, "❌ Removed " + str(rem_id) + "\nTotal: " + str(len(ALLOWED_USERS)))
         except:
             bot.send_message(m.chat.id, "Usage: /remove 123456789")
         return
     if txt_in.startswith("/list") or txt_in.startswith("/users"):
         if not is_admin(m.from_user.id):
-            bot.send_message(m.chat.id, "Only admin")
+            bot.send_message(m.chat.id, "❌ Only admin")
             return
         if not ALLOWED_USERS:
-            bot.send_message(m.chat.id, "No users yet. Add with: /add 123456789")
+            bot.send_message(m.chat.id, "📭 No users yet. Add with: /add 123456789")
         else:
-            txt = "ADDED USERS:\n\n"
+            txt = "👥 **ADDED USERS:**\n\n"
             for u in ALLOWED_USERS:
                 txt += "• " + str(u) + "\n"
             if AUTO_SEND_90:
-                atxt = "ON"
+                atxt = "✅ ON"
             else:
-                atxt = "OFF"
+                atxt = "🛑 OFF"
             txt += "\nTotal: " + str(len(ALLOWED_USERS)) + "\nAuto 90+: " + atxt
             bot.send_message(m.chat.id, txt, parse_mode="Markdown")
         return
     if txt_in.startswith("/auto") or txt_in.startswith("/autostop") or txt_in.startswith("/autostart"):
         if not is_admin(m.from_user.id):
-            bot.send_message(m.chat.id, "Only admin")
+            bot.send_message(m.chat.id, "❌ Only admin")
             return
         low = txt_in.lower()
         if "off" in low or "stop" in low:
             AUTO_SEND_90 = False
             save_auto()
-            bot.send_message(m.chat.id, "AUTO SEND 90+ STOPPED\nBot will send 90%+ to YOU ONLY. Users only get signal if you press Send to Both.", parse_mode="Markdown")
+            bot.send_message(m.chat.id, "🛑 **AUTO SEND 90+ STOPPED**\n\nBot go send 90%+ to YOU ONLY.\nUsers go only get signal if you press 👥 Send to Both", parse_mode="Markdown")
         elif "on" in low or "start" in low:
             AUTO_SEND_90 = True
             save_auto()
-            bot.send_message(m.chat.id, "AUTO SEND 90+ ON\nBot will auto send 90%+ to YOU + ALL USERS.", parse_mode="Markdown")
+            bot.send_message(m.chat.id, "✅ **AUTO SEND 90+ ON**\n\nBot go auto send 90%+ to YOU + ALL USERS.", parse_mode="Markdown")
         else:
             if AUTO_SEND_90:
-                st = "ON"
+                st = "✅ ON"
             else:
-                st = "OFF"
-            bot.send_message(m.chat.id, "AUTO SEND 90+: " + st + "\nCommands:\n/auto90 on\n/auto90 off\n/autostop\n/autostart", parse_mode="Markdown")
+                st = "🛑 OFF"
+            bot.send_message(m.chat.id, "🤖 **AUTO SEND 90+: " + st + "**\n\nCommands:\n/auto90 on - Turn ON\n/auto90 off - Turn OFF\n/autostop - Stop\n/autostart - Start", parse_mode="Markdown")
         return
-    if not is_allowed(m.from_user.id):
-        if txt_in.startswith("/welcome"):
+    # --- WELCOME / INTRO / READY FOR BOTH ---
+    if txt_in.startswith("/welcome"):
+        if not is_allowed(m.from_user.id):
             bot.send_message(m.chat.id, WELCOME_TEXT)
             return
-        if txt_in.startswith("/intro"):
-            bot.send_message(m.chat.id, INTRO_TEXT)
-            return
-        if txt_in.startswith("/ready"):
-            bot.send_message(m.chat.id, get_ready_text())
-            return
-        bot.send_message(m.chat.id, "Private")
-        return
-    if not is_admin(m.from_user.id):
-        bot.send_message(m.chat.id, "Welcome to TRAILBLAZER! You are added. Wait for admin to send signals. Type /mystats to see YOUR results.")
-        return
-    if txt_in.startswith("/welcome"):
-        send_photo_to_channel_sync(WELCOME_PHOTO, WELCOME_TEXT)
-        bot.send_message(m.chat.id, "Welcome message sent to @KEVINTRAILBLAZE")
+        if is_admin(m.from_user.id):
+            send_photo_to_channel_sync(WELCOME_PHOTO, WELCOME_TEXT)
+            bot.send_message(m.chat.id, "✅ Welcome sent to @KEVINTRAILBLAZE 📤📸")
+        else:
+            bot.send_message(m.chat.id, WELCOME_TEXT)
         return
     if txt_in.startswith("/intro"):
-        send_photo_to_channel_sync(INTRO_PHOTO, INTRO_TEXT)
-        bot.send_message(m.chat.id, "Intro sent to @KEVINTRAILBLAZE")
+        if not is_allowed(m.from_user.id):
+            bot.send_message(m.chat.id, INTRO_TEXT)
+            return
+        if is_admin(m.from_user.id):
+            send_photo_to_channel_sync(INTRO_PHOTO, INTRO_TEXT)
+            bot.send_message(m.chat.id, "✅ Intro sent to @KEVINTRAILBLAZE 📤📸")
+        else:
+            bot.send_message(m.chat.id, INTRO_TEXT)
         return
     if txt_in.startswith("/ready"):
-        send_photo_to_channel_sync(READY_PHOTO, get_ready_text())
-        bot.send_message(m.chat.id, "Get Ready sent to @KEVINTRAILBLAZE")
+        if not is_allowed(m.from_user.id):
+            bot.send_message(m.chat.id, get_ready_text())
+            return
+        if is_admin(m.from_user.id):
+            send_photo_to_channel_sync(READY_PHOTO, get_ready_text())
+            bot.send_message(m.chat.id, "✅ Get Ready sent to @KEVINTRAILBLAZE 🚀📤")
+        else:
+            bot.send_message(m.chat.id, get_ready_text())
+        return
+    if not is_allowed(m.from_user.id):
+        bot.send_message(m.chat.id, "❌ Private")
+        return
+    if not is_admin(m.from_user.id):
+        bot.send_message(m.chat.id, "👋 Welcome to TRAILBLAZER! You are added ✅\n\nWait for admin to send signals. You go receive am here automatically.\n\n📊 Type /mystats to see YOUR results.\n❓ Type /help to see your commands.")
         return
     if txt_in.startswith("/news"):
         news = get_upcoming_news()
         if not news:
-            bot.send_message(m.chat.id, "NEWS CHECK\nNo high impact news in next 2 hours - Clean market", parse_mode="Markdown")
+            bot.send_message(m.chat.id, "📰 **NEWS CHECK**\n\n✅ No high impact news in next 2 hours - Clean market!\n🎯 Safe to trade all pairs.", parse_mode="Markdown")
             return
-        txt = "UPCOMING NEWS - NEXT 2H\n\n" + format_news_alert(news) + "Bot is blocking these currencies."
+        txt = "📰 **UPCOMING NEWS - NEXT 2H**\n\n" + format_news_alert(news) + "⚠️ Bot is blocking these currencies."
         bot.send_message(m.chat.id, txt, parse_mode="Markdown")
         return
     if txt_in.startswith("/brain"):
-        txt = "AI BRAIN - PAIR LEARNING\n\n"
+        txt = "🧠 **AI BRAIN - PAIR LEARNING**\n\n"
         best = []
         bad = []
         for pair, s in PAIR_BRAIN.items():
@@ -1741,7 +1765,7 @@ def start(m):
             if total >= 3:
                 wr = s["wins"] / total * 100
                 if is_pair_blocked(pair):
-                    blk = " BLOCKED"
+                    blk = " 🚫 BLOCKED"
                 else:
                     blk = ""
                 line = PAIR_EMOJI.get(pair, pair) + ": W" + str(s["wins"]) + " L" + str(s["loss"]) + " = {:.0f}%".format(wr) + blk + "\n"
@@ -1749,39 +1773,39 @@ def start(m):
                     best.append(line)
                 elif wr < 50:
                     bad.append(line)
-        txt += "BEST PAIRS:\n"
+        txt += "🏆 **BEST PAIRS:**\n"
         if best:
             txt += "".join(best)
         else:
             txt += "Not enough data yet\n"
-        txt += "\nBAD PAIRS:\n"
+        txt += "\n💀 **BAD PAIRS:**\n"
         if bad:
             txt += "".join(bad)
         else:
             txt += "None\n"
-        txt += "\nToday: " + str(STATS["daily_trades"]) + "/30"
+        txt += "\n📅 Today: " + str(STATS["daily_trades"]) + "/30"
         if is_signal_active():
-            txt += "\nActive: " + str(ACTIVE_SIGNAL["pair"]) + " " + str(ACTIVE_SIGNAL["dir"])
+            txt += "\n⏳ Active: " + str(ACTIVE_SIGNAL["pair"]) + " " + str(ACTIVE_SIGNAL["dir"])
         sb, sn = get_session_boost("EURUSD")
-        txt += "\nSession: " + sn + " (" + str(sb) + ")"
+        txt += "\n⏰ Session: " + sn + " (" + str(sb) + ")"
         bot.send_message(m.chat.id, txt, parse_mode="Markdown")
         return
     if txt_in.startswith("/stop"):
         if m.chat.id in AUTO_STATE:
             AUTO_STATE[m.chat.id]["running"] = False
-            bot.send_message(m.chat.id, "Stopping...")
+            bot.send_message(m.chat.id, "🛑 Stopping...")
         else:
             bot.send_message(m.chat.id, "Auto not running")
         return
     if txt_in.startswith("/results"):
         if not OTC_SESSION_RESULTS:
-            bot.send_message(m.chat.id, "No trades yet")
+            bot.send_message(m.chat.id, "📭 No trades yet")
             return
         wins = sum(1 for x in OTC_SESSION_RESULTS if x["win"])
         losses = len(OTC_SESSION_RESULTS) - wins
         pnl_total = sum(x["pnl"] for x in OTC_SESSION_RESULTS)
         idx = OTC_MARTI["loss_streak"]
-        txt = "RESULTS\n\nTotal: " + str(len(OTC_SESSION_RESULTS)) + " | W:" + str(wins) + " L:" + str(losses) + " | PnL: ${:.2f}\n".format(pnl_total)
+        txt = "📊 **RESULTS**\n\nTotal: " + str(len(OTC_SESSION_RESULTS)) + " | W:" + str(wins) + " L:" + str(losses) + " | PnL: ${:.2f}\n".format(pnl_total)
         txt += "Today: " + str(STATS["daily_trades"]) + "/30 | Level " + str(idx+1) + "/4"
         bot.send_message(m.chat.id, txt, parse_mode="Markdown")
         return
@@ -1790,35 +1814,35 @@ def start(m):
         now = datetime.now(tz)
         sb, sn = get_session_boost("EURUSD")
         if IQ_CONNECTED:
-            iq_txt = "YES"
+            iq_txt = "✅ YES"
         else:
-            iq_txt = "NO"
+            iq_txt = "❌ NO"
         if is_signal_active():
             act = str(ACTIVE_SIGNAL["pair"])
         else:
             act = "None"
         if AUTO_SEND_90:
-            atxt = "ON"
+            atxt = "✅ ON"
         else:
-            atxt = "OFF"
-        txt = "MODE CHECK V18\n\n" + get_greeting() + "\n"
-        txt += "Now: " + now.strftime("%A %H:%M:%S WAT") + "\n"
-        txt += "Session: " + sn + " (" + str(sb) + ")\n"
-        txt += "Mode: " + get_mode_text() + "\n"
-        txt += "IQ: " + iq_txt + "\n"
-        txt += "Today: " + str(STATS["daily_trades"]) + "/30\n"
-        txt += "Active: " + act + "\n"
-        txt += "Users: " + str(len(ALLOWED_USERS)) + " | Auto 90+: " + atxt
+            atxt = "🛑 OFF"
+        txt = "📍 **MODE CHECK V4**\n\n" + get_greeting() + "\n"
+        txt += "⏰ Now: " + now.strftime("%A %H:%M:%S WAT") + "\n"
+        txt += "⏰ Session: " + sn + " (" + str(sb) + ")\n"
+        txt += "📊 Mode: " + get_mode_text() + "\n"
+        txt += "💎 IQ: " + iq_txt + "\n"
+        txt += "📅 Today: " + str(STATS["daily_trades"]) + "/30\n"
+        txt += "⏳ Active: " + act + "\n"
+        txt += "👥 Users: " + str(len(ALLOWED_USERS)) + " | Auto 90+: " + atxt
         bot.send_message(m.chat.id, txt, parse_mode="Markdown")
         return
     if txt_in.startswith("/balance"):
         try:
             if not IQ_CONNECTED:
-                bot.send_message(m.chat.id, "BALANCES\nIQ: Not connected yet")
+                bot.send_message(m.chat.id, "💰 **BALANCES**\nIQ: ❌ Not connected yet")
                 return
             demo = get_real_balance("PRACTICE")
             real = get_real_balance("REAL")
-            bot.send_message(m.chat.id, "BALANCES\nDEMO: ${:.2f}\nREAL: ${:.2f}".format(demo, real))
+            bot.send_message(m.chat.id, "💰 **BALANCES**\n🟢 DEMO: ${:.2f}\n🔴 REAL: ${:.2f}".format(demo, real))
         except Exception as e:
             bot.send_message(m.chat.id, "Balance error " + str(e))
         return
@@ -1830,36 +1854,36 @@ def start(m):
     except:
         bal_demo = 0.0
     mk = types.InlineKeyboardMarkup(row_width=1)
-    mk.add(types.InlineKeyboardButton("TRADE REAL (15) AUTO EXPIRY - ${:.2f}".format(bal_demo), callback_data="trade_real"))
-    mk.add(types.InlineKeyboardButton("GET READY - Send To Channel", callback_data="ready_btn"))
-    mk.add(types.InlineKeyboardButton("MY STATS", callback_data="stats"), types.InlineKeyboardButton("AI BRAIN", callback_data="brain_btn"), types.InlineKeyboardButton("NEWS CHECK", callback_data="news_btn"), types.InlineKeyboardButton("SETTINGS", callback_data="settings"))
+    mk.add(types.InlineKeyboardButton("📈 TRADE REAL (15) AUTO EXPIRY - ${:.2f}".format(bal_demo), callback_data="trade_real"))
+    mk.add(types.InlineKeyboardButton("🚀 GET READY - Send To Channel", callback_data="ready_btn"))
+    mk.add(types.InlineKeyboardButton("📊 MY STATS", callback_data="stats"), types.InlineKeyboardButton("🧠 AI BRAIN", callback_data="brain_btn"), types.InlineKeyboardButton("📰 NEWS CHECK", callback_data="news_btn"), types.InlineKeyboardButton("⚙️ SETTINGS", callback_data="settings"))
     greet = get_greeting()
     sb, sn = get_session_boost("EURUSD")
     if IQ_CONNECTED:
-        iq_txt = "YES"
+        iq_txt = "✅"
     else:
-        iq_txt = "NO"
+        iq_txt = "❌"
     if AUTO_SEND_90:
-        atxt = "ON"
+        atxt = "✅ ON"
     else:
-        atxt = "OFF"
-    txt = greet + "\n\nZ-BOT V18 TRAILBLAZER - MANUAL\n\n"
-    txt += "IQ: " + iq_txt + " | DEMO ${:.2f}\n".format(bal_demo)
-    txt += "W:" + str(STATS["wins"]) + " L:" + str(STATS["loss"]) + " | Streak " + str(STATS["streak"]) + "\n"
-    txt += "Today: " + str(STATS["daily_trades"]) + "/30\n"
-    txt += "Session: " + sn + " (" + str(sb) + ")\n"
-    txt += "Mode: " + get_mode_text() + "\n"
-    txt += "Users: " + str(len(ALLOWED_USERS)) + " | Auto 90+: " + atxt + "\n\nSelect:"
+        atxt = "🛑 OFF"
+    txt = greet + "\n\n🤖 **Z-BOT V4 TRAILBLAZER - MANUAL** 🤖\n\n"
+    txt += "💎 IQ: " + iq_txt + " | 💰 DEMO ${:.2f}\n".format(bal_demo)
+    txt += "🏆 W:" + str(STATS["wins"]) + " L:" + str(STATS["loss"]) + " | 🔥 " + str(STATS["streak"]) + "\n"
+    txt += "📅 Today: " + str(STATS["daily_trades"]) + "/30\n"
+    txt += "🧠 Brain: Learning best pairs + hours + RSI\n⏰ Session: " + sn + " (" + str(sb) + ")\n"
+    txt += "📰 News: Auto scanner ON\n🥇 GOLD: XAUUSD ON\n📍 " + get_mode_text() + "\n"
+    txt += "👥 Users: " + str(len(ALLOWED_USERS)) + " | Auto 90+: " + atxt + "\n\n👇 **Select:**"
     bot.send_message(m.chat.id, txt, reply_markup=mk, parse_mode="Markdown")
 
 @bot.callback_query_handler(func=lambda c: True)
 def cb(c):
     if not is_allowed(c.from_user.id):
-        bot.answer_callback_query(c.id, "Private")
+        bot.answer_callback_query(c.id, "❌ Private")
         return
     data = c.data
     cid = c.message.chat.id
-    # USER OWN WIN LOSS - NO ADMIN TOUCH
+    # --- USER OWN WIN / LOSS ---
     if data.startswith("user_win_"):
         pair = data.replace("user_win_", "")
         u = record_user_result(cid, pair, True)
@@ -1867,8 +1891,8 @@ def cb(c):
             PULLBACK_STATE[cid]["active"] = False
         uw = u["wins"]
         ul = u["loss"]
-        bot.answer_callback_query(c.id, "Your WIN recorded!")
-        msg = "YOUR WIN RECORDED\n\nPair " + pair + "\nYour Wins: " + str(uw) + " | Your Loss: " + str(ul) + "\nNext stake reset to $1\nThis is YOUR record only.\nType /mystats to see full record."
+        bot.answer_callback_query(c.id, "✅ Your WIN recorded!")
+        msg = "🏆🏆 **YOUR WIN RECORDED** 🏆🏆\n\n💱 " + pair + "\n✅ Your Wins: " + str(uw) + " | ❌ Your Loss: " + str(ul) + "\n♻️ Your next stake reset to $1 💵\n\nThis na YOUR record only. Admin brain no touch am.\n\nType /mystats to see full record. 📊"
         bot.send_message(cid, msg, parse_mode="Markdown")
         return
     if data.startswith("user_loss_"):
@@ -1885,7 +1909,7 @@ def cb(c):
             u["marti_streak"] = 0
             save_user_data()
             bot.answer_callback_query(c.id, "Chain finished - Reset to $1")
-            msg = "YOUR CHAIN FINISHED\n\nPair " + pair + "\nYou lost: $1 + $2 + $4 + $8 = -$15\nYOUR reset to $1\nYour Wins: " + str(uw) + " | Your Loss: " + str(ul)
+            msg = "⛔ **YOUR CHAIN FINISHED**\n\n💱 " + pair + "\n❌ You lost: $1 + $2 + $4 + $8 = -$15\n♻️ YOUR reset to $1\nYour Wins: " + str(uw) + " | Your Loss: " + str(ul) + "\n\nAdmin own chain no touch."
             bot.send_message(cid, msg, parse_mode="Markdown")
             return
         levels = [1, 2, 4, 8]
@@ -1894,8 +1918,8 @@ def cb(c):
         mult = levels[idx]
         amt = 1.0 * mult
         bot.answer_callback_query(c.id, "Your LOSS - Next " + names[idx] + " $" + str(amt))
-        msg = "YOUR LOSS RECORDED\n\nPair " + pair + "\nYOUR Next: " + names[idx] + " - ${:.2f} Level {}/4 ({}x)\n".format(amt, idx+1, mult)
-        msg += "Your Wins: " + str(uw) + " | Your Loss: " + str(ul) + "\n\nYOUR pullback scan go start for you only..."
+        msg = "❌ **YOUR LOSS RECORDED**\n\n💱 " + pair + "\n👉 YOUR Next: **" + names[idx] + " - ${:.2f} Level {}/4 ({}x)**\n".format(amt, idx+1, mult)
+        msg += "Your Wins: " + str(uw) + " | Your Loss: " + str(ul) + "\n\n🔍 YOUR pullback scan go start for you only...\nWait for next signal for " + pair + "."
         bot.send_message(cid, msg, parse_mode="Markdown")
         threading.Thread(target=pullback_scanner_loop, args=(cid, pair, orig_dir), daemon=True).start()
         return
@@ -1904,16 +1928,16 @@ def cb(c):
         if cid in PULLBACK_STATE:
             PULLBACK_STATE[cid]["active"] = False
         bot.answer_callback_query(c.id, "Skipped for you")
-        bot.send_message(cid, "YOU SKIPPED\n\nPair " + pair + "\nNo WIN / LOSS recorded for YOU.")
+        bot.send_message(cid, "⏭️ **YOU SKIPPED**\n\n💱 " + pair + "\nNo WIN / LOSS recorded for YOU.\nAdmin and others no affect.")
         return
-    # ADMIN ONLY BELOW
+    # --- ADMIN ONLY BELOW ---
     if not is_admin(c.from_user.id):
-        bot.answer_callback_query(c.id, "Admin only")
+        bot.answer_callback_query(c.id, "❌ Admin only")
         return
     if data == "ready_btn":
         send_photo_to_channel_sync(READY_PHOTO, get_ready_text())
-        bot.answer_callback_query(c.id, "Get Ready sent to Channel!")
-        bot.send_message(cid, "Get Ready sent to @KEVINTRAILBLAZE")
+        bot.answer_callback_query(c.id, "✅ Get Ready sent to Channel!")
+        bot.send_message(cid, "✅ Get Ready sent to @KEVINTRAILBLAZE! 🚀📤")
         return
     if data.startswith("send_both_") or data.startswith("send_both_pb_"):
         try:
@@ -1965,8 +1989,8 @@ def cb(c):
             except:
                 pass
             send_signal_to_users(pair, dir_, text)
-            bot.answer_callback_query(c.id, "Sent to You + users!")
-            bot.send_message(cid, "Sent to You + " + str(len(ALLOWED_USERS)) + " users only\nNOT sent to Channel.\nUsers get their own MY WIN / MY LOSS buttons.")
+            bot.answer_callback_query(c.id, "✅ Sent to You + users!")
+            bot.send_message(cid, "✅ Sent to You + " + str(len(ALLOWED_USERS)) + " users only 👥\n❌ NOT sent to Channel.\nUsers get their own MY WIN / MY LOSS buttons.")
         except Exception as e:
             bot.answer_callback_query(c.id, "Error " + str(e))
         return
@@ -1991,8 +2015,8 @@ def cb(c):
                 send_to_channel_sync(format_channel_pullback_gold_signal(dir_, entry_txt, idx, amt))
             else:
                 send_to_channel_sync(format_channel_pullback_signal(pair, dir_, entry_txt, idx, amt, expiry))
-            bot.answer_callback_query(c.id, "Pullback sent to Channel!")
-            bot.send_message(cid, "Pullback signal sent to @KEVINTRAILBLAZE")
+            bot.answer_callback_query(c.id, "✅ Pullback sent to Channel!")
+            bot.send_message(cid, "✅ Pullback sent to @KEVINTRAILBLAZE 📤")
         except Exception as e:
             bot.answer_callback_query(c.id, "Error " + str(e))
         return
@@ -2015,17 +2039,17 @@ def cb(c):
                     send_to_channel_sync(format_channel_signal(pair, dir_, ACTIVE_SIGNAL.get("conf", 88), ACTIVE_SIGNAL.get("price", 0), entry_txt, expiry))
             else:
                 send_to_channel_sync(format_channel_signal(pair, dir_, ACTIVE_SIGNAL.get("conf", 88), ACTIVE_SIGNAL.get("price", 0), entry_txt, expiry))
-            bot.answer_callback_query(c.id, "Sent to Channel!")
-            bot.send_message(cid, "Signal sent to @KEVINTRAILBLAZE")
+            bot.answer_callback_query(c.id, "✅ Sent to Channel!")
+            bot.send_message(cid, "✅ Signal sent to @KEVINTRAILBLAZE 📤")
         except Exception as e:
             bot.answer_callback_query(c.id, "Error " + str(e))
         return
     if data == "news_btn":
         news = get_upcoming_news()
         if not news:
-            bot.send_message(cid, "NEWS CHECK\nNo high impact news in next 2 hours", parse_mode="Markdown")
+            bot.send_message(cid, "📰 **NEWS CHECK**\n\n✅ No high impact news in next 2 hours - Clean market!", parse_mode="Markdown")
             return
-        txt = "UPCOMING NEWS - NEXT 2H\n\n" + format_news_alert(news)
+        txt = "📰 **UPCOMING NEWS - NEXT 2H**\n\n" + format_news_alert(news)
         bot.send_message(cid, txt, parse_mode="Markdown")
         return
     if data.startswith("skip_"):
@@ -2035,7 +2059,7 @@ def cb(c):
         clear_signal()
         LAST_GLOBAL_SIGNAL["time"] = time.time() - (GLOBAL_COOLDOWN - SKIP_COOLDOWN)
         bot.answer_callback_query(c.id, "Skipped - Next in 5 min")
-        bot.send_message(cid, "SKIPPED\n\nPair " + pair + "\nYou skipped this trade.\nNext signal in 5 mins.")
+        bot.send_message(cid, "⏭️ **SKIPPED**\n\n💱 " + pair + "\nYou skipped this trade.\nNo WIN / LOSS recorded.\n⏳ Next signal in **5 mins**.\n✅ Lock opened.")
         return
     if data.startswith("manual_win_"):
         pair = data.replace("manual_win_", "")
@@ -2052,30 +2076,31 @@ def cb(c):
         count_trade()
         wr = get_pair_winrate(pair)
         if wr is not None:
-            wr_txt = "\nBrain WR now {:.0f}%".format(wr)
+            wr_txt = "\n🧠 " + pair + " Brain WR now {:.0f}%".format(wr)
         else:
             wr_txt = ""
-        bot.answer_callback_query(c.id, "WIN")
+        bot.answer_callback_query(c.id, "WIN 🏅")
         base = OTC_MARTI["base"]
         profit = round(base * 0.85, 2)
         total_return = round(base + profit, 2)
         tz = pytz.timezone("Africa/Lagos")
         now = datetime.now(tz)
         if win_dir == "CALL":
-            dir_e = "CALL UP"
+            dir_e = "🟢 CALL ⬆️"
         else:
-            dir_e = "PUT DOWN"
+            dir_e = "🔴 PUT ⬇️"
         total = STATS["wins"] + STATS["loss"]
         if total:
             wr_total = STATS["wins"] / total * 100
         else:
             wr_total = 0
         pair_label = PAIR_EMOJI.get(pair, pair)
-        win_msg = "TRADE WON\n\n" + pair_label + "\n" + dir_e + " | Conf: {:.0f}%\n".format(win_conf)
-        win_msg += "Time: " + now.strftime("%H:%M:%S") + "\nStake: ${:.2f}\nProfit: +${:.2f}\nPayout: ${:.2f}\n".format(base, profit, total_return)
-        win_msg += "Wins: " + str(STATS["wins"]) + " | Loss: " + str(STATS["loss"]) + "\nToday WR: {:.1f}%".format(wr_total) + wr_txt + "\nNext Entry Reset: ${:.2f}\n".format(base)
-        win_msg += "Today: " + str(STATS["daily_trades"]) + "/30"
+        win_msg = "🏆━━━━━━━━━━━━━━━━━━🏆\n      ✅ TRADE WON 🏅\n🏆━━━━━━━━━━━━━━━━━━🏆\n\n🎯 " + pair_label + "\n📈 " + dir_e + " | Conf: {:.0f}%\n".format(win_conf)
+        win_msg += "🕒 " + now.strftime("%H:%M:%S") + " | " + now.strftime("%d %b") + "\n\n──────────────────\n💵 Stake: ${:.2f}\n💰 Profit: +${:.2f}\n💵 Payout: ${:.2f}\n──────────────────\n\n".format(base, profit, total_return)
+        win_msg += "🏅 Wins: " + str(STATS["wins"]) + " | ❌ Loss: " + str(STATS["loss"]) + "\n📊 Today WR: {:.1f}%".format(wr_total) + wr_txt + "\n♻️ Next Entry Reset: ${:.2f}\n".format(base)
+        win_msg += "📅 Today: " + str(STATS["daily_trades"]) + "/30 trades\n✅ Next signal can now come."
         bot.send_message(cid, win_msg, parse_mode="Markdown")
+        bot.send_message(cid, "🤑")
         return
     if data.startswith("manual_loss_"):
         parts = data.replace("manual_loss_", "").rsplit("_", 1)
@@ -2095,11 +2120,11 @@ def cb(c):
             clear_signal()
             wr = get_pair_winrate(pair)
             if wr is not None:
-                wr_txt = "\nBrain WR now {:.0f}%".format(wr)
+                wr_txt = "\n🧠 " + pair + " Brain WR now {:.0f}%".format(wr)
             else:
                 wr_txt = ""
             bot.answer_callback_query(c.id, "Chain finished - Reset to $1")
-            bot.send_message(cid, "CHAIN FINISHED\n\nPair " + pair + "\nLost: $1 + $2 + $4 + $8 = -$15\nRESET to $1" + wr_txt + "\nToday: " + str(STATS["daily_trades"]) + "/30")
+            bot.send_message(cid, "⛔ **CHAIN FINISHED**\n\n💱 " + pair + "\n❌ Lost: $1 + $2 + $4 + $8 = -$15\n♻️ RESET to Real Entry $1" + wr_txt + "\n📅 Today: " + str(STATS["daily_trades"]) + "/30\n✅ Next signal can now come.\n💪 No give up Trailblazer! 🔥")
             return
         levels = OTC_MARTI["levels"]
         idx = OTC_MARTI["loss_streak"]
@@ -2108,16 +2133,16 @@ def cb(c):
         names = ["", "Martingale 1", "Martingale 2", "Martingale 3"]
         wr = get_pair_winrate(pair)
         if wr is not None:
-            wr_txt = "\nBrain WR {:.0f}%".format(wr)
+            wr_txt = "\n🧠 " + pair + " Brain WR {:.0f}%".format(wr)
         else:
             wr_txt = ""
         bot.answer_callback_query(c.id, "LOSS - Next " + names[idx] + " $" + str(next_amt))
-        msg = "LOSS Recorded\n\nPair " + pair + "\nNext: " + names[idx] + " - ${:.2f} Level {}/4 ({}x)".format(next_amt, idx+1, mult) + wr_txt + "\nScanning for pullback..."
+        msg = "❌ **LOSS Recorded**\n\n💱 " + pair + "\n👉 Next: **" + names[idx] + " - ${:.2f} Level {}/4 ({}x)**".format(next_amt, idx+1, mult) + wr_txt + "\n🔍 Scanning every 10 sec for pullback entry...\n📍 RSI safe + RSI turning + Price at EMA\n📰 News check ON\n\nPress ✅ WIN / ❌ LOSS / ⏭️ SKIP after you trade."
         bot.send_message(cid, msg)
         threading.Thread(target=pullback_scanner_loop, args=(cid, pair, orig_dir), daemon=True).start()
         return
     if data == "brain_btn":
-        txt = "AI BRAIN V18\n\n"
+        txt = "🧠 **AI BRAIN V4**\n\n"
         best = []
         bad = []
         for pair, s in PAIR_BRAIN.items():
@@ -2125,7 +2150,7 @@ def cb(c):
             if total >= 3:
                 wr = s["wins"] / total * 100
                 if is_pair_blocked(pair):
-                    blk = " BLOCKED"
+                    blk = " 🚫"
                 else:
                     blk = ""
                 line = PAIR_EMOJI.get(pair, pair) + ": W" + str(s["wins"]) + " L" + str(s["loss"]) + " = {:.0f}%".format(wr) + blk + "\n"
@@ -2133,83 +2158,81 @@ def cb(c):
                     best.append(line)
                 elif wr < 50:
                     bad.append(line)
-        txt += "BEST:\n"
+        txt += "🏆 BEST:\n"
         if best:
             txt += "".join(best)
         else:
             txt += "No data yet\n"
-        txt += "\nBAD:\n"
+        txt += "\n💀 BAD:\n"
         if bad:
             txt += "".join(bad)
         else:
             txt += "None\n"
         sb, sn = get_session_boost("EURUSD")
-        txt += "\nNow: " + sn + " (" + str(sb) + ")"
+        txt += "\n⏰ Now: " + sn + " (" + str(sb) + ")"
         bot.send_message(cid, txt, parse_mode="Markdown")
         return
     if data == "trade_real":
         mk = types.InlineKeyboardMarkup(row_width=1)
-        mk.add(types.InlineKeyboardButton("SCAN ALL REAL NOW (15 PAIRS)", callback_data="scan_all_real"))
+        mk.add(types.InlineKeyboardButton("🔍 📊 SCAN ALL REAL NOW (15 PAIRS)", callback_data="scan_all_real"))
         for p in REAL_PAIRS:
             mk.add(types.InlineKeyboardButton(PAIR_EMOJI.get(p, p), callback_data="real_pair_" + p))
-        mk.add(types.InlineKeyboardButton("XAU/USD GOLD", callback_data="real_pair_XAUUSD"))
-        bot.send_message(cid, "TRADE REAL V18 MANUAL\n" + get_mode_text() + "\nToday: " + str(STATS["daily_trades"]) + "/30", reply_markup=mk, parse_mode="Markdown")
+        mk.add(types.InlineKeyboardButton("🥇 XAU/USD GOLD", callback_data="real_pair_XAUUSD"))
+        bot.send_message(cid, "📈 **TRADE REAL V4 TRAILBLAZER MANUAL**\n📍 " + get_mode_text() + "\n📅 Today: " + str(STATS["daily_trades"]) + "/30", reply_markup=mk, parse_mode="Markdown")
         return
     if data == "scan_all_real":
         if is_signal_active():
-            bot.send_message(cid, "One signal already active\nPair " + str(ACTIVE_SIGNAL["pair"]) + " " + str(ACTIVE_SIGNAL["dir"]) + "\nFinish it first")
+            bot.send_message(cid, "⏳ **One signal already active**\n\n💱 " + str(ACTIVE_SIGNAL["pair"]) + " " + str(ACTIVE_SIGNAL["dir"]) + "\nFinish it first - Press ✅ WIN / ❌ LOSS / ⏭️ SKIP")
             return
         if not can_trade_today():
-            bot.send_message(cid, "Max 30 trades reached today")
+            bot.send_message(cid, "⛔ Max 30 trades reached today. Come back tomorrow 7AM.")
             return
-        bot.answer_callback_query(c.id, "Scanning 15 REAL pairs...")
-        scan_msg = bot.send_message(cid, "SCANNING ALL 15 REAL PAIRS...")
+        bot.answer_callback_query(c.id, "Scanning 15 REAL pairs V4...")
+        scan_msg = bot.send_message(cid, "🔍 **SCANNING ALL 15 REAL PAIRS V4 TRAILBLAZER...**\n\n⏳ ~12 sec")
         results = []
         datas = {}
         for pair in REAL_PAIRS:
             if is_pair_blocked(pair):
-                results.append((pair, 0, "-", "Brain Blocked", "BLOCKED", 120))
+                results.append((pair, 0, "-", "🧠 Blocked", "🔴 BLOCKED", 120))
                 continue
             nb = is_news_blocking_pair(pair, minutes=30)
             if nb:
-                results.append((pair, 0, "-", "News Block", "NEWS", 120))
+                results.append((pair, 0, "-", "📰 News Block", "🔴 NEWS", 120))
                 continue
             d = analyze_sniper_v12(pair, sniper_mode=False)
             if not d:
-                results.append((pair, 0, "-", "No data", "NO TRADE", 120))
+                results.append((pair, 0, "-", "No data", "🔴 NO TRADE", 120))
                 continue
             conf = d["conf"]
             dir_ = d["dir"]
             reason = d["reason"]
             exp = d["expiry"]
             if conf >= 88:
-                status = "READY"
+                status = "🟢 READY"
             elif conf >= 65:
-                status = "WAIT"
+                status = "🟡 WAIT"
             else:
-                status = "NO TRADE"
+                status = "🔴 NO TRADE"
             results.append((pair, conf, dir_, reason, status, exp))
             datas[pair] = d
             try:
-                bot.edit_message_text("Scanning V18... " + pair + " {:.0f}%".format(conf), cid, scan_msg.message_id)
+                bot.edit_message_text("🔍 Scanning V4... " + pair + " {:.0f}%".format(conf), cid, scan_msg.message_id)
             except:
                 pass
             time.sleep(0.3)
         results.sort(key=lambda x: x[1], reverse=True)
-        txt = "REAL V18 READINESS\n"
-        txt += get_mode_text() + "\n"
-        txt += "Time: " + datetime.now(pytz.timezone("Africa/Lagos")).strftime("%H:%M:%S WAT") + "\n"
-        txt += "Today: " + str(STATS["daily_trades"]) + "/30\nNews: " + str(len(get_upcoming_news())) + " in next 2h\n\n"
+        txt = "📊 **REAL V4 TRAILBLAZER READINESS** 📊\n"
+        txt += "📍 " + get_mode_text() + "\n⏰ " + datetime.now(pytz.timezone("Africa/Lagos")).strftime("%H:%M:%S WAT") + "\n📅 Today: " + str(STATS["daily_trades"]) + "/30\n📰 News: " + str(len(get_upcoming_news())) + " high impact in next 2h\n\n"
         for pair, conf, dir_, reason, status, exp in results:
             emoji = PAIR_EMOJI.get(pair, pair)
             txt += status + " " + emoji + ": {:.0f}% ".format(conf) + dir_ + " - " + reason + "\n"
         best = results[0] if results else None
         if best and best[1] >= 88:
-            txt += "\nBEST NOW: " + PAIR_EMOJI.get(best[0], best[0]) + " {:.0f}%".format(best[1])
+            txt += "\n💡 **BEST NOW:** " + PAIR_EMOJI.get(best[0], best[0]) + " {:.0f}%".format(best[1])
         mk = types.InlineKeyboardMarkup(row_width=2)
         if best and best[1] >= 88:
-            mk.add(types.InlineKeyboardButton("TRADE BEST " + best[0], callback_data="real_pair_" + best[0]))
-        mk.add(types.InlineKeyboardButton("RE-SCAN ALL", callback_data="scan_all_real"))
+            mk.add(types.InlineKeyboardButton("✅ TRADE BEST " + best[0], callback_data="real_pair_" + best[0]))
+        mk.add(types.InlineKeyboardButton("🔄 RE-SCAN ALL", callback_data="scan_all_real"))
         bot.send_message(cid, txt, reply_markup=mk, parse_mode="Markdown")
         if best and best[1] >= 88 and best[0] in datas:
             time.sleep(0.5)
@@ -2225,9 +2248,9 @@ def cb(c):
             bprice = best_data["price"]
             bpair = best_data["pair"]
             if bdir == "CALL":
-                dir_e = "CALL UP"
+                dir_e = "🟢 CALL ⬆️"
             else:
-                dir_e = "PUT DOWN"
+                dir_e = "🔴 PUT ⬇️"
             base = OTC_MARTI["base"]
             mk2 = types.InlineKeyboardMarkup(row_width=2)
             mk2.add(types.InlineKeyboardButton("✅ WIN - Reset", callback_data="manual_win_" + bpair), types.InlineKeyboardButton("❌ LOSS - Pullback Scan", callback_data="manual_loss_" + bpair + "_" + bdir))
@@ -2236,13 +2259,16 @@ def cb(c):
             mk2.add(types.InlineKeyboardButton("📤👥 Send to Both Me + Users", callback_data="send_both_" + bpair + "_" + bdir))
             ti2 = best_data.get("trend_info", {})
             exp_min2 = ti2.get("expiry", 120) // 60
-            signal_txt = "REAL TOP SIGNAL V18 - MANUAL\n\n" + PAIR_EMOJI.get(bpair, bpair) + "\n" + dir_e + " | {:.0f}% SNIPER\n".format(bconf)
-            signal_txt += breason + " | RSI {:.1f}\n".format(brsi)
-            signal_txt += "Payout {:.0f}% | Price {:.5f} | Suggested: {} Min\n".format(bpayout*100, bprice, exp_min2)
-            signal_txt += "Trend: " + ti2.get("trend_type", "NORMAL TREND") + "\n"
-            signal_txt += "ENTRY: " + entry.strftime("%H:%M:%S WAT") + " (in 45s)\n\n"
-            signal_txt += "Real Entry: ${:.2f}\nMarti 1: ${:.2f} | Marti 2: ${:.2f} | Marti 3: ${:.2f}\n".format(base, base*2, base*4, base*8)
-            signal_txt += "MANUAL - Press WIN / LOSS / SKIP"
+            signal_txt = "📡 **REAL TOP SIGNAL V4 - MANUAL** 📡\n\n💱 " + PAIR_EMOJI.get(bpair, bpair) + "\n📊 " + dir_e + " | 🎯 {:.0f}% SNIPER\n".format(bconf)
+            signal_txt += "📈 " + breason + " | RSI {:.1f}\n".format(brsi)
+            signal_txt += "💸 {:.0f}% | 💰 {:.5f} | ⏱️ Suggested: {} Min\n".format(bpayout*100, bprice, exp_min2)
+            signal_txt += "📊 Trend: " + ti2.get("trend_type", "➡️ NORMAL TREND") + "\n📰 News: ✅ Checked\n\n"
+            signal_txt += "⏰ ENTRYContinue from where e cut - na only tail remain, append this to end your file, replace the cut-off part:
+
+```python
+            signal_txt += "⏰ ENTRY: " + entry.strftime("%H:%M:%S WAT") + " (in 45s)\n\n"
+            signal_txt += "**Real Entry:** ${:.2f}\n**Marti 1:** ${:.2f} | **Marti 2:** ${:.2f} | **Marti 3:** ${:.2f}\n\n".format(base, base*2, base*4, base*8)
+            signal_txt += "⚠️ MANUAL - Press WIN / LOSS / SKIP"
             bot.send_message(cid, signal_txt, parse_mode="Markdown", reply_markup=mk2)
             start_signal(bpair, bdir, bconf, brsi, best_data.get("adx", 30), price=bprice, expiry=best_data.get("expiry", 120))
         return
@@ -2252,7 +2278,7 @@ def cb(c):
             bot.answer_callback_query(c.id, "Scanning GOLD...")
             d = analyze_xauusd()
             if not d:
-                bot.send_message(cid, "No safe GOLD trade now\nConf < 88% or ADX / News block\nTry again in 5 min.")
+                bot.send_message(cid, "⚠️ **No safe GOLD trade now**\n\n📊 Conf < 88% or ADX / News block\nTry again in 5 min.")
                 return
             tz = pytz.timezone("Africa/Lagos")
             now = datetime.now(tz)
@@ -2268,56 +2294,55 @@ def cb(c):
             tp1 = d["tp1"]
             tp2 = d["tp2"]
             if dir_ == "CALL":
-                dir_e = "BUY UP"
+                dir_e = "🟢 BUY ⬆️"
             else:
-                dir_e = "SELL DOWN"
+                dir_e = "🔴 SELL ⬇️"
             base = OTC_MARTI["base"]
             mk = types.InlineKeyboardMarkup(row_width=2)
             mk.add(types.InlineKeyboardButton("✅ WIN - Reset", callback_data="manual_win_XAUUSD"), types.InlineKeyboardButton("❌ LOSS - Pullback Scan", callback_data="manual_loss_XAUUSD_" + dir_))
             mk.add(types.InlineKeyboardButton("⏭️ SKIP THIS TRADE", callback_data="skip_XAUUSD"))
             mk.add(types.InlineKeyboardButton("📤 Send to Channel", callback_data="send_channel_XAUUSD_" + dir_))
             mk.add(types.InlineKeyboardButton("📤👥 Send to Both Me + Users", callback_data="send_both_XAUUSD_" + dir_))
-            msg = "GOLD SIGNAL XAU/USD\n\n" + dir_e + " | {:.0f}% SNIPER GOLD\n".format(conf)
-            msg += reason + " | RSI {:.1f} | ATR {:.2f}\n".format(rsi_v, atr_v)
-            msg += "Session: " + sess + "\n\n"
-            msg += "ENTRY TIME: " + entry_time.strftime("%H:%M:%S WAT") + "\n"
-            msg += "ENTRY: {:.2f}\nSL: {:.2f}\nTP1: {:.2f}\nTP2: {:.2f}\n\n".format(price, sl, tp1, tp2)
-            msg += "Stake: ${:.2f}\nMANUAL - Press WIN / LOSS / SKIP".format(base)
+            msg = "🥇🥇🥇 **XAU/USD GOLD SIGNAL** 🥇🥇🥇\n\n" + dir_e + " | 🎯 {:.0f}% SNIPER GOLD\n".format(conf)
+            msg += "📈 " + reason + " | RSI {:.1f} | ATR {:.2f}\n".format(rsi_v, atr_v)
+            msg += "⏰ Session: " + sess + "\n\n"
+            msg += "━━━━━━━━━━━━━━━━━━\n⏰ ENTRY TIME: " + entry_time.strftime("%H:%M:%S WAT") + "\n"
+            msg += "💰 ENTRY: {:.2f}\n🛑 SL: {:.2f}\n🎯 TP1: {:.2f}\n🎯 TP2: {:.2f}\n".format(price, sl, tp1, tp2)
+            msg += "━━━━━━━━━━━━━━━━━━\n\n💵 **Stake:** ${:.2f}\n⚠️ MANUAL - Press WIN / LOSS / SKIP".format(base)
             bot.send_message(cid, msg, parse_mode="Markdown", reply_markup=mk)
             start_signal("XAUUSD", dir_, conf, rsi_v, d.get("adx", 30), price=price, sl=sl, tp1=tp1, tp2=tp2)
             return
         if is_signal_active() and ACTIVE_SIGNAL["pair"] != pair:
-            bot.send_message(cid, "One signal already active\nPair " + str(ACTIVE_SIGNAL["pair"]) + " " + str(ACTIVE_SIGNAL["dir"]) + "\nFinish it first")
+            bot.send_message(cid, "⏳ **One signal already active**\n\n💱 " + str(ACTIVE_SIGNAL["pair"]) + " " + str(ACTIVE_SIGNAL["dir"]) + "\nFinish it first - Press ✅ WIN / ❌ LOSS / ⏭️ SKIP")
             return
         if is_pair_blocked(pair):
-            bot.send_message(cid, "Pair Blocked by Brain\nThis pair has been losing. Try another pair.")
+            bot.send_message(cid, "🧠 **" + pair + " Blocked by Brain**\n\nThis pair has been losing. Try another pair.")
             return
         nb = is_news_blocking_pair(pair, minutes=30)
         if nb:
             nc = nb["country"]
             title = nb["title"]
             nin = nb["in_min"]
-            bot.send_message(cid, "Pair Blocked by NEWS\n" + nc + " - " + title + "\nIn " + str(nin) + " min\nWait 15 min after news.")
+            bot.send_message(cid, "📰 **" + pair + " Blocked by NEWS**\n\n🔴 " + nc + " - " + title + "\n⏰ In " + str(nin) + " min\n\nWait 15 min after news.")
             return
-        bot.answer_callback_query(c.id, "Scanning " + pair + " V18...")
-        scan_msg = bot.send_message(cid, "V18 SCAN " + PAIR_EMOJI.get(pair, pair) + "\n0%\nSniper...")
-        # simple progress - no legit_live_scan to avoid edit spam
+        bot.answer_callback_query(c.id, "Scanning " + pair + " V4...")
+        scan_msg = bot.send_message(cid, "🔍 **V4 TRAILBLAZER SCAN " + PAIR_EMOJI.get(pair, pair) + "**\n\n0%\n🚀 Sniper...")
         time.sleep(1)
         try:
-            bot.edit_message_text("Scanning V18... " + pair, cid, scan_msg.message_id)
+            bot.edit_message_text("🔍 Scanning V4... " + pair, cid, scan_msg.message_id)
         except:
             pass
         d = analyze_sniper_v12(pair, sniper_mode=False)
         if not d or d["conf"] < 88:
             mk = types.InlineKeyboardMarkup()
-            mk.add(types.InlineKeyboardButton("RETRY", callback_data="real_pair_" + pair), types.InlineKeyboardButton("SCAN ALL", callback_data="scan_all_real"))
+            mk.add(types.InlineKeyboardButton("🔄 RETRY", callback_data="real_pair_" + pair), types.InlineKeyboardButton("📈 SCAN ALL", callback_data="scan_all_real"))
             if d:
                 conf_v = d["conf"]
                 reason_v = d["reason"]
             else:
                 conf_v = 0
                 reason_v = "No data"
-            bot.send_message(cid, "No safe trade now for " + pair + "\nConf: {:.0f}% < 88%\n".format(conf_v) + reason_v, reply_markup=mk)
+            bot.send_message(cid, "⚠️ **No safe trade now for " + pair + "**\n\n📊 Conf: {:.0f}% < 88%\n🛡️ ".format(conf_v) + reason_v, reply_markup=mk)
             return
         tz = pytz.timezone("Africa/Lagos")
         now = datetime.now(tz)
@@ -2330,37 +2355,37 @@ def cb(c):
         payout = d["payout"]
         price = d["price"]
         if dir_ == "CALL":
-            dir_e = "CALL UP"
+            dir_e = "🟢 CALL ⬆️"
         else:
-            dir_e = "PUT DOWN"
+            dir_e = "🔴 PUT ⬇️"
         base = OTC_MARTI["base"]
         ti3 = d.get("trend_info", {})
         exp_min3 = ti3.get("expiry", 120) // 60
         trends_txt = " | ".join(ti3.get("trends", [])[:4])
-        signal_txt = "REAL SIGNAL V18 - MANUAL\n\n" + PAIR_EMOJI.get(pair, pair) + "\n" + dir_e + " | {:.0f}% SNIPER\n".format(conf)
-        signal_txt += reason + " | RSI {:.1f} | ATR {:.5f}\n".format(rsi_v, atr_v)
-        signal_txt += "Trend: " + ti3.get("trend_type", "NORMAL TREND") + "\n" + trends_txt + "\n"
-        signal_txt += "Payout {:.0f}% | Price {:.5f} | Suggested: {} Min\n".format(payout*100, price, exp_min3)
-        signal_txt += "ENTRY: " + entry.strftime("%H:%M:%S WAT") + " (in 45s)\n\n"
-        signal_txt += "Real Entry: ${:.2f}\nMarti 1: ${:.2f} | Marti 2: ${:.2f} | Marti 3: ${:.2f}\n".format(base, base*2, base*4, base*8)
-        signal_txt += "MANUAL - Press WIN / LOSS / SKIP"
+        signal_txt = "📡 **REAL SIGNAL V4 TRAILBLAZER - MANUAL** 📡\n\n💱 " + PAIR_EMOJI.get(pair, pair) + "\n📊 " + dir_e + " | 🎯 {:.0f}% SNIPER\n".format(conf)
+        signal_txt += "📈 " + reason + " | RSI {:.1f} | ATR {:.5f}\n".format(rsi_v, atr_v)
+        signal_txt += "📊 Trend: " + ti3.get("trend_type", "➡️ NORMAL TREND") + "\n🔍 Trends: " + trends_txt + "\n"
+        signal_txt += "💸 {:.0f}% | 💰 {:.5f} | ⏱️ Suggested: {} Min\n".format(payout*100, price, exp_min3)
+        signal_txt += "📰 News: ✅ Checked\n\n⏰ ENTRY: " + entry.strftime("%H:%M:%S WAT") + " (in 45s)\n\n"
+        signal_txt += "**Real Entry:** ${:.2f}\n**Marti 1:** ${:.2f} | **Marti 2:** ${:.2f} | **Marti 3:** ${:.2f}\n\n".format(base, base*2, base*4, base*8)
+        signal_txt += "⚠️ MANUAL - Press WIN / LOSS / SKIP"
         mk = types.InlineKeyboardMarkup(row_width=2)
         mk.add(types.InlineKeyboardButton("✅ WIN - Reset", callback_data="manual_win_" + pair), types.InlineKeyboardButton("❌ LOSS - Pullback Scan", callback_data="manual_loss_" + pair + "_" + dir_))
         mk.add(types.InlineKeyboardButton("⏭️ SKIP THIS TRADE", callback_data="skip_" + pair))
         mk.add(types.InlineKeyboardButton("📤 Send to Channel", callback_data="send_channel_" + pair + "_" + dir_))
         mk.add(types.InlineKeyboardButton("📤👥 Send to Both Me + Users", callback_data="send_both_" + pair + "_" + dir_))
-        mk.add(types.InlineKeyboardButton("SAME PAIR", callback_data="real_pair_" + pair), types.InlineKeyboardButton("SCAN ALL", callback_data="scan_all_real"))
+        mk.add(types.InlineKeyboardButton("🔁 SAME PAIR", callback_data="real_pair_" + pair), types.InlineKeyboardButton("📈 SCAN ALL", callback_data="scan_all_real"))
         bot.send_message(cid, signal_txt, reply_markup=mk, parse_mode="Markdown")
         start_signal(pair, dir_, conf, rsi_v, d.get("adx", 30), price=price, expiry=d.get("expiry", 120))
         return
     if data == "trade" or data == "scan_all_otc" or data == "auto_setup" or data.startswith("auto_pair_") or data.startswith("auto_bal_") or data.startswith("auto_amt_") or data.startswith("pair_"):
         bot.answer_callback_query(c.id, "OTC Disabled")
-        bot.send_message(cid, "OTC DISABLED\nBot will only send REAL signals from 7AM.\nUse TRADE REAL.")
+        bot.send_message(cid, "⛔ **OTC DISABLED**\n\nBot go only send REAL signals from 7AM.\n\nUse TRADE REAL.")
         return
     if data == "stop_auto":
         if cid in AUTO_STATE:
             AUTO_STATE[cid]["running"] = False
-            bot.send_message(cid, "Stopping...")
+            bot.send_message(cid, "🛑 Stopping...")
         return
     if data == "stats":
         total = STATS["wins"] + STATS["loss"]
@@ -2371,27 +2396,25 @@ def cb(c):
         bal = get_real_balance("PRACTICE")
         sb, sn = get_session_boost("EURUSD")
         if AUTO_SEND_90:
-            atxt = "ON"
+            atxt = "✅ ON"
         else:
-            atxt = "OFF"
-        msg = "STATS V18\n"
-        msg += "Mode: " + get_mode_text() + "\n" + get_greeting() + "\n"
-        msg += "Session: " + sn + " (" + str(sb) + ")\n"
-        msg += "Wins: " + str(STATS["wins"]) + "\nLoss: " + str(STATS["loss"]) + "\n"
-        msg += "Winrate: {:.1f}%\n".format(wr)
-        msg += "Streak: " + str(STATS["streak"]) + "\n"
-        msg += "Bal: ${:.2f}\n".format(bal)
-        msg += "Today: " + str(STATS["daily_trades"]) + "/30\n"
-        msg += "Brain pairs: " + str(len(PAIR_BRAIN)) + "\n"
-        msg += "News in 2h: " + str(len(get_upcoming_news())) + "\n"
-        msg += "OTC: DISABLED | REAL only\nGOLD: XAUUSD ON\n"
-        msg += "Users: " + str(len(ALLOWED_USERS)) + " | Auto 90+: " + atxt
+            atxt = "🛑 OFF"
+        msg = "📊 **STATS V4**\n📍 " + get_mode_text() + "\n" + get_greeting() + "\n"
+        msg += "⏰ Session: " + sn + " (" + str(sb) + ")\n"
+        msg += "🏆 Wins: " + str(STATS["wins"]) + "\n❌ Loss: " + str(STATS["loss"]) + "\n"
+        msg += "📈 Winrate: {:.1f}%\n".format(wr)
+        msg += "🔥 Streak: " + str(STATS["streak"]) + "\n💰 Bal: ${:.2f}\n".format(bal)
+        msg += "📅 Today: " + str(STATS["daily_trades"]) + "/30\n"
+        msg += "🧠 Brain pairs: " + str(len(PAIR_BRAIN)) + "\n"
+        msg += "📰 News in 2h: " + str(len(get_upcoming_news())) + "\n"
+        msg += "📦 OTC: DISABLED | REAL only\n🥇 GOLD: XAUUSD ON\n"
+        msg += "👥 Users: " + str(len(ALLOWED_USERS)) + " | Auto 90+: " + atxt
         bot.send_message(cid, msg, parse_mode="Markdown")
     if data == "settings":
-        bot.send_message(cid, "SETTINGS V18\n5M Trend + ADX 25+ + MACD + Stochastic + BB + Payout 80%+ + News Block + Session Boost + Brain + Pullback\nChannel: @KEVINTRAILBLAZE")
+        bot.send_message(cid, "⚙️ **SETTINGS V4 TRAILBLAZER MANUAL**\n\n🛡️ V4: 5M Trend + ADX 25+ + MACD + Stochastic + BB + Payout 80%+ + News Block + Session Boost + Brain + Pullback\n\n📢 Channel: @KEVINTRAILBLAZE\nUse /welcome, /intro and /ready to post to channel.")
 
 if __name__ == "__main__":
-    print("Starting Trailblazer Bot...")
+    print("Starting Trailblazer Bot V4...")
     threading.Thread(target=background_iq, daemon=True).start()
     threading.Thread(target=daily_summary_loop, daemon=True).start()
     threading.Thread(target=trailblazer_market_scanner, daemon=True).start()
