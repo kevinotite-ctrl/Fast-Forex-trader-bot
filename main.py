@@ -34,7 +34,7 @@ if not BOT_TOKEN:
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 app = Flask(__name__)
 
-ENABLE_OTC = False
+ENABLE_OTC = True
 AUTO_TRADE_ENABLED = False
 MAX_DAILY_TRADES = 30
 MIN_CONFIDENCE = 88.0
@@ -177,8 +177,9 @@ def is_real_hours():
 def get_mode_text():
     mode = "AUTO-TRADE" if AUTO_TRADE_ENABLED else "MANUAL SIGNAL"
     bal = OTC_MARTI["bal"]
+    otc_txt = "OTC: ON" if ENABLE_OTC else "OTC: OFF"
     sess = "REAL SIGNAL (7AM-8PM)" if is_real_hours() else "OUTSIDE REAL HOURS (7AM-8PM)"
-    return f"{mode} | {bal} | {sess}"
+    return f"{mode} | {otc_txt} | {bal} | {sess}"
 
 
 def check_and_reset_new_day():
@@ -530,6 +531,8 @@ def get_greeting_msg():
 def get_session_boost(pair):
     now = get_lagos_now()
     hour = now.hour + now.minute / 60.0
+    if "-OTC" in pair:
+        return 4, "⚡ OTC ACTIVE"
     if pair == "XAUUSD":
         if 14.5 <= hour < 17:
             return 10, "🥇🇬🇧🇺🇸 GOLD LONDON+NY OVERLAP 🔥"
@@ -599,6 +602,8 @@ def get_upcoming_news():
 
 
 def is_news_blocking_pair(pair, minutes=30):
+    if "-OTC" in pair:
+        return None
     news = get_upcoming_news()
     if not news:
         return None
@@ -664,7 +669,7 @@ Do Not Trade Other Pairs That We Did Not Call.
 📋 HOW TODAY WILL WORK:
 ━━━━━━━━━━━━━━━━━━
 🎯 Only 88%+ Sniper Signals
-💱 15 Forex Pairs + GOLD (XAU/USD)
+💱 15 Forex Pairs + GOLD (XAU/USD) + OTC Pairs
 ⏱️ Expiry Will Be Shown On Each Signal - Use The Exact Expiry
 ⏰ Enter Exactly At The Entry Time Shown
 ✅ If You WIN - Go Back To $1
@@ -1057,7 +1062,6 @@ def analyze_sniper_v12(pair, sniper_mode=False):
                 "expiry": 120, "reason": "Blocked by AI Brain", "trend_info": {}
             }
 
-        # Direction scoring
         bull_pts = 0
         bear_pts = 0
         if float(ema9.iloc[-1]) > float(ema21.iloc[-1]) > float(ema50.iloc[-1]):
@@ -1317,7 +1321,6 @@ def pullback_scanner_loop(cid, pair, orig_dir, expiry_sec=120, auto_execute=Fals
                 started_wait = PULLBACK_STATE[cid].get("wait_started") or time.time()
                 PULLBACK_STATE[cid]["wait_started"] = started_wait
                 if time.time() - started_wait >= max_wait_sec:
-                    # Fallback entry after max pullback wait so Martingale level still executes
                     ready = True
                     info = "Max pullback wait reached — executing level entry"
                 else:
@@ -1401,6 +1404,56 @@ def pullback_scanner_loop(cid, pair, orig_dir, expiry_sec=120, auto_execute=Fals
         PULLBACK_STATE[cid] = {"active": False}
 
 
+def run_auto_otc_trade(cid, pair, dir_, expiry=120, conf=88.0, rsi=50.0, adx=30.0):
+    stake = round(OTC_MARTI["base"] * OTC_MARTI["levels"][OTC_MARTI["loss_streak"]], 2)
+    bot.send_message(
+        cid,
+        f"🤖 **AUTO-TRADE OTC STARTED ({OTC_MARTI['bal']})**\n"
+        f"💱 {PAIR_EMOJI.get(pair, pair)} | **{dir_}** | 🎯 {conf:.0f}%\n"
+        f"💵 Stake: **${stake:.2f}** | ⏱️ Expiry: {max(1, expiry // 60)}m",
+        parse_mode="Markdown"
+    )
+    ok, trade_id, msg = execute_iq_trade(pair, dir_, stake, expiry_sec=expiry)
+    if not ok:
+        clear_signal()
+        bot.send_message(cid, f"⚠️ Auto-trade OTC aborted on {pair}: {msg}")
+        return
+    bot.send_message(cid, f"🚀 {msg} (ID: `{trade_id}`)", parse_mode="Markdown")
+    won = wait_for_iq_result(trade_id, expiry_sec=expiry)
+    if won is True:
+        record_brain(pair, True, conf, rsi, adx)
+        STATS["wins"] += 1
+        OTC_MARTI["loss_streak"] = 0
+        clear_signal()
+        bot.send_message(
+            cid,
+            f"✅ **AUTO-TRADE OTC WON on {PAIR_EMOJI.get(pair, pair)}!**\n"
+            f"💵 Stake: ${stake:.2f} | 🏆 Wins: {STATS['wins']} | ❌ Loss: {STATS['loss']}",
+            parse_mode="Markdown"
+        )
+    else:
+        record_brain(pair, False, conf, rsi, adx)
+        STATS["loss"] += 1
+        OTC_MARTI["loss_streak"] += 1
+        if OTC_MARTI["loss_streak"] >= len(OTC_MARTI["levels"]):
+            OTC_MARTI["loss_streak"] = 0
+            clear_signal()
+            bot.send_message(
+                cid,
+                f"⛔ **Auto-Trade OTC Martingale Chain Finished on {pair}**\n♻️ Reset stake to **${OTC_MARTI['base']:.2f}**.",
+                parse_mode="Markdown"
+            )
+            return
+        next_mult = OTC_MARTI["levels"][OTC_MARTI["loss_streak"]]
+        next_amt = round(OTC_MARTI["base"] * next_mult, 2)
+        bot.send_message(
+            cid,
+            f"❌ **Auto-Trade OTC Loss on {pair}** — scanning pullback for Martingale **${next_amt:.2f}**...",
+            parse_mode="Markdown"
+        )
+        pullback_scanner_loop(cid, pair, dir_, expiry_sec=expiry, auto_execute=True)
+
+
 def handle_new_signal(cid, d, is_gold=False, send_channel=True):
     with SIGNAL_LOCK:
         if is_signal_active() or not can_trade_today():
@@ -1439,56 +1492,27 @@ def handle_new_signal(cid, d, is_gold=False, send_channel=True):
 
         def _auto_worker():
             time.sleep(5)
-            ok, trade_id, msg = execute_iq_trade(pair, dir_, stake, expiry_sec=expiry)
-            if not ok:
-                clear_signal()
-                bot.send_message(cid, f"⚠️ Auto-trade aborted on {pair}: {msg}")
-                return
-            bot.send_message(cid, f"🚀 {msg} (ID: `{trade_id}`)", parse_mode="Markdown")
-            won = wait_for_iq_result(trade_id, expiry_sec=expiry)
-            if won is True:
-                record_brain(pair, True, conf, d.get("rsi", 50), d.get("adx", 30))
-                STATS["wins"] += 1
-                OTC_MARTI["loss_streak"] = 0
-                clear_signal()
-                bot.send_message(
-                    cid,
-                    f"✅ **AUTO-TRADE WON on {PAIR_EMOJI.get(pair, pair)}!**\n"
-                    f"💵 Stake: ${stake:.2f} | 🏆 Wins: {STATS['wins']} | ❌ Loss: {STATS['loss']}",
-                    parse_mode="Markdown"
-                )
-            else:
-                record_brain(pair, False, conf, d.get("rsi", 50), d.get("adx", 30))
-                STATS["loss"] += 1
-                OTC_MARTI["loss_streak"] += 1
-                if OTC_MARTI["loss_streak"] >= len(OTC_MARTI["levels"]):
-                    OTC_MARTI["loss_streak"] = 0
-                    clear_signal()
-                    bot.send_message(
-                        cid,
-                        f"⛔ **Auto-Trade Martingale Chain Finished on {pair}**\n♻️ Reset stake to **${OTC_MARTI['base']:.2f}**.",
-                        parse_mode="Markdown"
-                    )
-                    return
-                next_mult = OTC_MARTI["levels"][OTC_MARTI["loss_streak"]]
-                next_amt = round(OTC_MARTI["base"] * next_mult, 2)
-                bot.send_message(
-                    cid,
-                    f"❌ **Auto-Trade Loss on {pair}** — scanning pullback for Martingale **${next_amt:.2f}**...",
-                    parse_mode="Markdown"
-                )
-                pullback_scanner_loop(cid, pair, dir_, expiry_sec=expiry, auto_execute=True)
+            run_auto_otc_trade(
+                cid, pair, dir_, expiry=expiry,
+                conf=conf, rsi=d.get("rsi", 50), adx=d.get("adx", 30)
+            )
 
         threading.Thread(target=_auto_worker, daemon=True).start()
         return True
 
-    # Manual signal mode
     mk = types.InlineKeyboardMarkup(row_width=2)
     mk.add(
         types.InlineKeyboardButton("✅ WIN - Reset", callback_data=f"manual_win_{pair}"),
         types.InlineKeyboardButton("❌ LOSS - Pullback Scan", callback_data=f"manual_loss_{pair}_{dir_}"),
     )
-    mk.add(types.InlineKeyboardButton("⏭️ SKIP THIS TRADE", callback_data=f"skip_{pair}"))
+    if not is_gold and ENABLE_OTC:
+        mk.add(
+            types.InlineKeyboardButton("🤖 Auto Trade OTC", callback_data=f"auto_otc_{pair}_{dir_}_{expiry}"),
+            types.InlineKeyboardButton("⏭️ SKIP THIS TRADE", callback_data=f"skip_{pair}"),
+        )
+    else:
+        mk.add(types.InlineKeyboardButton("⏭️ SKIP THIS TRADE", callback_data=f"skip_{pair}"))
+
     if is_gold:
         txt = (
             f"🥇🥇🥇 **XAU/USD GOLD SIGNAL** 🥇🥇🥇\n\n"
@@ -1536,6 +1560,31 @@ def real_signal_scanner():
         except Exception as e:
             print(f"real_signal_scanner err: {e}")
         time.sleep(25)
+
+
+def otc_signal_scanner():
+    while True:
+        try:
+            check_and_reset_new_day()
+            if (
+                ENABLE_OTC
+                and not is_signal_active()
+                and can_trade_today()
+                and time.time() - LAST_GLOBAL_SIGNAL["time"] >= GLOBAL_COOLDOWN
+            ):
+                best_d = None
+                for pair in OTC_PAIRS:
+                    if is_pair_blocked(pair):
+                        continue
+                    d = analyze_sniper_v12(pair, sniper_mode=True)
+                    if d and d["conf"] >= MIN_CONFIDENCE:
+                        if not best_d or d["conf"] > best_d["conf"]:
+                            best_d = d
+                if best_d:
+                    handle_new_signal(OWNER_ID, best_d, is_gold=False, send_channel=True)
+        except Exception as e:
+            print(f"otc_signal_scanner err: {e}")
+        time.sleep(30)
 
 
 def xauusd_signal_scanner():
@@ -1622,9 +1671,14 @@ def main_menu_keyboard():
     mk = types.InlineKeyboardMarkup(row_width=2)
     auto_lbl = "🤖 Auto-Trade: ON" if AUTO_TRADE_ENABLED else "🤖 Auto-Trade: OFF"
     bal_lbl = f"💼 Account: {OTC_MARTI['bal']}"
+    otc_lbl = "⚡ OTC: ON" if ENABLE_OTC else "⚡ OTC: OFF"
     mk.add(
         types.InlineKeyboardButton(auto_lbl, callback_data="toggle_auto"),
         types.InlineKeyboardButton(bal_lbl, callback_data="toggle_bal"),
+    )
+    mk.add(
+        types.InlineKeyboardButton("⚡ Scan OTC Pairs", callback_data="scan_all_otc"),
+        types.InlineKeyboardButton(otc_lbl, callback_data="toggle_otc"),
     )
     mk.add(
         types.InlineKeyboardButton("📈 Trade Real", callback_data="trade_real"),
@@ -1756,7 +1810,7 @@ def cmd_ready(m):
 
 @bot.callback_query_handler(func=lambda call: True)
 def on_callback(c):
-    global AUTO_TRADE_ENABLED
+    global AUTO_TRADE_ENABLED, ENABLE_OTC
     if not is_allowed(c.from_user.id):
         return
     cid = c.message.chat.id
@@ -1768,12 +1822,62 @@ def on_callback(c):
         bot.edit_message_reply_markup(cid, c.message.message_id, reply_markup=main_menu_keyboard())
         return
 
+    if data == "toggle_otc":
+        ENABLE_OTC = not ENABLE_OTC
+        bot.answer_callback_query(c.id, f"OTC Mode: {'ON' if ENABLE_OTC else 'OFF'}")
+        bot.edit_message_reply_markup(cid, c.message.message_id, reply_markup=main_menu_keyboard())
+        return
+
     if data == "toggle_bal":
         next_bal = "REAL" if OTC_MARTI["bal"] == "PRACTICE" else "PRACTICE"
         ok, bal = set_account_balance_mode(next_bal)
         bot.answer_callback_query(c.id, f"Account: {next_bal}")
         bot.send_message(cid, f"💼 Switched to **{next_bal}** ({'✅' if ok else '⚠️'} `${bal:.2f}`)", parse_mode="Markdown")
         bot.edit_message_reply_markup(cid, c.message.message_id, reply_markup=main_menu_keyboard())
+        return
+
+    if data.startswith("auto_otc_"):
+        parts = data.replace("auto_otc_", "", 1).split("_")
+        pair = parts[0] if len(parts) > 0 else "EURUSD-OTC"
+        dir_ = parts[1] if len(parts) > 1 else "CALL"
+        expiry = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 120
+        AUTO_TRADE_ENABLED = True
+        bot.answer_callback_query(c.id, f"Auto Trading {pair} ({dir_})...")
+        threading.Thread(
+            target=run_auto_otc_trade,
+            args=(cid, pair, dir_, expiry, ACTIVE_SIGNAL.get("conf", 88), ACTIVE_SIGNAL.get("rsi", 50), ACTIVE_SIGNAL.get("adx", 30)),
+            daemon=True
+        ).start()
+        return
+
+    if data == "scan_all_otc":
+        if not ENABLE_OTC:
+            ENABLE_OTC = True
+        if is_signal_active():
+            bot.send_message(cid, f"⏳ Signal already active on `{ACTIVE_SIGNAL['pair']}`.", parse_mode="Markdown")
+            return
+        bot.answer_callback_query(c.id, "Scanning OTC pairs...")
+        scan_msg = bot.send_message(cid, "⚡ Scanning OTC pairs...")
+        results = []
+        datas = {}
+        for pair in OTC_PAIRS:
+            if is_pair_blocked(pair):
+                continue
+            d = analyze_sniper_v12(pair, sniper_mode=False)
+            if d:
+                results.append((pair, d["conf"], d["dir"], d["reason"]))
+                datas[pair] = d
+        results.sort(key=lambda x: x[1], reverse=True)
+        lines = [f"⚡ **OTC SCAN ({OTC_MARTI['bal']})**\n"]
+        for pair, conf, dir_, reason in results[:8]:
+            icon = "🟢" if conf >= MIN_CONFIDENCE else "🟡" if conf >= 70 else "🔴"
+            lines.append(f"{icon} **{pair}**: {conf:.0f}% {dir_} — {reason}")
+        try:
+            bot.edit_message_text("\n".join(lines), cid, scan_msg.message_id, parse_mode="Markdown")
+        except Exception:
+            pass
+        if results and results[0][1] >= MIN_CONFIDENCE:
+            handle_new_signal(cid, datas[results[0][0]], is_gold=False, send_channel=False)
         return
 
     if data.startswith("skip_"):
@@ -1926,7 +2030,7 @@ def on_callback(c):
 
 @app.route("/")
 def home():
-    return f"V18 TRAILBLAZER+XAUUSD RUNNING IQ:{IQ_CONNECTED} AUTO:{AUTO_TRADE_ENABLED} BAL:{OTC_MARTI['bal']} {get_lagos_now().strftime('%H:%M:%S')}"
+    return f"V18 TRAILBLAZER+XAUUSD RUNNING IQ:{IQ_CONNECTED} AUTO:{AUTO_TRADE_ENABLED} OTC:{ENABLE_OTC} BAL:{OTC_MARTI['bal']} {get_lagos_now().strftime('%H:%M:%S')}"
 
 
 @app.route(f"/{BOT_TOKEN}", methods=["POST"])
@@ -1946,6 +2050,7 @@ if __name__ == "__main__":
     threading.Thread(target=morning_greet_loop, daemon=True).start()
     threading.Thread(target=xauusd_signal_scanner, daemon=True).start()
     threading.Thread(target=real_signal_scanner, daemon=True).start()
+    threading.Thread(target=otc_signal_scanner, daemon=True).start()
 
     def run_polling():
         while True:
