@@ -1,3 +1,4 @@
+
 import os
 import time
 import threading
@@ -45,7 +46,7 @@ REAL_PAIRS = [
     "GBPAUD", "EURCAD", "AUDCAD", "GBPCAD", "AUDNZD",
 ]
 OTC_PAIRS = [
-    "EURUSD-OTC", "GBPUSD-OTC",]
+    "EURUSD-OTC", "GBPUSD-OTC"]
 PAIR_EMOJI = {
     "EURUSD": "🇪🇺 EUR/USD REAL", "GBPUSD": "🇬🇧 GBP/USD REAL", "EURGBP": "🇪🇺 EUR/GBP REAL",
     "AUDUSD": "🇦🇺 AUD/USD REAL", "USDCAD": "🇺🇸 USD/CAD REAL", "USDCHF": "🇺🇸 USD/CHF REAL",
@@ -125,6 +126,7 @@ user_states = {}
 AUTO_STATE = {}
 IQ_LOCK = threading.Lock()
 SIGNAL_LOCK = threading.Lock()
+SESSION_LOCK = threading.Lock()
 IQ_CONNECTED = False
 iq = None
 PAYOUT_CACHE = {}
@@ -136,9 +138,14 @@ ACTIVE_SIGNAL = {
     "active": False, "pair": None, "dir": None, "conf": 0, "rsi": 0, "adx": 0,
     "started": 0, "day": "", "price": 0, "sl": 0, "tp1": 0, "tp2": 0, "expiry": 120
 }
-LAST_GLOBAL_SIGNAL = {"time": 0.0}
-GLOBAL_COOLDOWN = 360
+POST_SESSION_REST_SEC = 180  # 3 minutes after signal + pullback martingale ends
 SKIP_COOLDOWN = 120
+SESSION_STATE = {
+    "active": False,
+    "in_pullback": False,
+    "rest_until": 0.0,
+}
+LAST_GLOBAL_SIGNAL = {"time": 0.0}
 DAILY_SUMMARY_SENT = ""
 MARKET_GOOD_SENT = {"date": "", "last_alert": 0.0}
 MORNING_GREET_SENT = ""
@@ -171,12 +178,45 @@ def is_real_hours():
         return 7 <= now.hour < 20
 
 
+def get_rest_remaining() -> float:
+    with SESSION_LOCK:
+        return max(0.0, SESSION_STATE["rest_until"] - time.time())
+
+
+def is_in_post_session_rest() -> bool:
+    return get_rest_remaining() > 0.0
+
+
+def begin_trading_session():
+    with SESSION_LOCK:
+        SESSION_STATE["active"] = True
+        SESSION_STATE["in_pullback"] = False
+        SESSION_STATE["rest_until"] = 0.0
+
+
+def set_pullback_active(active: bool):
+    with SESSION_LOCK:
+        SESSION_STATE["in_pullback"] = active
+
+
+def finish_trading_session_and_rest(rest_seconds: int = POST_SESSION_REST_SEC):
+    now_ts = time.time()
+    with SESSION_LOCK:
+        SESSION_STATE["active"] = False
+        SESSION_STATE["in_pullback"] = False
+        SESSION_STATE["rest_until"] = now_ts + rest_seconds
+    LAST_GLOBAL_SIGNAL["time"] = now_ts
+    clear_signal()
+
+
 def get_mode_text():
     mode = "AUTO-TRADE" if AUTO_TRADE_ENABLED else "MANUAL SIGNAL"
     bal = OTC_MARTI["bal"]
     otc_txt = "OTC: ON" if ENABLE_OTC else "OTC: OFF"
     sess = "REAL SIGNAL (7AM-8PM)" if is_real_hours() else "OUTSIDE REAL HOURS (7AM-8PM)"
-    return f"{mode} | {otc_txt} | {bal} | {sess}"
+    rest_rem = int(get_rest_remaining())
+    rest_txt = f" | REST {rest_rem}s" if rest_rem > 0 else ""
+    return f"{mode} | {otc_txt} | {bal} | {sess}{rest_txt}"
 
 
 def check_and_reset_new_day():
@@ -190,6 +230,10 @@ def check_and_reset_new_day():
         })
         PULLBACK_STATE.clear()
         OTC_MARTI["loss_streak"] = 0
+        with SESSION_LOCK:
+            SESSION_STATE["active"] = False
+            SESSION_STATE["in_pullback"] = False
+            SESSION_STATE["rest_until"] = 0.0
         return True
     if ACTIVE_SIGNAL["active"] and ACTIVE_SIGNAL.get("day") and ACTIVE_SIGNAL["day"] != today:
         ACTIVE_SIGNAL.update({
@@ -198,6 +242,10 @@ def check_and_reset_new_day():
         })
         PULLBACK_STATE.clear()
         OTC_MARTI["loss_streak"] = 0
+        with SESSION_LOCK:
+            SESSION_STATE["active"] = False
+            SESSION_STATE["in_pullback"] = False
+            SESSION_STATE["rest_until"] = 0.0
         return True
     return False
 
@@ -214,11 +262,28 @@ def count_trade():
 
 def is_signal_active():
     check_and_reset_new_day()
+    with SESSION_LOCK:
+        if SESSION_STATE["active"] or SESSION_STATE["in_pullback"]:
+            return True
     if ACTIVE_SIGNAL["active"] and ACTIVE_SIGNAL.get("started"):
-        max_age = max(ACTIVE_SIGNAL.get("expiry", 120) + 600, 900)
+        max_age = max(ACTIVE_SIGNAL.get("expiry", 120) + 900, 1200)
         if time.time() - ACTIVE_SIGNAL["started"] > max_age:
-            clear_signal()
+            finish_trading_session_and_rest(POST_SESSION_REST_SEC)
     return ACTIVE_SIGNAL["active"]
+
+
+def can_start_new_scan_or_signal() -> bool:
+    check_and_reset_new_day()
+    if not can_trade_today():
+        return False
+    if is_signal_active():
+        return False
+    with SESSION_LOCK:
+        if SESSION_STATE["active"] or SESSION_STATE["in_pullback"]:
+            return False
+        if time.time() < SESSION_STATE["rest_until"]:
+            return False
+    return True
 
 
 def start_signal(pair, dir_, conf=0, rsi=0, adx=0, price=0, sl=0, tp1=0, tp2=0, expiry=120):
@@ -228,6 +293,7 @@ def start_signal(pair, dir_, conf=0, rsi=0, adx=0, price=0, sl=0, tp1=0, tp2=0, 
         "adx": adx, "started": time.time(), "day": get_lagos_day(), "price": price,
         "sl": sl, "tp1": tp1, "tp2": tp2, "expiry": expiry
     })
+    begin_trading_session()
 
 
 def clear_signal():
@@ -1294,14 +1360,22 @@ def check_pullback_ready(pair, orig_dir):
 
 
 def pullback_scanner_loop(cid, pair, orig_dir, expiry_sec=120, auto_execute=False):
+    with SESSION_LOCK:
+        if SESSION_STATE["in_pullback"] and PULLBACK_STATE.get(cid, {}).get("active"):
+            return
+        SESSION_STATE["active"] = True
+        SESSION_STATE["in_pullback"] = True
+
     PULLBACK_STATE[cid] = {"active": True, "pair": pair, "dir": orig_dir}
     names = ["", "Martingale 1", "Martingale 2", "Martingale 3"]
     max_wait_sec = 300
+    session_completed = False
 
     try:
         while PULLBACK_STATE.get(cid, {}).get("active"):
             idx = OTC_MARTI["loss_streak"]
             if idx <= 0 or idx >= len(OTC_MARTI["levels"]):
+                session_completed = True
                 break
 
             mult = OTC_MARTI["levels"][idx]
@@ -1351,10 +1425,10 @@ def pullback_scanner_loop(cid, pair, orig_dir, expiry_sec=120, auto_execute=Fals
                     STATS["wins"] += 1
                     OTC_MARTI["loss_streak"] = 0
                     PULLBACK_STATE[cid]["active"] = False
-                    clear_signal()
+                    session_completed = True
                     bot.send_message(
                         cid,
-                        f"✅ **{lvl_name} WON (${stake:.2f}) on {pair}!**\n♻️ Martingale reset to **${OTC_MARTI['base']:.2f}**.",
+                        f"✅ **{lvl_name} WON (${stake:.2f}) on {pair}!**\n♻️ Martingale reset to **${OTC_MARTI['base']:.2f}**.\n⏳ Resting **3 minutes** before next scan.",
                         parse_mode="Markdown"
                     )
                     return
@@ -1365,10 +1439,10 @@ def pullback_scanner_loop(cid, pair, orig_dir, expiry_sec=120, auto_execute=Fals
                     if OTC_MARTI["loss_streak"] >= len(OTC_MARTI["levels"]):
                         OTC_MARTI["loss_streak"] = 0
                         PULLBACK_STATE[cid]["active"] = False
-                        clear_signal()
+                        session_completed = True
                         bot.send_message(
                             cid,
-                            f"⛔ **Martingale Chain Finished on {pair}**\n❌ Lost up to Level 4 ($8).\n♻️ Reset to **${OTC_MARTI['base']:.2f}**.",
+                            f"⛔ **Martingale Chain Finished on {pair}**\n❌ Lost up to Level 4 ($8).\n♻️ Reset to **${OTC_MARTI['base']:.2f}**.\n⏳ Resting **3 minutes** before next scan.",
                             parse_mode="Markdown"
                         )
                         return
@@ -1396,24 +1470,35 @@ def pullback_scanner_loop(cid, pair, orig_dir, expiry_sec=120, auto_execute=Fals
                     reply_markup=mk
                 )
                 PULLBACK_STATE[cid]["active"] = False
+                set_pullback_active(False)
                 return
     finally:
         PULLBACK_STATE[cid] = {"active": False}
+        if session_completed:
+            finish_trading_session_and_rest(POST_SESSION_REST_SEC)
+        else:
+            set_pullback_active(False)
 
 
 def run_auto_otc_trade(cid, pair, dir_, expiry=120, conf=88.0, rsi=50.0, adx=30.0):
+    with SESSION_LOCK:
+        if SESSION_STATE["in_pullback"]:
+            return
+        SESSION_STATE["active"] = True
+        SESSION_STATE["rest_until"] = 0.0
+
     stake = round(OTC_MARTI["base"] * OTC_MARTI["levels"][OTC_MARTI["loss_streak"]], 2)
     bot.send_message(
         cid,
-        f"🤖 **AUTO-TRADE OTC STARTED ({OTC_MARTI['bal']})**\n"
+        f"🤖 **AUTO-TRADE STARTED ({OTC_MARTI['bal']})**\n"
         f"💱 {PAIR_EMOJI.get(pair, pair)} | **{dir_}** | 🎯 {conf:.0f}%\n"
         f"💵 Stake: **${stake:.2f}** | ⏱️ Expiry: {max(1, expiry // 60)}m",
         parse_mode="Markdown"
     )
     ok, trade_id, msg = execute_iq_trade(pair, dir_, stake, expiry_sec=expiry)
     if not ok:
-        clear_signal()
-        bot.send_message(cid, f"⚠️ Auto-trade OTC aborted on {pair}: {msg}")
+        finish_trading_session_and_rest(POST_SESSION_REST_SEC)
+        bot.send_message(cid, f"⚠️ Auto-trade aborted on {pair}: {msg}\n⏳ Resting **3 minutes** before next scan.")
         return
     bot.send_message(cid, f"🚀 {msg} (ID: `{trade_id}`)", parse_mode="Markdown")
     won = wait_for_iq_result(trade_id, expiry_sec=expiry)
@@ -1421,11 +1506,12 @@ def run_auto_otc_trade(cid, pair, dir_, expiry=120, conf=88.0, rsi=50.0, adx=30.
         record_brain(pair, True, conf, rsi, adx)
         STATS["wins"] += 1
         OTC_MARTI["loss_streak"] = 0
-        clear_signal()
+        finish_trading_session_and_rest(POST_SESSION_REST_SEC)
         bot.send_message(
             cid,
-            f"✅ **AUTO-TRADE OTC WON on {PAIR_EMOJI.get(pair, pair)}!**\n"
-            f"💵 Stake: ${stake:.2f} | 🏆 Wins: {STATS['wins']} | ❌ Loss: {STATS['loss']}",
+            f"✅ **AUTO-TRADE WON on {PAIR_EMOJI.get(pair, pair)}!**\n"
+            f"💵 Stake: ${stake:.2f} | 🏆 Wins: {STATS['wins']} | ❌ Loss: {STATS['loss']}\n"
+            f"⏳ Resting **3 minutes** before next scan.",
             parse_mode="Markdown"
         )
     else:
@@ -1434,10 +1520,10 @@ def run_auto_otc_trade(cid, pair, dir_, expiry=120, conf=88.0, rsi=50.0, adx=30.
         OTC_MARTI["loss_streak"] += 1
         if OTC_MARTI["loss_streak"] >= len(OTC_MARTI["levels"]):
             OTC_MARTI["loss_streak"] = 0
-            clear_signal()
+            finish_trading_session_and_rest(POST_SESSION_REST_SEC)
             bot.send_message(
                 cid,
-                f"⛔ **Auto-Trade OTC Martingale Chain Finished on {pair}**\n♻️ Reset stake to **${OTC_MARTI['base']:.2f}**.",
+                f"⛔ **Auto-Trade Martingale Chain Finished on {pair}**\n♻️ Reset stake to **${OTC_MARTI['base']:.2f}**.\n⏳ Resting **3 minutes** before next scan.",
                 parse_mode="Markdown"
             )
             return
@@ -1445,7 +1531,7 @@ def run_auto_otc_trade(cid, pair, dir_, expiry=120, conf=88.0, rsi=50.0, adx=30.
         next_amt = round(OTC_MARTI["base"] * next_mult, 2)
         bot.send_message(
             cid,
-            f"❌ **Auto-Trade OTC Loss on {pair}** — scanning pullback for Martingale **${next_amt:.2f}**...",
+            f"❌ **Auto-Trade Loss on {pair}** — scanning pullback for Martingale **${next_amt:.2f}**...",
             parse_mode="Markdown"
         )
         pullback_scanner_loop(cid, pair, dir_, expiry_sec=expiry, auto_execute=True)
@@ -1453,7 +1539,7 @@ def run_auto_otc_trade(cid, pair, dir_, expiry=120, conf=88.0, rsi=50.0, adx=30.
 
 def handle_new_signal(cid, d, is_gold=False, send_channel=True):
     with SIGNAL_LOCK:
-        if is_signal_active() or not can_trade_today():
+        if not can_start_new_scan_or_signal():
             return False
         pair = d["pair"]
         dir_ = d["dir"]
@@ -1467,7 +1553,6 @@ def handle_new_signal(cid, d, is_gold=False, send_channel=True):
             pair, dir_, conf=conf, rsi=d.get("rsi", 50), adx=d.get("adx", 30),
             price=price, sl=d.get("sl", 0), tp1=d.get("tp1", 0), tp2=d.get("tp2", 0), expiry=expiry
         )
-        LAST_GLOBAL_SIGNAL["time"] = time.time()
 
     if send_channel and CHANNEL_ID:
         if is_gold:
@@ -1504,7 +1589,7 @@ def handle_new_signal(cid, d, is_gold=False, send_channel=True):
     )
     if not is_gold and ENABLE_OTC:
         mk.add(
-            types.InlineKeyboardButton("🤖 Auto Trade OTC", callback_data=f"auto_otc_{pair}_{dir_}_{expiry}"),
+            types.InlineKeyboardButton("🤖 Auto Trade", callback_data=f"auto_otc_{pair}_{dir_}_{expiry}"),
             types.InlineKeyboardButton("⏭️ SKIP THIS TRADE", callback_data=f"skip_{pair}"),
         )
     else:
@@ -1538,21 +1623,19 @@ def real_signal_scanner():
     while True:
         try:
             check_and_reset_new_day()
-            if (
-                is_real_hours()
-                and not is_signal_active()
-                and can_trade_today()
-                and time.time() - LAST_GLOBAL_SIGNAL["time"] >= GLOBAL_COOLDOWN
-            ):
+            if is_real_hours() and can_start_new_scan_or_signal():
                 best_d = None
                 for pair in REAL_PAIRS:
+                    if not can_start_new_scan_or_signal():
+                        best_d = None
+                        break
                     if is_pair_blocked(pair) or is_news_blocking_pair(pair, minutes=30):
                         continue
                     d = analyze_sniper_v12(pair, sniper_mode=True)
                     if d and d["conf"] >= MIN_CONFIDENCE:
                         if not best_d or d["conf"] > best_d["conf"]:
                             best_d = d
-                if best_d:
+                if best_d and can_start_new_scan_or_signal():
                     handle_new_signal(OWNER_ID, best_d, is_gold=False, send_channel=True)
         except Exception as e:
             print(f"real_signal_scanner err: {e}")
@@ -1563,21 +1646,19 @@ def otc_signal_scanner():
     while True:
         try:
             check_and_reset_new_day()
-            if (
-                ENABLE_OTC
-                and not is_signal_active()
-                and can_trade_today()
-                and time.time() - LAST_GLOBAL_SIGNAL["time"] >= GLOBAL_COOLDOWN
-            ):
+            if ENABLE_OTC and can_start_new_scan_or_signal():
                 best_d = None
                 for pair in OTC_PAIRS:
+                    if not can_start_new_scan_or_signal():
+                        best_d = None
+                        break
                     if is_pair_blocked(pair):
                         continue
                     d = analyze_sniper_v12(pair, sniper_mode=True)
                     if d and d["conf"] >= MIN_CONFIDENCE:
                         if not best_d or d["conf"] > best_d["conf"]:
                             best_d = d
-                if best_d:
+                if best_d and can_start_new_scan_or_signal():
                     handle_new_signal(OWNER_ID, best_d, is_gold=False, send_channel=True)
         except Exception as e:
             print(f"otc_signal_scanner err: {e}")
@@ -1590,13 +1671,11 @@ def xauusd_signal_scanner():
             check_and_reset_new_day()
             if (
                 is_real_hours()
-                and not is_signal_active()
-                and can_trade_today()
-                and time.time() - LAST_GLOBAL_SIGNAL["time"] >= GLOBAL_COOLDOWN
+                and can_start_new_scan_or_signal()
                 and not is_news_blocking_pair("XAUUSD", minutes=30)
             ):
                 d = analyze_xauusd()
-                if d:
+                if d and can_start_new_scan_or_signal():
                     handle_new_signal(OWNER_ID, d, is_gold=True, send_channel=True)
         except Exception as e:
             print(f"xauusd_signal_scanner err: {e}")
@@ -1757,11 +1836,13 @@ def cmd_status(m):
         return
     total = STATS["wins"] + STATS["loss"]
     wr = (STATS["wins"] / total * 100.0) if total else 0.0
+    rest_rem = int(get_rest_remaining())
+    rest_line = f"\n⏳ Post-Session Rest Remaining: `{rest_rem}s`" if rest_rem > 0 else ""
     bot.send_message(
         m.chat.id,
         f"📊 **STATUS**\n📍 `{get_mode_text()}`\n🏅 Wins: {STATS['wins']} | ❌ Loss: {STATS['loss']} ({wr:.1f}%)\n"
         f"🔢 Daily Trades: {STATS['daily_trades']}/{MAX_DAILY_TRADES}\n"
-        f"📉 Martingale Streak: {OTC_MARTI['loss_streak']}/4",
+        f"📉 Martingale Streak: {OTC_MARTI['loss_streak']}/4{rest_line}",
         parse_mode="Markdown"
     )
 
@@ -1834,11 +1915,16 @@ def on_callback(c):
         return
 
     if data.startswith("auto_otc_"):
+        with SESSION_LOCK:
+            if SESSION_STATE["in_pullback"]:
+                bot.answer_callback_query(c.id, "Pullback martingale already running")
+                return
         parts = data.replace("auto_otc_", "", 1).split("_")
         pair = parts[0] if len(parts) > 0 else "EURUSD-OTC"
         dir_ = parts[1] if len(parts) > 1 else "CALL"
         expiry = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 120
         AUTO_TRADE_ENABLED = True
+        begin_trading_session()
         bot.answer_callback_query(c.id, f"Auto Trading {pair} ({dir_})...")
         threading.Thread(
             target=run_auto_otc_trade,
@@ -1852,6 +1938,10 @@ def on_callback(c):
             ENABLE_OTC = True
         if is_signal_active():
             bot.send_message(cid, f"⏳ Signal already active on `{ACTIVE_SIGNAL['pair']}`.", parse_mode="Markdown")
+            return
+        rest_rem = int(get_rest_remaining())
+        if rest_rem > 0:
+            bot.send_message(cid, f"⏳ Resting **{rest_rem}s** after previous session before new scans.", parse_mode="Markdown")
             return
         bot.answer_callback_query(c.id, "Scanning OTC pairs...")
         scan_msg = bot.send_message(cid, "⚡ Scanning OTC pairs...")
@@ -1873,7 +1963,7 @@ def on_callback(c):
             bot.edit_message_text("\n".join(lines), cid, scan_msg.message_id, parse_mode="Markdown")
         except Exception:
             pass
-        if results and results[0][1] >= MIN_CONFIDENCE:
+        if results and results[0][1] >= MIN_CONFIDENCE and can_start_new_scan_or_signal():
             handle_new_signal(cid, datas[results[0][0]], is_gold=False, send_channel=False)
         return
 
@@ -1881,8 +1971,7 @@ def on_callback(c):
         pair = data.replace("skip_", "", 1)
         if cid in PULLBACK_STATE:
             PULLBACK_STATE[cid]["active"] = False
-        clear_signal()
-        LAST_GLOBAL_SIGNAL["time"] = time.time() - (GLOBAL_COOLDOWN - SKIP_COOLDOWN)
+        finish_trading_session_and_rest(SKIP_COOLDOWN)
         bot.answer_callback_query(c.id, "Skipped - Next in 2 min")
         bot.send_message(cid, f"⏭️ **SKIPPED** `{pair}` — no WIN/LOSS recorded.", parse_mode="Markdown")
         return
@@ -1896,18 +1985,26 @@ def on_callback(c):
         OTC_MARTI["loss_streak"] = 0
         if cid in PULLBACK_STATE:
             PULLBACK_STATE[cid]["active"] = False
-        clear_signal()
+        finish_trading_session_and_rest(POST_SESSION_REST_SEC)
         STATS["wins"] += 1
         count_trade()
-        bot.answer_callback_query(c.id, "WIN recorded")
+        bot.answer_callback_query(c.id, "WIN recorded - 3m rest started")
         bot.send_message(
             cid,
-            f"✅ **WIN Recorded on {PAIR_EMOJI.get(pair, pair)}**\n🏅 Wins: {STATS['wins']} | ❌ Loss: {STATS['loss']}\n♻️ Stake reset to **${OTC_MARTI['base']:.2f}**",
+            f"✅ **WIN Recorded on {PAIR_EMOJI.get(pair, pair)}**\n🏅 Wins: {STATS['wins']} | ❌ Loss: {STATS['loss']}\n♻️ Stake reset to **${OTC_MARTI['base']:.2f}**\n⏳ Resting **3 minutes** before next scan.",
             parse_mode="Markdown"
         )
         return
 
     if data.startswith("manual_loss_"):
+        with SESSION_LOCK:
+            if SESSION_STATE["in_pullback"]:
+                bot.answer_callback_query(c.id, "Pullback scan already running")
+                return
+            SESSION_STATE["active"] = True
+            SESSION_STATE["in_pullback"] = True
+            SESSION_STATE["rest_until"] = 0.0
+
         parts = data.replace("manual_loss_", "", 1).rsplit("_", 1)
         pair = parts[0]
         orig_dir = parts[1] if len(parts) > 1 else "CALL"
@@ -1919,11 +2016,11 @@ def on_callback(c):
             OTC_MARTI["loss_streak"] = 0
             if cid in PULLBACK_STATE:
                 PULLBACK_STATE[cid]["active"] = False
-            clear_signal()
-            bot.answer_callback_query(c.id, "Martingale chain complete")
+            finish_trading_session_and_rest(POST_SESSION_REST_SEC)
+            bot.answer_callback_query(c.id, "Martingale chain complete - 3m rest")
             bot.send_message(
                 cid,
-                f"⛔ **CHAIN FINISHED on {pair}**\n♻️ Reset stake to **${OTC_MARTI['base']:.2f}**.",
+                f"⛔ **CHAIN FINISHED on {pair}**\n♻️ Reset stake to **${OTC_MARTI['base']:.2f}**.\n⏳ Resting **3 minutes** before next scan.",
                 parse_mode="Markdown"
             )
             return
@@ -1958,6 +2055,10 @@ def on_callback(c):
         if is_signal_active():
             bot.send_message(cid, f"⏳ Signal already active on `{ACTIVE_SIGNAL['pair']}`.", parse_mode="Markdown")
             return
+        rest_rem = int(get_rest_remaining())
+        if rest_rem > 0:
+            bot.send_message(cid, f"⏳ Resting **{rest_rem}s** after previous session before new scans.", parse_mode="Markdown")
+            return
         bot.answer_callback_query(c.id, "Scanning REAL pairs...")
         scan_msg = bot.send_message(cid, "🔍 Scanning REAL pairs...")
         results = []
@@ -1978,7 +2079,7 @@ def on_callback(c):
             bot.edit_message_text("\n".join(lines), cid, scan_msg.message_id, parse_mode="Markdown")
         except Exception:
             pass
-        if results and results[0][1] >= MIN_CONFIDENCE:
+        if results and results[0][1] >= MIN_CONFIDENCE and can_start_new_scan_or_signal():
             handle_new_signal(cid, datas[results[0][0]], is_gold=False, send_channel=False)
         return
 
@@ -2020,7 +2121,7 @@ def on_callback(c):
     if data == "settings":
         bot.send_message(
             cid,
-            f"⚙️ **SETTINGS**\n• Mode: `{get_mode_text()}`\n• Base Stake: `${OTC_MARTI['base']:.2f}`\n• Martingale: `{OTC_MARTI['levels']}`\n• Min Confidence: `{MIN_CONFIDENCE:.0f}%`",
+            f"⚙️ **SETTINGS**\n• Mode: `{get_mode_text()}`\n• Base Stake: `${OTC_MARTI['base']:.2f}`\n• Martingale: `{OTC_MARTI['levels']}`\n• Min Confidence: `{MIN_CONFIDENCE:.0f}%`\n• Post-Session Rest: `{POST_SESSION_REST_SEC}s`",
             parse_mode="Markdown"
         )
 
