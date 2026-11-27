@@ -1,4 +1,3 @@
-
 import os
 import time
 import threading
@@ -40,20 +39,24 @@ AUTO_TRADE_ENABLED = False
 MAX_DAILY_TRADES = 30
 MIN_CONFIDENCE = 88.0
 
+REAL_NGN_BASE = 1400.0
+PRACTICE_USD_BASE = 1.0
+MARTINGALE_MULTIPLIERS = [1, 2, 4, 8]  # REAL NGN: 1400 -> 2800 -> 5600 -> 11200 then reset
+
 REAL_PAIRS = [
     "EURUSD", "GBPUSD", "EURGBP", "AUDUSD", "USDCAD",
     "USDCHF", "EURAUD", "GBPCHF", "EURCHF", "NZDUSD",
     "GBPAUD", "EURCAD", "AUDCAD", "GBPCAD", "AUDNZD",
 ]
 OTC_PAIRS = [
-    "EURUSD-OTC", "GBPUSD-OTC"]
+    "EURUSD-OTC", "GBPUSD-OTC"
+]
 PAIR_EMOJI = {
     "EURUSD": "🇪🇺 EUR/USD REAL", "GBPUSD": "🇬🇧 GBP/USD REAL", "EURGBP": "🇪🇺 EUR/GBP REAL",
     "AUDUSD": "🇦🇺 AUD/USD REAL", "USDCAD": "🇺🇸 USD/CAD REAL", "USDCHF": "🇺🇸 USD/CHF REAL",
     "EURAUD": "🇪🇺 EUR/AUD REAL", "GBPCHF": "🇬🇧 GBP/CHF REAL", "EURCHF": "🇪🇺 EUR/CHF REAL",
     "NZDUSD": "🇳🇿 NZD/USD REAL", "GBPAUD": "🇬🇧 GBP/AUD REAL", "EURCAD": "🇪🇺 EUR/CAD REAL",
     "AUDCAD": "🇦🇺 AUD/CAD REAL", "GBPCAD": "🇬🇧 GBP/CAD REAL", "AUDNZD": "🇦🇺 AUD/NZD REAL",
-    "XAUUSD": "🥇 XAU/USD GOLD",
     "EURUSD-OTC": "🇪🇺 EUR/USD OTC", "GBPUSD-OTC": "🇬🇧 GBP/USD OTC", "EURGBP-OTC": "🇪🇺 EUR/GBP OTC",
     "AUDUSD-OTC": "🇦🇺 AUD/USD OTC", "USDCHF-OTC": "🇺🇸 USD/CHF OTC", "EURAUD-OTC": "🇪🇺 EUR/AUD OTC",
     "GBPAUD-OTC": "🇬🇧 GBP/AUD OTC", "NZDUSD-OTC": "🇳🇿 NZD/USD OTC", "GBPCHF-OTC": "🇬🇧 GBP/CHF OTC",
@@ -66,12 +69,12 @@ WELCOME_TEXT = (
     "━━━━━━━━━━━━━━━━━━\n"
     "👋 Welcome Trader! You have arrived at the right place.\n\n"
     "🥇 WHAT WE DO HERE\n"
-    "📈 Forex and GOLD Sniper Signals\n"
+    "📈 Forex Sniper Signals\n"
     "🎯 88%+ Accuracy Only\n"
     "🧠 Smart System That Learns From Every Win and Loss\n"
-    "💰 Martingale 1-2-4-8 To Recover Losses\n\n"
+    "💰 Martingale 1-2-4-8 (₦1,400 -> ₦2,800 -> ₦5,600 -> ₦11,200) To Recover Losses\n\n"
     "📜 CHANNEL RULES\n"
-    "✅ 1. Follow The Stake - $1, $2, $4, $8 - Do Not Be Greedy\n"
+    "✅ 1. Follow The Stake - ₦1,400, ₦2,800, ₦5,600, ₦11,200 ($1, $2, $4, $8) - Do Not Be Greedy\n"
     "✅ 2. Do Not Overtrade - Maximum 30 Signals Per Day\n"
     "✅ 3. Enter Exactly At The Entry Time\n"
     "✅ 4. Press WIN or LOSS After Every Trade\n"
@@ -94,11 +97,9 @@ INTRO_TEXT = (
     "If Euro Is Strong, Press BUY / CALL 🟢\n"
     "If Euro Is Weak, Press SELL / PUT 🔴\n\n"
     "📈 HOW DO YOU MAKE MONEY?\n"
-    "1️⃣ Enter With A Stake For Example $1\n"
-    "2️⃣ If You Are Correct, IQ Option Pays You 85% = $1.85 Back 🤑\n"
-    "3️⃣ If You Are Wrong, We Use Martingale $1 ➡️ $2 ➡️ $4 ➡️ $8 To Recover\n\n"
-    "🥇 GOLD (XAU/USD) WORKS THE SAME WAY\n"
-    "Gold Price Goes Up And Down. We Trade It With Stop Loss And Take Profit.\n\n"
+    "1️⃣ Enter With A Stake For Example ₦1,400 ($1)\n"
+    "2️⃣ If You Are Correct, IQ Option Pays You ~85% Back 🤑\n"
+    "3️⃣ If You Are Wrong, We Use Martingale ₦1,400 ➡️ ₦2,800 ➡️ ₦5,600 ➡️ ₦11,200 To Recover\n\n"
     "🚀 HOW TO START ON IQ OPTION\n"
     "━━━━━━━━━━━━━━━━━━\n"
     "1️⃣ CREATE ACCOUNT\n"
@@ -110,12 +111,12 @@ INTRO_TEXT = (
     "4️⃣ VERIFY ACCOUNT (KYC) 🪪\n"
     "Profile -> Verification -> Upload ID And Selfie\n\n"
     "5️⃣ DEPOSIT 💳\n"
-    "Deposit -> Card / Bank / USDT -> Start With $10 To $20 Only\n\n"
+    "Deposit -> Card / Bank / USDT -> Start With At Least ₦21,000 ($15)\n\n"
     "6️⃣ TRADE WITH US 🔥\n"
-    "Open IQ Option App -> EUR/USD Or GOLD -> Wait For Signal -> Enter At ENTRY TIME\n\n"
+    "Open IQ Option App -> EUR/USD -> Wait For Signal -> Enter At ENTRY TIME\n\n"
     "⚠️ RULES:\n"
     "• No Overtrade - Maximum 30 Per Day\n"
-    "• Follow Stake - $1, $2, $4, $8\n"
+    "• Follow Stake - ₦1,400, ₦2,800, ₦5,600, ₦11,200\n"
     "• Trading Has Risk, Only Trade Money You Can Afford To Lose\n\n"
     "📢 Channel: @KEVINTRAILBLAZE\n"
     "👋 Welcome Again! Let Us Go! 🚀"
@@ -132,7 +133,13 @@ iq = None
 PAYOUT_CACHE = {}
 PAYOUT_TIME = 0.0
 OTC_SESSION_RESULTS = []
-OTC_MARTI = {"loss_streak": 0, "base": 1.0, "bal": "PRACTICE", "levels": [1, 2, 4, 8]}
+OTC_MARTI = {
+    "loss_streak": 0,
+    "base": PRACTICE_USD_BASE,
+    "bal": "PRACTICE",
+    "currency": "USD",
+    "levels": MARTINGALE_MULTIPLIERS,
+}
 PULLBACK_STATE = {}
 ACTIVE_SIGNAL = {
     "active": False, "pair": None, "dir": None, "conf": 0, "rsi": 0, "adx": 0,
@@ -151,6 +158,43 @@ MARKET_GOOD_SENT = {"date": "", "last_alert": 0.0}
 MORNING_GREET_SENT = ""
 NEWS_CACHE = {"data": [], "time": 0.0}
 PAIR_BRAIN = {}
+
+
+def is_real_mode() -> bool:
+    return str(OTC_MARTI.get("bal", "PRACTICE")).upper() == "REAL"
+
+
+def sync_currency_config():
+    """Enforces NGN (1400 -> 2800 -> 5600 -> 11200) on REAL and USD (1 -> 2 -> 4 -> 8) on PRACTICE."""
+    if is_real_mode():
+        OTC_MARTI["bal"] = "REAL"
+        OTC_MARTI["currency"] = "NGN"
+        OTC_MARTI["base"] = REAL_NGN_BASE
+    else:
+        OTC_MARTI["bal"] = "PRACTICE"
+        OTC_MARTI["currency"] = "USD"
+        OTC_MARTI["base"] = PRACTICE_USD_BASE
+
+
+def get_active_currency_symbol() -> str:
+    return "₦" if is_real_mode() else "$"
+
+
+def format_money(amount: float) -> str:
+    if is_real_mode():
+        return f"₦{float(amount):,.0f}"
+    return f"${float(amount):,.2f}"
+
+
+def get_martingale_sequence_str() -> str:
+    base = REAL_NGN_BASE if is_real_mode() else PRACTICE_USD_BASE
+    return " -> ".join(format_money(base * m) for m in OTC_MARTI["levels"])
+
+
+def get_current_stake() -> float:
+    sync_currency_config()
+    idx = max(0, min(OTC_MARTI["loss_streak"], len(OTC_MARTI["levels"]) - 1))
+    return round(OTC_MARTI["base"] * OTC_MARTI["levels"][idx], 2)
 
 
 def get_lagos_now():
@@ -210,8 +254,9 @@ def finish_trading_session_and_rest(rest_seconds: int = POST_SESSION_REST_SEC):
 
 
 def get_mode_text():
+    sync_currency_config()
     mode = "AUTO-TRADE" if AUTO_TRADE_ENABLED else "MANUAL SIGNAL"
-    bal = OTC_MARTI["bal"]
+    bal = f"{OTC_MARTI['bal']} ({OTC_MARTI['currency']})"
     otc_txt = "OTC: ON" if ENABLE_OTC else "OTC: OFF"
     sess = "REAL SIGNAL (7AM-8PM)" if is_real_hours() else "OUTSIDE REAL HOURS (7AM-8PM)"
     rest_rem = int(get_rest_remaining())
@@ -493,7 +538,7 @@ def format_channel_signal(pair, dir_, conf, price, entry_time_txt, expiry=120):
 ━━━━━━━━━━━━━━━━━━
 ⏰ ENTRY TIME: {entry_time_txt}
 💰 ENTRY PRICE: {price_txt}
-💵 STAKE: $1 (If You Lose, Next Is $2, Then $4, Then $8)
+💵 STAKE: ₦1,400 / $1 (Next: ₦2,800 / $2 -> ₦5,600 / $4 -> ₦11,200 / $8)
 ⏱️ EXPIRY: {expiry_min} Minutes - Use The Same Expiry As Shown Here
 ━━━━━━━━━━━━━━━━━━
 
@@ -503,12 +548,12 @@ def format_channel_signal(pair, dir_, conf, price, entry_time_txt, expiry=120):
 3️⃣ Wait Until The Time Reaches {entry_time_txt}
 4️⃣ Set Expiry To {expiry_min} Minutes
 5️⃣ Press {action}
-6️⃣ Enter With $1 And Wait For {expiry_min} Minutes
+6️⃣ Enter With ₦1,400 ($1) And Wait For {expiry_min} Minutes
 
 ⚠️ RULES:
 ✅ Enter Exactly At The Entry Time, Do Not Enter Late
-✅ Do Not Be Greedy - Follow $1, $2, $4, $8 Only
-✅ If You Win, Go Back To $1
+✅ Do Not Be Greedy - Follow ₦1,400, ₦2,800, ₦5,600, ₦11,200 ($1, $2, $4, $8) Only
+✅ If You Win, Go Back To ₦1,400 ($1)
 ❌ Do Not Overtrade
 
 📢 Channel: @KEVINTRAILBLAZE
@@ -516,51 +561,20 @@ Good Luck! 💪🤑
 """
 
 
-def format_channel_gold_signal(d, entry_time_txt):
-    dir_e = "🟢 BUY ⬆️" if d["dir"] == "CALL" else "🔴 SELL ⬇️"
-    what = "The Gold Price Is Expected To Go UP, Press GREEN BUY" if d["dir"] == "CALL" else "The Gold Price Is Expected To Go DOWN, Press RED SELL"
-    return f"""🥇🥇🥇 GOLD SIGNAL - XAU/USD 🥇🥇🥇
-
-📊 Signal: {dir_e}
-🎯 Confidence: {d['conf']:.0f}%
-
-💡 What It Means:
-{what}
-
-━━━━━━━━━━━━━━━━━━
-⏰ ENTRY TIME: {entry_time_txt}
-💰 ENTRY: {d['price']:.2f}
-🛑 STOP LOSS: {d['sl']:.2f} (If Price Reaches Here, Close The Trade To Avoid A Bigger Loss)
-🎯 TAKE PROFIT 1: {d['tp1']:.2f} (Take A Small Profit Here To Secure Your Win)
-🎯 TAKE PROFIT 2: {d['tp2']:.2f} (Leave A Small Part Running For A Bigger Profit)
-━━━━━━━━━━━━━━━━━━
-
-👣 HOW TO TRADE THIS SIGNAL:
-1️⃣ Open IQ Option And Search For GOLD / XAU/USD
-2️⃣ Wait Until {entry_time_txt}
-3️⃣ Press {dir_e}
-4️⃣ Set Your Stop Loss And Take Profit As Shown Above
-5️⃣ Enter With $1 Only
-
-⚠️ IMPORTANT FOR GOLD: This Is NOT A Binary Trade With Expiry.
-Hold The Trade Until It Hits Take Profit Or Stop Loss. Do Not Close Early.
-
-📢 Channel: @KEVINTRAILBLAZE
-Let Us Grow Together! 🔥
-"""
-
-
-def format_channel_pullback_signal(pair, dir_, entry_time_txt, level_idx=1, amount=2.0, expiry=120):
+def format_channel_pullback_signal(pair, dir_, entry_time_txt, level_idx=1, amount=2800.0, expiry=120):
     action = "🟢 BUY / CALL ⬆️" if dir_ == "CALL" else "🔴 SELL / PUT ⬇️"
     pair_name = PAIR_EMOJI.get(pair, pair)
     level_names = ["", "Martingale 1", "Martingale 2", "Martingale 3"]
     level_name = level_names[level_idx] if 1 <= level_idx <= 3 else f"Martingale {level_idx}"
     expiry_min = max(1, int(expiry // 60)) if expiry else 2
+    mult = OTC_MARTI["levels"][level_idx] if 0 <= level_idx < len(OTC_MARTI["levels"]) else 2
+    ngn_amt = REAL_NGN_BASE * mult
+    usd_amt = PRACTICE_USD_BASE * mult
     return f"""🔁 {level_name.upper()} - {pair_name}
 
 📊 {action}
 ⏰ Entry: {entry_time_txt}
-💵 Stake: ${amount:.2f}
+💵 Stake: ₦{ngn_amt:,.0f} (${usd_amt:.0f})
 ⏱️ Expiry: {expiry_min} Min
 
 👉 Open IQ Option -> Search {pair} -> Press {action} At Entry Time.
@@ -596,16 +610,6 @@ def get_session_boost(pair):
     hour = now.hour + now.minute / 60.0
     if "-OTC" in pair:
         return 4, "⚡ OTC ACTIVE"
-    if pair == "XAUUSD":
-        if 14.5 <= hour < 17:
-            return 10, "🥇🇬🇧🇺🇸 GOLD LONDON+NY OVERLAP 🔥"
-        if 8 <= hour < 11:
-            return 8, "🥇 LONDON OPEN GOLD"
-        if 12 <= hour < 13.5:
-            return -10, "😴 LUNCH DEAD ZONE"
-        if 18 <= hour < 20:
-            return -5, "🌙 EVENING SLOW"
-        return 0, "🥇 GOLD NORMAL"
     if 8 <= hour < 11:
         if pair[:3] in ["EUR", "GBP", "CHF"] or pair[3:6] in ["EUR", "GBP", "CHF"]:
             return 8, "🇬🇧 LONDON OPEN"
@@ -670,10 +674,7 @@ def is_news_blocking_pair(pair, minutes=30):
     news = get_upcoming_news()
     if not news:
         return None
-    if pair == "XAUUSD":
-        base, quote = "XAU", "USD"
-    else:
-        base, quote = pair[:3], pair[3:6] if len(pair) >= 6 else ""
+    base, quote = pair[:3], pair[3:6] if len(pair) >= 6 else ""
     for n in news:
         if n["country"] in [base, quote] and -15 <= n["in_min"] <= minutes:
             return n
@@ -707,7 +708,7 @@ def get_ready_text():
 Open Your IQ Option App Now. Do Not Wait For The Signal To Open It.
 
 2️⃣ CHECK YOUR BALANCE 💰
-Make Sure You Have At Least $15 To $20 In Your Account.
+Make Sure You Have At Least ₦21,000 ($15 To $20) In Your Account.
 If You Are On DEMO, Make Sure You Have $1,000+ Demo Balance.
 
 3️⃣ CHECK YOUR INTERNET 🌐
@@ -716,13 +717,12 @@ Use Strong WiFi Or Mobile Data. A Slow Connection Can Make You Enter Late.
 4️⃣ CHARGE YOUR PHONE 🔋
 Charge Your Phone To At Least 50%. Do Not Miss A Signal Because Your Phone Died.
 
-5️⃣ SET YOUR STAKE TO $1 💵
-Go To IQ Option -> Amount -> Set It To $1.
-We Will Use Martingale: $1 -> $2 -> $4 -> $8 If We Lose.
+5️⃣ SET YOUR STAKE TO ₦1,400 ($1) 💵
+Go To IQ Option -> Amount -> Set It To ₦1,400 ($1).
+We Will Use Martingale: ₦1,400 -> ₦2,800 -> ₦5,600 -> ₦11,200 ($1 -> $2 -> $4 -> $8) If We Lose.
 
 6️⃣ SET YOUR CHART TO 1 MINUTE 📊
 For Forex Signals, Use 1 Minute Candles.
-For GOLD, Use 1 Minute Or 5 Minute Candles.
 
 7️⃣ CLEAR YOUR MIND 🧠
 No Distractions. Focus Only On The Signals.
@@ -732,17 +732,17 @@ Do Not Trade Other Pairs That We Did Not Call.
 📋 HOW TODAY WILL WORK:
 ━━━━━━━━━━━━━━━━━━
 🎯 Only 88%+ Sniper Signals
-💱 15 Forex Pairs + GOLD (XAU/USD) + OTC Pairs
+💱 15 Forex Pairs + OTC Pairs
 ⏱️ Expiry Will Be Shown On Each Signal - Use The Exact Expiry
 ⏰ Enter Exactly At The Entry Time Shown
-✅ If You WIN - Go Back To $1
-❌ If You LOSE - Wait For Martingale Signal ($2, $4, $8)
+✅ If You WIN - Go Back To ₦1,400 ($1)
+❌ If You LOSE - Wait For Martingale Signal (₦2,800, ₦5,600, ₦11,200)
 ⏭️ If You Miss A Signal - Skip It, Do Not Chase It
 
 ━━━━━━━━━━━━━━━━━━
 ⚠️ RULES FOR TODAY:
 ━━━━━━━━━━━━━━━━━━
-✅ Follow The Stake - $1, $2, $4, $8 Only
+✅ Follow The Stake - ₦1,400, ₦2,800, ₦5,600, ₦11,200 Only
 ✅ Maximum 30 Trades Today
 ✅ Enter At Entry Time Only
 ❌ Do Not Be Greedy - Do Not Increase Stake On Your Own
@@ -793,12 +793,13 @@ def background_iq():
                     iq = client
                     IQ_CONNECTED = True
                     try:
+                        sync_currency_config()
                         iq.change_balance(OTC_MARTI["bal"])
                         time.sleep(1)
                         bal = float(iq.get_balance() or 0.0)
                         STATS["real_balance"] = bal
                         STATS["balance"] = bal
-                        print(f"[IQ] SUCCESS ${bal:.2f} ({OTC_MARTI['bal']})")
+                        print(f"[IQ] SUCCESS {format_money(bal)} ({OTC_MARTI['bal']})")
                     except Exception:
                         pass
                     return
@@ -828,6 +829,7 @@ def iq_reconnect():
                 iq = client
                 IQ_CONNECTED = True
                 try:
+                    sync_currency_config()
                     iq.change_balance(OTC_MARTI["bal"])
                     bal = float(iq.get_balance() or 0.0)
                     STATS["real_balance"] = bal
@@ -845,6 +847,8 @@ def iq_reconnect():
 def set_account_balance_mode(bal_type):
     bal_type = "REAL" if str(bal_type).upper() == "REAL" else "PRACTICE"
     OTC_MARTI["bal"] = bal_type
+    OTC_MARTI["loss_streak"] = 0
+    sync_currency_config()
     if not IQ_CONNECTED and not iq_reconnect():
         return False, 0.0
     try:
@@ -903,7 +907,7 @@ def get_payout(pair):
 def get_candles(pair, size=60, count=100):
     if not IQ_CONNECTED and not iq_reconnect():
         return None
-    if pair not in REAL_PAIRS and pair not in OTC_PAIRS and pair != "XAUUSD":
+    if pair not in REAL_PAIRS and pair not in OTC_PAIRS:
         return None
     for _ in range(3):
         try:
@@ -1227,25 +1231,6 @@ def analyze_sniper_v12(pair, sniper_mode=False):
         return None
 
 
-def analyze_xauusd():
-    d = analyze_sniper_v12("XAUUSD", sniper_mode=True)
-    if not d or d["conf"] < MIN_CONFIDENCE:
-        return None
-    price = float(d["price"])
-    atr = max(float(d["atr"]), price * 0.0015, 1.50)
-    _, sess = get_session_boost("XAUUSD")
-    if d["dir"] == "CALL":
-        sl = round(price - atr * 1.2, 2)
-        tp1 = round(price + atr * 1.2, 2)
-        tp2 = round(price + atr * 2.4, 2)
-    else:
-        sl = round(price + atr * 1.2, 2)
-        tp1 = round(price - atr * 1.2, 2)
-        tp2 = round(price - atr * 2.4, 2)
-    d.update({"sl": sl, "tp1": tp1, "tp2": tp2, "session": sess})
-    return d
-
-
 def legit_live_scan(cid, mid, pair):
     steps = [
         (0, "🚀 V18 Trailblazer Init...", 0.15),
@@ -1262,7 +1247,7 @@ def legit_live_scan(cid, mid, pair):
         txt = (
             f"{color} **Z-BOT V18 TRAILBLAZER** {color}\n\n"
             f"💱 {PAIR_EMOJI.get(pair, pair)}\n"
-            f"💎 IQ: {'✅' if IQ_CONNECTED else '❌'} ({OTC_MARTI['bal']})\n\n"
+            f"💎 IQ: {'✅' if IQ_CONNECTED else '❌'} ({OTC_MARTI['bal']} {OTC_MARTI['currency']})\n\n"
             f"{bar} {pct}%\n\n🔍 {text}\n⏳ V18"
         )
         try:
@@ -1275,9 +1260,8 @@ def legit_live_scan(cid, mid, pair):
 def execute_iq_trade(pair, direction, amount, expiry_sec=120):
     if not IQ_CONNECTED and not iq_reconnect():
         return False, None, "IQ Option not connected"
-    if pair == "XAUUSD":
-        return False, None, "XAUUSD spot uses SL/TP manual/CFD flow"
-    bal_mode = "REAL" if str(OTC_MARTI["bal"]).upper() == "REAL" else "PRACTICE"
+    sync_currency_config()
+    bal_mode = "REAL" if is_real_mode() else "PRACTICE"
     expiry_min = max(1, int(round(expiry_sec / 60.0)))
     iq_dir = "call" if str(direction).upper() == "CALL" else "put"
     try:
@@ -1288,7 +1272,7 @@ def execute_iq_trade(pair, direction, amount, expiry_sec=120):
             if ok and trade_id:
                 STATS["daily_trades"] += 1
         if ok and trade_id:
-            return True, trade_id, f"Placed {iq_dir.upper()} ${amount:.2f} ({expiry_min}m) on {bal_mode}"
+            return True, trade_id, f"Placed {iq_dir.upper()} {format_money(amount)} ({expiry_min}m) on {bal_mode}"
         return False, None, f"Order rejected by IQ Option ({trade_id})"
     except Exception as e:
         return False, None, f"Trade error: {e}"
@@ -1360,6 +1344,7 @@ def check_pullback_ready(pair, orig_dir):
 
 
 def pullback_scanner_loop(cid, pair, orig_dir, expiry_sec=120, auto_execute=False):
+    sync_currency_config()
     with SESSION_LOCK:
         if SESSION_STATE["in_pullback"] and PULLBACK_STATE.get(cid, {}).get("active"):
             return
@@ -1373,13 +1358,14 @@ def pullback_scanner_loop(cid, pair, orig_dir, expiry_sec=120, auto_execute=Fals
 
     try:
         while PULLBACK_STATE.get(cid, {}).get("active"):
+            sync_currency_config()
             idx = OTC_MARTI["loss_streak"]
             if idx <= 0 or idx >= len(OTC_MARTI["levels"]):
+                OTC_MARTI["loss_streak"] = 0
                 session_completed = True
                 break
 
-            mult = OTC_MARTI["levels"][idx]
-            stake = round(OTC_MARTI["base"] * mult, 2)
+            stake = get_current_stake()
             lvl_name = names[idx] if idx < len(names) else f"Martingale {idx}"
 
             if is_news_blocking_pair(pair, minutes=15):
@@ -1410,7 +1396,7 @@ def pullback_scanner_loop(cid, pair, orig_dir, expiry_sec=120, auto_execute=Fals
             if auto_execute and can_trade_today():
                 bot.send_message(
                     cid,
-                    f"🔁 **{lvl_name} Pullback Triggered ({pair})**\n📍 {info}\n💵 Placing auto stake **${stake:.2f}** ({orig_dir})...",
+                    f"🔁 **{lvl_name} Pullback Triggered ({pair})**\n📍 {info}\n💵 Placing auto stake **{format_money(stake)}** ({orig_dir})...",
                     parse_mode="Markdown"
                 )
                 ok, trade_id, msg = execute_iq_trade(pair, orig_dir, stake, expiry_sec=expiry_sec)
@@ -1428,7 +1414,7 @@ def pullback_scanner_loop(cid, pair, orig_dir, expiry_sec=120, auto_execute=Fals
                     session_completed = True
                     bot.send_message(
                         cid,
-                        f"✅ **{lvl_name} WON (${stake:.2f}) on {pair}!**\n♻️ Martingale reset to **${OTC_MARTI['base']:.2f}**.\n⏳ Resting **3 minutes** before next scan.",
+                        f"✅ **{lvl_name} WON ({format_money(stake)}) on {pair}!**\n♻️ Martingale reset to **{format_money(OTC_MARTI['base'])}**.\n⏳ Resting **3 minutes** before next scan.",
                         parse_mode="Markdown"
                     )
                     return
@@ -1440,17 +1426,17 @@ def pullback_scanner_loop(cid, pair, orig_dir, expiry_sec=120, auto_execute=Fals
                         OTC_MARTI["loss_streak"] = 0
                         PULLBACK_STATE[cid]["active"] = False
                         session_completed = True
+                        max_level_amt = format_money(OTC_MARTI["base"] * OTC_MARTI["levels"][-1])
                         bot.send_message(
                             cid,
-                            f"⛔ **Martingale Chain Finished on {pair}**\n❌ Lost up to Level 4 ($8).\n♻️ Reset to **${OTC_MARTI['base']:.2f}**.\n⏳ Resting **3 minutes** before next scan.",
+                            f"⛔ **Martingale Chain Finished on {pair}**\n❌ Lost up to Level 4 ({max_level_amt}).\n♻️ Reset to **{format_money(OTC_MARTI['base'])}**.\n⏳ Resting **3 minutes** before next scan.",
                             parse_mode="Markdown"
                         )
                         return
-                    next_mult = OTC_MARTI["levels"][OTC_MARTI["loss_streak"]]
-                    next_amt = round(OTC_MARTI["base"] * next_mult, 2)
+                    next_amt = get_current_stake()
                     bot.send_message(
                         cid,
-                        f"❌ **{lvl_name} Lost (${stake:.2f})** — scanning pullback for next stake **${next_amt:.2f}**...",
+                        f"❌ **{lvl_name} Lost ({format_money(stake)})** — scanning pullback for next stake **{format_money(next_amt)}**...",
                         parse_mode="Markdown"
                     )
                     time.sleep(5)
@@ -1464,7 +1450,7 @@ def pullback_scanner_loop(cid, pair, orig_dir, expiry_sec=120, auto_execute=Fals
                 bot.send_message(
                     cid,
                     f"🔁 **{lvl_name} Pullback Ready - {PAIR_EMOJI.get(pair, pair)}**\n"
-                    f"📊 {orig_dir} | 💵 Stake: **${stake:.2f}**\n"
+                    f"📊 {orig_dir} | 💵 Stake: **{format_money(stake)}**\n"
                     f"⏰ Entry: {entry_txt}\n📍 {info}",
                     parse_mode="Markdown",
                     reply_markup=mk
@@ -1481,18 +1467,19 @@ def pullback_scanner_loop(cid, pair, orig_dir, expiry_sec=120, auto_execute=Fals
 
 
 def run_auto_otc_trade(cid, pair, dir_, expiry=120, conf=88.0, rsi=50.0, adx=30.0):
+    sync_currency_config()
     with SESSION_LOCK:
         if SESSION_STATE["in_pullback"]:
             return
         SESSION_STATE["active"] = True
         SESSION_STATE["rest_until"] = 0.0
 
-    stake = round(OTC_MARTI["base"] * OTC_MARTI["levels"][OTC_MARTI["loss_streak"]], 2)
+    stake = get_current_stake()
     bot.send_message(
         cid,
-        f"🤖 **AUTO-TRADE STARTED ({OTC_MARTI['bal']})**\n"
+        f"🤖 **AUTO-TRADE STARTED ({OTC_MARTI['bal']} {OTC_MARTI['currency']})**\n"
         f"💱 {PAIR_EMOJI.get(pair, pair)} | **{dir_}** | 🎯 {conf:.0f}%\n"
-        f"💵 Stake: **${stake:.2f}** | ⏱️ Expiry: {max(1, expiry // 60)}m",
+        f"💵 Stake: **{format_money(stake)}** | ⏱️ Expiry: {max(1, expiry // 60)}m",
         parse_mode="Markdown"
     )
     ok, trade_id, msg = execute_iq_trade(pair, dir_, stake, expiry_sec=expiry)
@@ -1510,7 +1497,8 @@ def run_auto_otc_trade(cid, pair, dir_, expiry=120, conf=88.0, rsi=50.0, adx=30.
         bot.send_message(
             cid,
             f"✅ **AUTO-TRADE WON on {PAIR_EMOJI.get(pair, pair)}!**\n"
-            f"💵 Stake: ${stake:.2f} | 🏆 Wins: {STATS['wins']} | ❌ Loss: {STATS['loss']}\n"
+            f"💵 Stake: {format_money(stake)} | 🏆 Wins: {STATS['wins']} | ❌ Loss: {STATS['loss']}\n"
+            f"♻️ Stake reset to **{format_money(OTC_MARTI['base'])}**.\n"
             f"⏳ Resting **3 minutes** before next scan.",
             parse_mode="Markdown"
         )
@@ -1523,21 +1511,21 @@ def run_auto_otc_trade(cid, pair, dir_, expiry=120, conf=88.0, rsi=50.0, adx=30.
             finish_trading_session_and_rest(POST_SESSION_REST_SEC)
             bot.send_message(
                 cid,
-                f"⛔ **Auto-Trade Martingale Chain Finished on {pair}**\n♻️ Reset stake to **${OTC_MARTI['base']:.2f}**.\n⏳ Resting **3 minutes** before next scan.",
+                f"⛔ **Auto-Trade Martingale Chain Finished on {pair}**\n♻️ Reset stake to **{format_money(OTC_MARTI['base'])}**.\n⏳ Resting **3 minutes** before next scan.",
                 parse_mode="Markdown"
             )
             return
-        next_mult = OTC_MARTI["levels"][OTC_MARTI["loss_streak"]]
-        next_amt = round(OTC_MARTI["base"] * next_mult, 2)
+        next_amt = get_current_stake()
         bot.send_message(
             cid,
-            f"❌ **Auto-Trade Loss on {pair}** — scanning pullback for Martingale **${next_amt:.2f}**...",
+            f"❌ **Auto-Trade Loss on {pair}** — scanning pullback for Martingale **{format_money(next_amt)}**...",
             parse_mode="Markdown"
         )
         pullback_scanner_loop(cid, pair, dir_, expiry_sec=expiry, auto_execute=True)
 
 
-def handle_new_signal(cid, d, is_gold=False, send_channel=True):
+def handle_new_signal(cid, d, send_channel=True):
+    sync_currency_config()
     with SIGNAL_LOCK:
         if not can_start_new_scan_or_signal():
             return False
@@ -1555,19 +1543,16 @@ def handle_new_signal(cid, d, is_gold=False, send_channel=True):
         )
 
     if send_channel and CHANNEL_ID:
-        if is_gold:
-            send_to_channel_sync(format_channel_gold_signal(d, entry_txt))
-        else:
-            send_to_channel_sync(format_channel_signal(pair, dir_, conf, price, entry_txt, expiry=expiry))
+        send_to_channel_sync(format_channel_signal(pair, dir_, conf, price, entry_txt, expiry=expiry))
 
-    stake = round(OTC_MARTI["base"] * OTC_MARTI["levels"][OTC_MARTI["loss_streak"]], 2)
+    stake = get_current_stake()
 
-    if AUTO_TRADE_ENABLED and not is_gold:
+    if AUTO_TRADE_ENABLED:
         bot.send_message(
             cid,
-            f"🤖 **AUTO-TRADE SIGNAL ({OTC_MARTI['bal']})**\n"
+            f"🤖 **AUTO-TRADE SIGNAL ({OTC_MARTI['bal']} {OTC_MARTI['currency']})**\n"
             f"💱 {PAIR_EMOJI.get(pair, pair)} | **{dir_}** | 🎯 {conf:.0f}%\n"
-            f"💵 Stake: **${stake:.2f}** | ⏱️ Expiry: {max(1, expiry // 60)}m\n"
+            f"💵 Stake: **{format_money(stake)}** | ⏱️ Expiry: {max(1, expiry // 60)}m\n"
             f"⏰ Entry: {entry_txt}",
             parse_mode="Markdown"
         )
@@ -1587,7 +1572,7 @@ def handle_new_signal(cid, d, is_gold=False, send_channel=True):
         types.InlineKeyboardButton("✅ WIN - Reset", callback_data=f"manual_win_{pair}"),
         types.InlineKeyboardButton("❌ LOSS - Pullback Scan", callback_data=f"manual_loss_{pair}_{dir_}"),
     )
-    if not is_gold and ENABLE_OTC:
+    if ENABLE_OTC:
         mk.add(
             types.InlineKeyboardButton("🤖 Auto Trade", callback_data=f"auto_otc_{pair}_{dir_}_{expiry}"),
             types.InlineKeyboardButton("⏭️ SKIP THIS TRADE", callback_data=f"skip_{pair}"),
@@ -1595,26 +1580,16 @@ def handle_new_signal(cid, d, is_gold=False, send_channel=True):
     else:
         mk.add(types.InlineKeyboardButton("⏭️ SKIP THIS TRADE", callback_data=f"skip_{pair}"))
 
-    if is_gold:
-        txt = (
-            f"🥇🥇🥇 **XAU/USD GOLD SIGNAL** 🥇🥇🥇\n\n"
-            f"{'🟢 BUY ⬆️' if dir_ == 'CALL' else '🔴 SELL ⬇️'} | 🎯 {conf:.0f}% SNIPER GOLD\n"
-            f"📈 {d['reason']} | RSI {d['rsi']:.1f} | ATR {d['atr']:.2f}\n"
-            f"⏰ Entry: {entry_txt} | 💰 Price: {price:.2f}\n"
-            f"🛑 SL: {d['sl']:.2f} | 🎯 TP1: {d['tp1']:.2f} | 🎯 TP2: {d['tp2']:.2f}\n"
-            f"💵 Stake: ${stake:.2f}"
-        )
-    else:
-        exp_min = max(1, expiry // 60)
-        txt = (
-            f"📡 **SIGNAL V18 TRAILBLAZER - MANUAL** 📡\n\n"
-            f"💱 {PAIR_EMOJI.get(pair, pair)}\n"
-            f"📊 {'🟢 CALL ⬆️' if dir_ == 'CALL' else '🔴 PUT ⬇️'} | 🎯 {conf:.0f}% SNIPER\n"
-            f"📈 {d['reason']} | RSI {d['rsi']:.1f}\n"
-            f"💸 {int(d['payout'] * 100)}% | 💰 {price:.5f} | ⏱️ {exp_min} Min\n"
-            f"⏰ Entry: {entry_txt}\n"
-            f"💵 Stake: ${stake:.2f} (Martingale: $1 -> $2 -> $4 -> $8)"
-        )
+    exp_min = max(1, expiry // 60)
+    txt = (
+        f"📡 **SIGNAL V18 TRAILBLAZER - MANUAL ({OTC_MARTI['bal']} {OTC_MARTI['currency']})** 📡\n\n"
+        f"💱 {PAIR_EMOJI.get(pair, pair)}\n"
+        f"📊 {'🟢 CALL ⬆️' if dir_ == 'CALL' else '🔴 PUT ⬇️'} | 🎯 {conf:.0f}% SNIPER\n"
+        f"📈 {d['reason']} | RSI {d['rsi']:.1f}\n"
+        f"💸 {int(d['payout'] * 100)}% | 💰 {price:.5f} | ⏱️ {exp_min} Min\n"
+        f"⏰ Entry: {entry_txt}\n"
+        f"💵 Stake: {format_money(stake)} (Martingale: {get_martingale_sequence_str()})"
+    )
     bot.send_message(cid, txt, parse_mode="Markdown", reply_markup=mk)
     return True
 
@@ -1636,7 +1611,7 @@ def real_signal_scanner():
                         if not best_d or d["conf"] > best_d["conf"]:
                             best_d = d
                 if best_d and can_start_new_scan_or_signal():
-                    handle_new_signal(OWNER_ID, best_d, is_gold=False, send_channel=True)
+                    handle_new_signal(OWNER_ID, best_d, send_channel=True)
         except Exception as e:
             print(f"real_signal_scanner err: {e}")
         time.sleep(25)
@@ -1659,27 +1634,10 @@ def otc_signal_scanner():
                         if not best_d or d["conf"] > best_d["conf"]:
                             best_d = d
                 if best_d and can_start_new_scan_or_signal():
-                    handle_new_signal(OWNER_ID, best_d, is_gold=False, send_channel=True)
+                    handle_new_signal(OWNER_ID, best_d, send_channel=True)
         except Exception as e:
             print(f"otc_signal_scanner err: {e}")
         time.sleep(30)
-
-
-def xauusd_signal_scanner():
-    while True:
-        try:
-            check_and_reset_new_day()
-            if (
-                is_real_hours()
-                and can_start_new_scan_or_signal()
-                and not is_news_blocking_pair("XAUUSD", minutes=30)
-            ):
-                d = analyze_xauusd()
-                if d and can_start_new_scan_or_signal():
-                    handle_new_signal(OWNER_ID, d, is_gold=True, send_channel=True)
-        except Exception as e:
-            print(f"xauusd_signal_scanner err: {e}")
-        time.sleep(45)
 
 
 def trailblazer_market_scanner():
@@ -1744,9 +1702,10 @@ def daily_summary_loop():
 
 
 def main_menu_keyboard():
+    sync_currency_config()
     mk = types.InlineKeyboardMarkup(row_width=2)
     auto_lbl = "🤖 Auto-Trade: ON" if AUTO_TRADE_ENABLED else "🤖 Auto-Trade: OFF"
-    bal_lbl = f"💼 Account: {OTC_MARTI['bal']}"
+    bal_lbl = f"💼 Account: {OTC_MARTI['bal']} ({OTC_MARTI['currency']})"
     otc_lbl = "⚡ OTC: ON" if ENABLE_OTC else "⚡ OTC: OFF"
     mk.add(
         types.InlineKeyboardButton(auto_lbl, callback_data="toggle_auto"),
@@ -1787,7 +1746,7 @@ def cmd_practice(m):
     ok, bal = set_account_balance_mode("PRACTICE")
     bot.send_message(
         m.chat.id,
-        f"🎮 **PRACTICE MODE SELECTED**\nIQ Sync: {'✅' if ok else '⚠️'} | Balance: `${bal:.2f}`",
+        f"🎮 **PRACTICE MODE SELECTED (USD)**\nIQ Sync: {'✅' if ok else '⚠️'} | Balance: `{format_money(bal)}`\n💵 Martingale: `{get_martingale_sequence_str()}`",
         parse_mode="Markdown"
     )
 
@@ -1799,7 +1758,7 @@ def cmd_real(m):
     ok, bal = set_account_balance_mode("REAL")
     bot.send_message(
         m.chat.id,
-        f"💰 **REAL MODE SELECTED**\nIQ Sync: {'✅' if ok else '⚠️'} | Balance: `${bal:.2f}`",
+        f"💰 **REAL MODE SELECTED (NGN)**\nIQ Sync: {'✅' if ok else '⚠️'} | Balance: `{format_money(bal)}`\n💵 Martingale: `{get_martingale_sequence_str()}`",
         parse_mode="Markdown"
     )
 
@@ -1809,10 +1768,11 @@ def cmd_autotrade(m):
     global AUTO_TRADE_ENABLED
     if not is_allowed(m.from_user.id):
         return
+    sync_currency_config()
     AUTO_TRADE_ENABLED = True
     bot.send_message(
         m.chat.id,
-        f"🤖 **AUTO-TRADE ENABLED**\nAccount: **{OTC_MARTI['bal']}**\nTrades & Martingale pullback entries will execute automatically on IQ Option.",
+        f"🤖 **AUTO-TRADE ENABLED**\nAccount: **{OTC_MARTI['bal']} ({OTC_MARTI['currency']})**\nMartingale: `{get_martingale_sequence_str()}`\nTrades & Martingale pullback entries will execute automatically on IQ Option.",
         parse_mode="Markdown"
     )
 
@@ -1834,6 +1794,7 @@ def cmd_manual(m):
 def cmd_status(m):
     if not is_allowed(m.from_user.id):
         return
+    sync_currency_config()
     total = STATS["wins"] + STATS["loss"]
     wr = (STATS["wins"] / total * 100.0) if total else 0.0
     rest_rem = int(get_rest_remaining())
@@ -1842,6 +1803,7 @@ def cmd_status(m):
         m.chat.id,
         f"📊 **STATUS**\n📍 `{get_mode_text()}`\n🏅 Wins: {STATS['wins']} | ❌ Loss: {STATS['loss']} ({wr:.1f}%)\n"
         f"🔢 Daily Trades: {STATS['daily_trades']}/{MAX_DAILY_TRADES}\n"
+        f"💵 Current Stake: `{format_money(get_current_stake())}` (`{get_martingale_sequence_str()}`)\n"
         f"📉 Martingale Streak: {OTC_MARTI['loss_streak']}/4{rest_line}",
         parse_mode="Markdown"
     )
@@ -1909,8 +1871,13 @@ def on_callback(c):
     if data == "toggle_bal":
         next_bal = "REAL" if OTC_MARTI["bal"] == "PRACTICE" else "PRACTICE"
         ok, bal = set_account_balance_mode(next_bal)
-        bot.answer_callback_query(c.id, f"Account: {next_bal}")
-        bot.send_message(cid, f"💼 Switched to **{next_bal}** ({'✅' if ok else '⚠️'} `${bal:.2f}`)", parse_mode="Markdown")
+        bot.answer_callback_query(c.id, f"Account: {next_bal} ({OTC_MARTI['currency']})")
+        bot.send_message(
+            cid,
+            f"💼 Switched to **{next_bal} ({OTC_MARTI['currency']})** ({'✅' if ok else '⚠️'} `{format_money(bal)}`)\n"
+            f"💵 Martingale: `{get_martingale_sequence_str()}`",
+            parse_mode="Markdown"
+        )
         bot.edit_message_reply_markup(cid, c.message.message_id, reply_markup=main_menu_keyboard())
         return
 
@@ -1955,7 +1922,7 @@ def on_callback(c):
                 results.append((pair, d["conf"], d["dir"], d["reason"]))
                 datas[pair] = d
         results.sort(key=lambda x: x[1], reverse=True)
-        lines = [f"⚡ **OTC SCAN ({OTC_MARTI['bal']})**\n"]
+        lines = [f"⚡ **OTC SCAN ({OTC_MARTI['bal']} {OTC_MARTI['currency']})**\n"]
         for pair, conf, dir_, reason in results[:8]:
             icon = "🟢" if conf >= MIN_CONFIDENCE else "🟡" if conf >= 70 else "🔴"
             lines.append(f"{icon} **{pair}**: {conf:.0f}% {dir_} — {reason}")
@@ -1964,7 +1931,7 @@ def on_callback(c):
         except Exception:
             pass
         if results and results[0][1] >= MIN_CONFIDENCE and can_start_new_scan_or_signal():
-            handle_new_signal(cid, datas[results[0][0]], is_gold=False, send_channel=False)
+            handle_new_signal(cid, datas[results[0][0]], send_channel=False)
         return
 
     if data.startswith("skip_"):
@@ -1977,6 +1944,7 @@ def on_callback(c):
         return
 
     if data.startswith("manual_win_"):
+        sync_currency_config()
         pair = data.replace("manual_win_", "", 1)
         win_conf = ACTIVE_SIGNAL.get("conf", 88)
         win_rsi = ACTIVE_SIGNAL.get("rsi", 50)
@@ -1991,12 +1959,13 @@ def on_callback(c):
         bot.answer_callback_query(c.id, "WIN recorded - 3m rest started")
         bot.send_message(
             cid,
-            f"✅ **WIN Recorded on {PAIR_EMOJI.get(pair, pair)}**\n🏅 Wins: {STATS['wins']} | ❌ Loss: {STATS['loss']}\n♻️ Stake reset to **${OTC_MARTI['base']:.2f}**\n⏳ Resting **3 minutes** before next scan.",
+            f"✅ **WIN Recorded on {PAIR_EMOJI.get(pair, pair)}**\n🏅 Wins: {STATS['wins']} | ❌ Loss: {STATS['loss']}\n♻️ Stake reset to **{format_money(OTC_MARTI['base'])}**\n⏳ Resting **3 minutes** before next scan.",
             parse_mode="Markdown"
         )
         return
 
     if data.startswith("manual_loss_"):
+        sync_currency_config()
         with SESSION_LOCK:
             if SESSION_STATE["in_pullback"]:
                 bot.answer_callback_query(c.id, "Pullback scan already running")
@@ -2020,16 +1989,16 @@ def on_callback(c):
             bot.answer_callback_query(c.id, "Martingale chain complete - 3m rest")
             bot.send_message(
                 cid,
-                f"⛔ **CHAIN FINISHED on {pair}**\n♻️ Reset stake to **${OTC_MARTI['base']:.2f}**.\n⏳ Resting **3 minutes** before next scan.",
+                f"⛔ **CHAIN FINISHED on {pair}**\n♻️ Reset stake to **{format_money(OTC_MARTI['base'])}**.\n⏳ Resting **3 minutes** before next scan.",
                 parse_mode="Markdown"
             )
             return
         idx = OTC_MARTI["loss_streak"]
-        next_amt = round(OTC_MARTI["base"] * OTC_MARTI["levels"][idx], 2)
-        bot.answer_callback_query(c.id, f"LOSS - Scanning pullback for ${next_amt:.2f}")
+        next_amt = get_current_stake()
+        bot.answer_callback_query(c.id, f"LOSS - Scanning pullback for {format_money(next_amt)}")
         bot.send_message(
             cid,
-            f"❌ **LOSS Recorded on {pair}**\n🔍 Scanning pullback for Martingale Level {idx + 1}/4 (**${next_amt:.2f}** {orig_dir})...",
+            f"❌ **LOSS Recorded on {pair}**\n🔍 Scanning pullback for Martingale Level {idx + 1}/4 (**{format_money(next_amt)}** {orig_dir})...",
             parse_mode="Markdown"
         )
         threading.Thread(
@@ -2047,8 +2016,7 @@ def on_callback(c):
         mk = types.InlineKeyboardMarkup(row_width=2)
         for p in REAL_PAIRS:
             mk.add(types.InlineKeyboardButton(PAIR_EMOJI.get(p, p), callback_data=f"real_pair_{p}"))
-        mk.add(types.InlineKeyboardButton("🥇 XAU/USD GOLD", callback_data="real_pair_XAUUSD"))
-        bot.send_message(cid, "📈 **Select a REAL pair or XAU/USD:**", reply_markup=mk, parse_mode="Markdown")
+        bot.send_message(cid, "📈 **Select a REAL Forex pair:**", reply_markup=mk, parse_mode="Markdown")
         return
 
     if data == "scan_all_real":
@@ -2071,7 +2039,7 @@ def on_callback(c):
                 results.append((pair, d["conf"], d["dir"], d["reason"]))
                 datas[pair] = d
         results.sort(key=lambda x: x[1], reverse=True)
-        lines = [f"📊 **REAL SCAN ({OTC_MARTI['bal']})**\n"]
+        lines = [f"📊 **REAL SCAN ({OTC_MARTI['bal']} {OTC_MARTI['currency']})**\n"]
         for pair, conf, dir_, reason in results[:8]:
             icon = "🟢" if conf >= MIN_CONFIDENCE else "🟡" if conf >= 70 else "🔴"
             lines.append(f"{icon} **{pair}**: {conf:.0f}% {dir_} — {reason}")
@@ -2080,18 +2048,13 @@ def on_callback(c):
         except Exception:
             pass
         if results and results[0][1] >= MIN_CONFIDENCE and can_start_new_scan_or_signal():
-            handle_new_signal(cid, datas[results[0][0]], is_gold=False, send_channel=False)
+            handle_new_signal(cid, datas[results[0][0]], send_channel=False)
         return
 
     if data.startswith("real_pair_"):
         pair = data.replace("real_pair_", "", 1)
-        if pair == "XAUUSD":
-            bot.answer_callback_query(c.id, "Scanning XAU/USD...")
-            d = analyze_xauusd()
-            if not d:
-                bot.send_message(cid, "⚠️ No 88%+ GOLD setup right now.")
-                return
-            handle_new_signal(cid, d, is_gold=True, send_channel=False)
+        if pair not in REAL_PAIRS:
+            bot.send_message(cid, f"⚠️ Pair `{pair}` is not enabled.", parse_mode="Markdown")
             return
         if is_pair_blocked(pair):
             bot.send_message(cid, f"🧠 `{pair}` is temporarily blocked by AI Brain.", parse_mode="Markdown")
@@ -2111,7 +2074,7 @@ def on_callback(c):
                 parse_mode="Markdown"
             )
             return
-        handle_new_signal(cid, d, is_gold=False, send_channel=False)
+        handle_new_signal(cid, d, send_channel=False)
         return
 
     if data == "stats":
@@ -2119,16 +2082,22 @@ def on_callback(c):
         return
 
     if data == "settings":
+        sync_currency_config()
         bot.send_message(
             cid,
-            f"⚙️ **SETTINGS**\n• Mode: `{get_mode_text()}`\n• Base Stake: `${OTC_MARTI['base']:.2f}`\n• Martingale: `{OTC_MARTI['levels']}`\n• Min Confidence: `{MIN_CONFIDENCE:.0f}%`\n• Post-Session Rest: `{POST_SESSION_REST_SEC}s`",
+            f"⚙️ **SETTINGS**\n"
+            f"• Mode: `{get_mode_text()}`\n"
+            f"• Base Stake: `{format_money(OTC_MARTI['base'])}`\n"
+            f"• Martingale: `{get_martingale_sequence_str()}`\n"
+            f"• Min Confidence: `{MIN_CONFIDENCE:.0f}%`\n"
+            f"• Post-Session Rest: `{POST_SESSION_REST_SEC}s`",
             parse_mode="Markdown"
         )
 
 
 @app.route("/")
 def home():
-    return f"V18 TRAILBLAZER+XAUUSD RUNNING IQ:{IQ_CONNECTED} AUTO:{AUTO_TRADE_ENABLED} OTC:{ENABLE_OTC} BAL:{OTC_MARTI['bal']} {get_lagos_now().strftime('%H:%M:%S')}"
+    return f"V18 TRAILBLAZER RUNNING IQ:{IQ_CONNECTED} AUTO:{AUTO_TRADE_ENABLED} OTC:{ENABLE_OTC} BAL:{OTC_MARTI['bal']}({OTC_MARTI['currency']}) {get_lagos_now().strftime('%H:%M:%S')}"
 
 
 @app.route(f"/{BOT_TOKEN}", methods=["POST"])
@@ -2146,7 +2115,6 @@ if __name__ == "__main__":
     threading.Thread(target=daily_summary_loop, daemon=True).start()
     threading.Thread(target=trailblazer_market_scanner, daemon=True).start()
     threading.Thread(target=morning_greet_loop, daemon=True).start()
-    threading.Thread(target=xauusd_signal_scanner, daemon=True).start()
     threading.Thread(target=real_signal_scanner, daemon=True).start()
     threading.Thread(target=otc_signal_scanner, daemon=True).start()
 
